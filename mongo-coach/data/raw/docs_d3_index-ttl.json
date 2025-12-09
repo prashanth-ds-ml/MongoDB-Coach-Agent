@@ -1,0 +1,156 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/core/index-ttl/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "TTL Indexes",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "If you are removing documents to save on storage costs, consider Online Archive in MongoDB Atlas . Online\nArchive automatically archives infrequently accessed data to\nfully-managed S3 buckets for cost-effective data\ntiering.\n\"Time-to-live\" (TTL) indexes are special single-field\nindexes that MongoDB can use to\nautomatically remove documents from a collection after a certain amount\nof time or at a specific clock time. Data expiration is useful for\ncertain types of information like machine generated event data, logs,\nand session information that only need to persist in a database for a\nfinite amount of time.\nYou can create and manage TTL indexes in the UI for deployments hosted in MongoDB Atlas .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "create-a-ttl-index",
+      "heading": "Create a TTL Index",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "warning",
+      "heading": "Warning",
+      "heading_level": 2,
+      "content": "After you create a TTL index, it might have a very large number of\nqualifying documents to delete at once. This large workload might\ncause performance issues on the server. To avoid these issues, plan\nto create the index during off hours, or delete qualifying documents\nin batches before you create the index for future documents.\nTo create a TTL index, use createIndex() .\nSpecify an index field that is either a date type or an array that contains date type values.\nUse the expireAfterSeconds option to specify a TTL value in seconds.\nThe TTL index expireAfterSeconds value must be within 0 and 2147483647 inclusive.\nFor example, to create a TTL index on the lastModifiedDate field of\nthe eventlog collection with a TTL value of 3600 seconds, use\nthe following operation in mongosh :\nStarting in MongoDB 7.0, you can create partial TTL indexes on time series collections . These\nindexes use the collection timeField as the key field, and require a partial filter expression on the metaField .\nTime series collections include an optional expireAfterSeconds field. If you don't set expireAfterSeconds , a TTL index with a partialFilterExpression lets you set an expiration period for\ndocuments that match the filter. If you do set expireAfterSeconds ,\na partial TTL index lets you set a different, shorter expiration period\nfor matching documents. You can only create a partialFilterExpression on the metaField .",
+      "code_blocks": [
+        "db. eventlog . createIndex ( { \"lastModifiedDate\" : 1 } , { expireAfterSeconds : 3600 } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "If the expireAfterSeconds value of the collection is lower than\nthe expireAfterSeconds of the partial TTL index, the collection\ndeletes documents after the shorter time, so the TTL index has no effect.\nThis weather data time series collection deletes documents after 24 hours:\nThis TTL index deletes documents from the MongoDB NYC\nheadquarters weather sensor after 1 hour, instead of 24 hours:",
+      "code_blocks": [
+        "db. createCollection ( \"weather24h\" , { timeseries : { timeField : \"timestamp\" , metaField : \"sensor\" , granularity : \"hours\" } , expireAfterSeconds : 86400 } )",
+        "db. eventlog . createIndex ( { \"timestamp\" : 1 } , { partialFilterExpression : { \"sensor\" : { $eq : \"40.761873, -73.984287\" } } } , { expireAfterSeconds : 3600 } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "convert-a-non-ttl-single-field-index-into-a-ttl-index",
+      "heading": "Convert a non-TTL single-field Index into a TTL Index",
+      "heading_level": 2,
+      "content": "Starting in MongoDB 5.1, you can add the expireAfterSeconds option\nto an existing single-field index. To change a non-TTL single-field\nindex to a TTL index, use the collMod database command:\nThe following example converts a non-TTL single-field index with the\npattern { \"lastModifiedDate\": 1 } into a TTL index:",
+      "code_blocks": [
+        "db. runCommand ( { \"collMod\" : < collName > , \"index\" : { \"keyPattern\" : < keyPattern > , \"expireAfterSeconds\" : < number > } })",
+        "db. runCommand ( { \"collMod\" : \"tickets\" , \"index\" : { \"keyPattern\" : { \"lastModifiedDate\" : 1 } , \"expireAfterSeconds\" : 100 } })"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "change-the-expireafterseconds-value-for-a-ttl-index",
+      "heading": "Change the expireAfterSeconds value for a TTL Index",
+      "heading_level": 2,
+      "content": "To change the expireAfterSeconds value for a TTL Index, use the collMod database command:\nThe following example changes the expireAfterSeconds value for an\nindex with the pattern { \"lastModifiedDate\": 1 } on the tickets collection:",
+      "code_blocks": [
+        "db. runCommand ( { \"collMod\" : < collName > , \"index\" : { \"keyPattern\" : < keyPattern > , \"expireAfterSeconds\" : < number > } })",
+        "db. runCommand ( { \"collMod\" : \"tickets\" , \"index\" : { \"keyPattern\" : { \"lastModifiedDate\" : 1 } , \"expireAfterSeconds\" : 100 } })"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "Consider the following before updating the expireAfterSeconds parameter of a TTL index:\n- Changing the expireAfterSeconds parameter does not trigger a\ncomplete index rebuild. However, reducing the expireAfterSeconds value can make many documents eligible for immediate deletion,\npotentially causing performance issues due to the increased delete\noperations.\n- The recommended approach is to manually delete documents in\nsmall batches before updating the TTL index. This helps control\nthe impact on your cluster.\n- Deleting many documents can fragment storage files, additionally\nimpacting performance. You may need to run the compact command on your collection or\nperform a Initial Sync to reclaim space and\noptimize storage.\nChanging the expireAfterSeconds parameter does not trigger a\ncomplete index rebuild. However, reducing the expireAfterSeconds value can make many documents eligible for immediate deletion,\npotentially causing performance issues due to the increased delete\noperations.\nChanging the expireAfterSeconds parameter does not trigger a\ncomplete index rebuild. However, reducing the expireAfterSeconds value can make many documents eligible for immediate deletion,\npotentially causing performance issues due to the increased delete\noperations.\nThe recommended approach is to manually delete documents in\nsmall batches before updating the TTL index. This helps control\nthe impact on your cluster.\nThe recommended approach is to manually delete documents in\nsmall batches before updating the TTL index. This helps control\nthe impact on your cluster.\nDeleting many documents can fragment storage files, additionally\nimpacting performance. You may need to run the compact command on your collection or\nperform a Initial Sync to reclaim space and\noptimize storage.\nDeleting many documents can fragment storage files, additionally\nimpacting performance. You may need to run the compact command on your collection or\nperform a Initial Sync to reclaim space and\noptimize storage.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "expiration-of-data",
+          "heading": "Expiration of Data",
+          "heading_level": 3,
+          "content": "TTL indexes expire documents after the specified number of seconds has\npassed since the indexed field value. The expiration threshold is\nthe indexed field value plus the specified number of seconds.\nIf the field is an array, and there are multiple date values in the\nindex, MongoDB uses lowest (earliest) date value in the array to\ncalculate the expiration threshold.\nFor time series collections, TTL indexes also remove a bucket of data\nwhen all documents inside it expire. This is equal to the upper\ntimestamp limit of the bucket, plus the expireAfterSeconds value.\nFor example, if a bucket covers data up until 2023-03-27T18:29:59Z and expireAfterSeconds is 300, the TTL index expires the\nbucket after 2023-03-27T18:34:59Z .\nIf the indexed field in a document doesn't contain one or more date\nvalues, the document will not expire.\nIf a document does not contain the indexed field, the document will not\nexpire.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "delete-operations",
+          "heading": "Delete Operations",
+          "heading_level": 3,
+          "content": "A background thread in mongod reads the values in the index\nand removes expired documents from the collection.\nIn progress delete operations performed by the TTL thread appear in db.currentOp() output. As the TTL thread deletes documents,\nthe metrics.ttl.deletedDocuments server status metric is\nincremented.\nStarting in MongoDB 6.1:\n- To improve efficiency, MongoDB may batch multiple document deletions\ntogether.\n- The explain command results contain a new BATCHED_DELETE stage for batched document deletions.\nTo improve efficiency, MongoDB may batch multiple document deletions\ntogether.\nTo improve efficiency, MongoDB may batch multiple document deletions\ntogether.\nThe explain command results contain a new BATCHED_DELETE stage for batched document deletions.\nThe TTL background deletion process checks each TTL index for expired\ndocuments. For each TTL index, the background process deletes documents\nuntil one of the following conditions is met:\n- The process deletes 50000 documents from the current index.\n- The process spends one second deleting documents from the current\nindex.\n- All expired documents are deleted from the current index.\nThe process deletes 50000 documents from the current index.\nThe process spends one second deleting documents from the current\nindex.\nThe process spends one second deleting documents from the current\nindex.\nAll expired documents are deleted from the current index.\nThen, the process moves on to the next index. After the process goes\nthrough each TTL index once, the current sub-pass is complete and a new\nsub-pass begins to check for remaining expired documents. A pass is\ncomplete when the TTL monitor has deleted all possible candidate\ndocuments from all TTL indexes.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "The TTL deletion process is a single-threaded background task,\nmeaning that TTL deletions are not concurrent and may take longer\nunder heavy workloads or when processing a large amount of\nexpired documents.\nAdditionally, the process stops the current deletion loop every 60\nseconds to prevent spending too much time on a single large delete. When\nthis happens, the current sub-pass ends and a new sub-pass begins.\nPasses and sub-passes are tracked in the metrics.ttl.passes and metrics.ttl.subPasses server status metrics,\nrespectively.\nMongoDB begins removing expired documents or time series buckets as soon\nas the index finishes building on the primary . For more\ninformation on the index build process, see Index Builds on Populated Collections .\nThe TTL index does not guarantee that expired data is deleted\nimmediately upon expiration. There may be a delay between the time that\na document expires and the time that MongoDB removes the document from\nthe database.\nThe background task that removes expired documents runs every 60\nseconds . As a result, documents may remain in a collection during the\nperiod between the expiration of the document and the running of the\nbackground task. MongoDB starts deleting documents 0 to 60 seconds after\nthe index completes.\nBecause the duration of the removal operation depends on the workload\nof your mongod instance, expired data may exist for some\ntime beyond the 60 second period between runs of the background task.\nThe delete operations initiated by the TTL task run in the foreground,\nlike other deletes.\nOn replica set members, the TTL background thread only deletes documents when a member is in state primary . The TTL background\nthread is idle when a member is in state secondary . Secondary members replicate\ndeletion operations from the primary.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "support-for-queries",
+          "heading": "Support for Queries",
+          "heading_level": 3,
+          "content": "A TTL index supports queries in the same way non-TTL indexes do.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "mongod-in-standalone-mode",
+          "heading": "mongod in Standalone Mode",
+          "heading_level": 3,
+          "content": "The TTL monitor stops when mongod runs in standalone mode and the system.local.replset collection contains data. If you take a replica\nset node out of the replica set and run it as a standalone, then the\nTTL monitor is disabled.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "ttl-and-schema-validation",
+      "heading": "TTL and Schema validation",
+      "heading_level": 2,
+      "content": "Even though TTL indexes do not require schema validation, using validation\ncan help ensure consistent behavior by standardizing\nthe existence and format of the date field used for expiration.\nFor example, you can use schema validation to enforce the presence of a lastModifiedDate field and ensure its value adheres to a valid date\nformat:\nThis schema validation rule ensures that:\n- Every document in the eventlog collection includes the lastModifiedDate field.\n- The lastModifiedDate field contains a valid date value.\nEvery document in the eventlog collection includes the lastModifiedDate field.\nThe lastModifiedDate field contains a valid date value.",
+      "code_blocks": [
+        "db. createCollection ( \"eventlog\" , { validator : { $jsonSchema : { bsonType : \"object\" , required : [ \"lastModifiedDate\" ] , properties : { lastModifiedDate : { bsonType : \"date\" , description : \"Must be a valid date.\" } } } } } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Schema Validation .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "restrictions",
+      "heading": "Restrictions",
+      "heading_level": 2,
+      "content": "- TTL indexes are single-field indexes. Compound indexes do not support TTL and ignore the expireAfterSeconds option.\n- The _id field does not support TTL indexes.\n- Starting in MongoDB 7.0, you can create a partial TTL index on a time series collection 's metaField . In earlier\nMongoDB versions, you can only create a TTL index for a time series\ncollection's timeField .\n- You cannot use createIndex() to change the\nvalue of expireAfterSeconds of an existing index. Instead, use the collMod database command. For details, see Change the expireAfterSeconds value for a TTL Index .\n- If a non-TTL single-field index already exists for a field, you\ncannot create a TTL index on the same field because you cannot create\nindexes that have the same key specification and differ only by the\noptions. To change a non-TTL single-field index to a TTL index , use the collMod database command.\nTTL indexes are single-field indexes. Compound indexes do not support TTL and ignore the expireAfterSeconds option.\nThe _id field does not support TTL indexes.\nStarting in MongoDB 7.0, you can create a partial TTL index on a time series collection 's metaField . In earlier\nMongoDB versions, you can only create a TTL index for a time series\ncollection's timeField .\nStarting in MongoDB 7.0, you can create a partial TTL index on a time series collection 's metaField . In earlier\nMongoDB versions, you can only create a TTL index for a time series\ncollection's timeField .\nYou cannot use createIndex() to change the\nvalue of expireAfterSeconds of an existing index. Instead, use the collMod database command. For details, see Change the expireAfterSeconds value for a TTL Index .\nYou cannot use createIndex() to change the\nvalue of expireAfterSeconds of an existing index. Instead, use the collMod database command. For details, see Change the expireAfterSeconds value for a TTL Index .\nIf a non-TTL single-field index already exists for a field, you\ncannot create a TTL index on the same field because you cannot create\nindexes that have the same key specification and differ only by the\noptions. To change a non-TTL single-field index to a TTL index , use the collMod database command.\nIf a non-TTL single-field index already exists for a field, you\ncannot create a TTL index on the same field because you cannot create\nindexes that have the same key specification and differ only by the\noptions. To change a non-TTL single-field index to a TTL index , use the collMod database command.\nSparse\nExpire Data\nMaster \" Indexing Design Fundamentals \" for free!\n- Create a TTL Index\n- Convert a non-TTL single-field Index into a TTL Index\n- Change the expireAfterSeconds value for a TTL Index\n- Behavior\n- TTL and Schema validation\n- Restrictions\nCreate a TTL Index\nConvert a non-TTL single-field Index into a TTL Index\nChange the expireAfterSeconds value for a TTL Index\nBehavior\nTTL and Schema validation\nRestrictions\n- Create a TTL Index\n- Convert a non-TTL single-field Index into a TTL Index\n- Change the expireAfterSeconds value for a TTL Index\n- Behavior\n- TTL and Schema validation\n- Restrictions\nCreate a TTL Index\nConvert a non-TTL single-field Index into a TTL Index\nChange the expireAfterSeconds value for a TTL Index\nBehavior\nTTL and Schema validation\nRestrictions",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:31.538888",
+  "exam_code": "associate_developer_python",
+  "domain_id": 3,
+  "domain_name": "Indexes",
+  "seed_id": "index-ttl",
+  "source_type": "manual",
+  "file_stub": "d3_index-ttl"
+}

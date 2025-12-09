@@ -1,0 +1,203 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/out/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "$out (aggregation stage)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Takes the documents returned by the aggregation pipeline and writes\nthem to a specified collection. You can specify the output database.\nThe $out stage must be the last stage in the\npipeline. The $out operator lets the aggregation\nframework return result sets of any size.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "warning",
+      "heading": "Warning",
+      "heading_level": 2,
+      "content": "If the collection specified by the $out operation already\nexists, then the $out stage atomically replaces the existing\ncollection with the new results collection upon completion of the\naggregation. See Replace Existing Collection for details.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The $out stage has the following syntax:\n- $out can take a string to specify only the output\ncollection (i.e. output to a collection in the same database): { $out : \"<output-collection>\" } // Output collection is in the same database\n- $out can take a document to specify the output database as well as the\noutput collection: { $out : { db : \"<output-db>\" , coll : \"<output-collection>\" } }\n- Starting in MongoDB 7.0.3 and 7.1, $out can take a document to\noutput to a time series collection : { $out : { db : \"<output-db>\" , coll : \"<output-collection>\" , timeseries : { timeField : \"<field-name>\" , metaField : \"<field-name>\" , granularity : \"seconds\" | | \"minutes\" | | \"hours\" , } } } Important Changing Time Series Granularity After creating a time series collection, you can modify its\ngranularity using the collMod method. However,\nyou can only increase the timespan covered by each bucket. You\ncannot decrease it. Field Description db The output database name. For a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database. coll The output collection name. timeseries A document that specifies the configuration to use when writing\nto a time series collection. The timeField is required. All\nother fields are optional. timeField Required when writing to a time series collection. The name of the field\nwhich contains the date in each time series document. Documents in a\ntime series collection must have a valid BSON date as the value for the timeField . metaField Optional. The name of the field which contains metadata in\neach time series document. The metadata in the specified field\nshould be data that is used to label a unique series of\ndocuments. The metadata should rarely, if ever, change\nThe name of the specified field may not be _id or the same\nas the timeseries.timeField . The field can be of any data type. Although the metaField field is optional, using metadata can improve\nquery optimization. For example, MongoDB automatically creates a compound index on the metaField and timeField fields for new collections.\nIf you do not provide a value for this field, the data is bucketed solely\nbased on time. granularity Optional. Do not use if setting bucketRoundingSeconds and bucketMaxSpanSeconds . Possible values are seconds (default), minutes , and hours . Set granularity to the value that most closely matches\nthe time between consecutive incoming timestamps. This\nimproves performance by optimizing how MongoDB stores data in the\ncollection. For more information on granularity and bucket intervals, see Set Granularity for Time Series Data . bucketMaxSpanSeconds Optional. Use with bucketRoundingSeconds as an alternative\nto granularity . Sets the maximum time between timestamps\nin the same bucket. Possible values are 1-31536000. New in version 6.3 . bucketRoundingSeconds Optional. Use with bucketMaxSpanSeconds as an alternative\nto granularity . Must be equal to bucketMaxSpanSeconds . When a document requires a new bucket, MongoDB rounds down the\ndocument's timestamp value by this interval to set the minimum\ntime for the bucket. New in version 6.3 .\n- For a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database.\n$out can take a string to specify only the output\ncollection (i.e. output to a collection in the same database): { $out : \"<output-collection>\" } // Output collection is in the same database\n$out can take a string to specify only the output\ncollection (i.e. output to a collection in the same database):\n$out can take a document to specify the output database as well as the\noutput collection: { $out : { db : \"<output-db>\" , coll : \"<output-collection>\" } }\n$out can take a document to specify the output database as well as the\noutput collection:\nStarting in MongoDB 7.0.3 and 7.1, $out can take a document to\noutput to a time series collection : { $out : { db : \"<output-db>\" , coll : \"<output-collection>\" , timeseries : { timeField : \"<field-name>\" , metaField : \"<field-name>\" , granularity : \"seconds\" | | \"minutes\" | | \"hours\" , } } } Important Changing Time Series Granularity After creating a time series collection, you can modify its\ngranularity using the collMod method. However,\nyou can only increase the timespan covered by each bucket. You\ncannot decrease it. Field Description db The output database name. For a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database. coll The output collection name. timeseries A document that specifies the configuration to use when writing\nto a time series collection. The timeField is required. All\nother fields are optional. timeField Required when writing to a time series collection. The name of the field\nwhich contains the date in each time series document. Documents in a\ntime series collection must have a valid BSON date as the value for the timeField . metaField Optional. The name of the field which contains metadata in\neach time series document. The metadata in the specified field\nshould be data that is used to label a unique series of\ndocuments. The metadata should rarely, if ever, change\nThe name of the specified field may not be _id or the same\nas the timeseries.timeField . The field can be of any data type. Although the metaField field is optional, using metadata can improve\nquery optimization. For example, MongoDB automatically creates a compound index on the metaField and timeField fields for new collections.\nIf you do not provide a value for this field, the data is bucketed solely\nbased on time. granularity Optional. Do not use if setting bucketRoundingSeconds and bucketMaxSpanSeconds . Possible values are seconds (default), minutes , and hours . Set granularity to the value that most closely matches\nthe time between consecutive incoming timestamps. This\nimproves performance by optimizing how MongoDB stores data in the\ncollection. For more information on granularity and bucket intervals, see Set Granularity for Time Series Data . bucketMaxSpanSeconds Optional. Use with bucketRoundingSeconds as an alternative\nto granularity . Sets the maximum time between timestamps\nin the same bucket. Possible values are 1-31536000. New in version 6.3 . bucketRoundingSeconds Optional. Use with bucketMaxSpanSeconds as an alternative\nto granularity . Must be equal to bucketMaxSpanSeconds . When a document requires a new bucket, MongoDB rounds down the\ndocument's timestamp value by this interval to set the minimum\ntime for the bucket. New in version 6.3 .\nStarting in MongoDB 7.0.3 and 7.1, $out can take a document to\noutput to a time series collection :",
+      "code_blocks": [
+        "{ $out : \"<output-collection>\" } // Output collection is in the same database",
+        "{ $out : { db : \"<output-db>\" , coll : \"<output-collection>\" } }",
+        "{ $out : { db : \"<output-db>\" , coll : \"<output-collection>\" , timeseries : { timeField : \"<field-name>\" , metaField : \"<field-name>\" , granularity : \"seconds\" | | \"minutes\" | | \"hours\" , } } }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "changing-time-series-granularity",
+          "heading": "Changing Time Series Granularity",
+          "heading_level": 3,
+          "content": "After creating a time series collection, you can modify its\ngranularity using the collMod method. However,\nyou can only increase the timespan covered by each bucket. You\ncannot decrease it.\ndb\nThe output database name.\n- For a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database.\nFor a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database.\nFor a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database.\ncoll\nThe output collection name.\ntimeseries\nA document that specifies the configuration to use when writing\nto a time series collection. The timeField is required. All\nother fields are optional.\ntimeField\nRequired when writing to a time series collection. The name of the field\nwhich contains the date in each time series document. Documents in a\ntime series collection must have a valid BSON date as the value for the timeField .\nmetaField\nOptional. The name of the field which contains metadata in\neach time series document. The metadata in the specified field\nshould be data that is used to label a unique series of\ndocuments. The metadata should rarely, if ever, change\nThe name of the specified field may not be _id or the same\nas the timeseries.timeField . The field can be of any data type.\nAlthough the metaField field is optional, using metadata can improve\nquery optimization. For example, MongoDB automatically creates a compound index on the metaField and timeField fields for new collections.\nIf you do not provide a value for this field, the data is bucketed solely\nbased on time.\ngranularity\nOptional. Do not use if setting bucketRoundingSeconds and bucketMaxSpanSeconds .\nPossible values are seconds (default), minutes , and hours .\nSet granularity to the value that most closely matches\nthe time between consecutive incoming timestamps. This\nimproves performance by optimizing how MongoDB stores data in the\ncollection.\nFor more information on granularity and bucket intervals, see Set Granularity for Time Series Data .\nbucketMaxSpanSeconds\nOptional. Use with bucketRoundingSeconds as an alternative\nto granularity . Sets the maximum time between timestamps\nin the same bucket.\nPossible values are 1-31536000.\nNew in version 6.3 .\nbucketRoundingSeconds\nOptional. Use with bucketMaxSpanSeconds as an alternative\nto granularity . Must be equal to bucketMaxSpanSeconds .\nWhen a document requires a new bucket, MongoDB rounds down the\ndocument's timestamp value by this interval to set the minimum\ntime for the bucket.\nNew in version 6.3 .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "- You cannot specify a sharded collection as the output\ncollection. The input collection for a pipeline can be sharded.\nTo output to a sharded collection, see $merge .\n- The $out operator cannot write results to a capped collection .\n- If you modify a collection with a MongoDB Search index, you must first delete and then re-create\nthe search index. Consider using $merge instead.\nYou cannot specify a sharded collection as the output\ncollection. The input collection for a pipeline can be sharded.\nTo output to a sharded collection, see $merge .\nYou cannot specify a sharded collection as the output\ncollection. The input collection for a pipeline can be sharded.\nTo output to a sharded collection, see $merge .\nThe $out operator cannot write results to a capped collection .\nIf you modify a collection with a MongoDB Search index, you must first delete and then re-create\nthe search index. Consider using $merge instead.\nIf you modify a collection with a MongoDB Search index, you must first delete and then re-create\nthe search index. Consider using $merge instead.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "comparison-with-$merge",
+          "heading": "Comparison with $merge",
+          "heading_level": 3,
+          "content": "MongoDB provides two stages, $merge and $out , for\nwriting the results of the aggregation pipeline to a collection. The\nfollowing summarizes the capabilities of the two stages:\n- Can output to a collection in the same or different database.\nCan output to a collection in the same or different database.\n- Can output to a collection in the same or different database.\nCan output to a collection in the same or different database.\n- Creates a new collection if the output collection does not\nalready exist.\nCreates a new collection if the output collection does not\nalready exist.\nCreates a new collection if the output collection does not\nalready exist.\n- Creates a new collection if the output collection does not\nalready exist.\nCreates a new collection if the output collection does not\nalready exist.\nCreates a new collection if the output collection does not\nalready exist.\n- Replaces the output collection completely if it already exists.\nReplaces the output collection completely if it already exists.\n- Can incorporate results (insert new documents, merge\ndocuments, replace documents, keep existing documents, fail\nthe operation, process documents with a custom update pipeline) into\nan existing collection. Can replace the content of the collection but only if the\naggregation results contain a match for all existing\ndocuments in the collection.\nCan incorporate results (insert new documents, merge\ndocuments, replace documents, keep existing documents, fail\nthe operation, process documents with a custom update pipeline) into\nan existing collection. Can replace the content of the collection but only if the\naggregation results contain a match for all existing\ndocuments in the collection.\nCan incorporate results (insert new documents, merge\ndocuments, replace documents, keep existing documents, fail\nthe operation, process documents with a custom update pipeline) into\nan existing collection.\nCan replace the content of the collection but only if the\naggregation results contain a match for all existing\ndocuments in the collection.\n- Cannot output to a sharded collection. Input collection,\nhowever, can be sharded.\nCannot output to a sharded collection. Input collection,\nhowever, can be sharded.\nCannot output to a sharded collection. Input collection,\nhowever, can be sharded.\n- Can output to a sharded collection. Input collection can\nalso be sharded.\nCan output to a sharded collection. Input collection can\nalso be sharded.\nCan output to a sharded collection. Input collection can\nalso be sharded.\n- Starting in MongoDB 7.0.3 and 7.1, can output to a time series\ncollection.\nStarting in MongoDB 7.0.3 and 7.1, can output to a time series\ncollection.\nStarting in MongoDB 7.0.3 and 7.1, can output to a time series\ncollection.\n- Cannot output to a time series collection.\nCannot output to a time series collection.\n- Corresponds to the SQL statements: INSERT INTO T2 SELECT * FROM T1 SELECT * INTO T2 FROM T1\n- INSERT INTO T2 SELECT * FROM T1\n- SELECT * INTO T2 FROM T1\nCorresponds to the SQL statements: INSERT INTO T2 SELECT * FROM T1 SELECT * INTO T2 FROM T1\nCorresponds to the SQL statements:\n- INSERT INTO T2 SELECT * FROM T1\n- SELECT * INTO T2 FROM T1\nINSERT INTO T2 SELECT * FROM T1\nSELECT * INTO T2 FROM T1\n- Corresponds to the SQL statement: MERGE T2 AS TARGET USING ( SELECT * FROM T1) AS SOURCE ON MATCH (T2.ID = SOURCE.ID) WHEN MATCHED THEN UPDATE SET TARGET.FIELDX = SOURCE.FIELDY WHEN NOT MATCHED THEN INSERT (FIELDX) VALUES (SOURCE.FIELDY) Create/Refresh Materialized Views\n- MERGE T2 AS TARGET USING ( SELECT * FROM T1) AS SOURCE ON MATCH (T2.ID = SOURCE.ID) WHEN MATCHED THEN UPDATE SET TARGET.FIELDX = SOURCE.FIELDY WHEN NOT MATCHED THEN INSERT (FIELDX) VALUES (SOURCE.FIELDY)\n- Create/Refresh Materialized Views\nCorresponds to the SQL statement: MERGE T2 AS TARGET USING ( SELECT * FROM T1) AS SOURCE ON MATCH (T2.ID = SOURCE.ID) WHEN MATCHED THEN UPDATE SET TARGET.FIELDX = SOURCE.FIELDY WHEN NOT MATCHED THEN INSERT (FIELDX) VALUES (SOURCE.FIELDY) Create/Refresh Materialized Views\nCorresponds to the SQL statement:\n- MERGE T2 AS TARGET USING ( SELECT * FROM T1) AS SOURCE ON MATCH (T2.ID = SOURCE.ID) WHEN MATCHED THEN UPDATE SET TARGET.FIELDX = SOURCE.FIELDY WHEN NOT MATCHED THEN INSERT (FIELDX) VALUES (SOURCE.FIELDY)\n- Create/Refresh Materialized Views\nMERGE T2 AS TARGET USING ( SELECT * FROM T1) AS SOURCE ON MATCH (T2.ID = SOURCE.ID) WHEN MATCHED THEN UPDATE SET TARGET.FIELDX = SOURCE.FIELDY WHEN NOT MATCHED THEN INSERT (FIELDX) VALUES (SOURCE.FIELDY)\nCreate/Refresh Materialized Views",
+          "code_blocks": [
+            "INSERT INTO T2 SELECT * FROM T1",
+            "SELECT * INTO T2 FROM T1",
+            "MERGE T2 AS TARGET USING ( SELECT * FROM T1) AS SOURCE ON MATCH (T2.ID = SOURCE.ID) WHEN MATCHED THEN UPDATE SET TARGET.FIELDX = SOURCE.FIELDY WHEN NOT MATCHED THEN INSERT (FIELDX) VALUES (SOURCE.FIELDY)"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "behaviors",
+      "heading": "Behaviors",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "$out-read-operations-run-on-secondary-replica-set-members",
+          "heading": "$out Read Operations Run on Secondary Replica Set Members",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 5.0, $out can run on\nreplica set secondary nodes if all the nodes in\ncluster have featureCompatibilityVersion set\nto 5.0 or higher and the Read Preference is set to\nsecondary.\nRead operations of the $out statement occur on the\nsecondary nodes, while the write operations occur only on the\nprimary nodes.\nNot all driver versions support targeting of $out operations to replica set secondary nodes. Check your driver documentation to see when your driver added\nsupport for $out running on a secondary.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "create-new-collection",
+          "heading": "Create New Collection",
+          "heading_level": 3,
+          "content": "The $out operation creates a new collection if one does not\nalready exist.\nThe collection is not visible until the aggregation completes. If the\naggregation fails, MongoDB does not create the collection.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "replace-existing-collection",
+          "heading": "Replace Existing Collection",
+          "heading_level": 3,
+          "content": "If the collection specified by the $out operation already\nexists, then upon completion of the aggregation, the $out stage atomically replaces the existing collection with the new results\ncollection. Specifically, the $out operation:\n- Creates a temp collection.\n- Copies the indexes from the existing collection to the temp collection.\n- Inserts the documents into the temp collection.\n- Calls the renameCollection command with dropTarget: true to rename the temp collection to the destination collection.\nCreates a temp collection.\nCopies the indexes from the existing collection to the temp collection.\nInserts the documents into the temp collection.\nCalls the renameCollection command with dropTarget: true to rename the temp collection to the destination collection.\nIf specified collection exists and the $out operation specifies timeseries options, then the following restrictions apply:\n- The existing collection must be a time series collection.\n- The existing collection must not be a view.\n- The timeseries options included in the $out stage must\nexactly match those on the existing collection.\nThe existing collection must be a time series collection.\nThe existing collection must not be a view.\nThe timeseries options included in the $out stage must\nexactly match those on the existing collection.\nThe timeseries options included in the $out stage must\nexactly match those on the existing collection.\nThe $out operation does not change any indexes that existed on the\nprevious collection. If the aggregation fails, the $out operation\nmakes no changes to the pre-existing collection.\nIf your coll collection uses schema validation and has validationAction set to error , inserting an invalid document with $out throws an\nerror. The $out operation makes no changes to the pre-existing\ncollection and documents returned by the aggregation pipeline are not\nadded to the coll collection.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "index-constraints",
+          "heading": "Index Constraints",
+          "heading_level": 3,
+          "content": "The pipeline will fail to complete if the documents produced by the\npipeline would violate any unique indexes, including the index on the _id field of the original output collection.\nIf the $out operation modifies a collection with a MongoDB Search index, you must delete and\nre-create the search index. Consider using $merge instead.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "majority-read-concern",
+          "heading": "majority Read Concern",
+          "heading_level": 3,
+          "content": "You can specify read concern level \"majority\" for an aggregation that includes an $out stage.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "interaction-with-mongodump",
+          "heading": "Interaction with mongodump",
+          "heading_level": 3,
+          "content": "A mongodump started with --oplog fails if a client issues an aggregation pipeline\nthat includes $out during the dump process. See mongodump --oplog for more information.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "restrictions",
+          "heading": "Restrictions",
+          "heading_level": 3,
+          "content": "transactions\nAn aggregation pipeline cannot use $out inside transactions .\nview definition\nThe $out stage is not allowed as part of a\nview definition. If the view definition includes nested pipeline\n(e.g. the view definition includes $lookup or $facet stage), this $out stage\nrestriction applies to the nested pipelines as well.\n$lookup stage\nYou can't include the $out stage in the $lookup stage's nested pipeline .\n$facet stage\n$facet stage's nested pipeline cannot include the $out stage.\n$unionWith stage\n$unionWith stage's nested pipeline cannot include the $out stage.\n\"linearizable\" read concern\nThe $out stage cannot be used in conjunction with read concern \"linearizable\" . If you specify \"linearizable\" read concern for db.collection.aggregate() , you cannot include the $out stage in the pipeline.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "In the test database, create a collection books with the\nfollowing documents:\nIf the test database does not already exist, the insert operation\ncreates the database as well as the books collection.",
+      "code_blocks": [
+        "db. getSiblingDB ( \"test\" ). books . insertMany ( [ { \"_id\" : 8751 , \"title\" : \"The Banquet\" , \"author\" : \"Dante\" , \"copies\" : 2 } , { \"_id\" : 8752 , \"title\" : \"Divine Comedy\" , \"author\" : \"Dante\" , \"copies\" : 1 } , { \"_id\" : 8645 , \"title\" : \"Eclogues\" , \"author\" : \"Dante\" , \"copies\" : 2 } , { \"_id\" : 7000 , \"title\" : \"The Odyssey\" , \"author\" : \"Homer\" , \"copies\" : 10 } , { \"_id\" : 7020 , \"title\" : \"Iliad\" , \"author\" : \"Homer\" , \"copies\" : 10 } ])"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "output-to-same-database",
+          "heading": "Output to Same Database",
+          "heading_level": 3,
+          "content": "The following aggregation operation pivots the data in the books collection in the test database to have titles grouped by authors and then writes\nthe results to the authors collection, also in the test database.\nThe $group stage groups by the authors and uses $push to add the titles to a books array field:\nTo view the documents in the output collection, run the following\noperation:\nThe collection contains the following documents:",
+          "code_blocks": [
+            "db. getSiblingDB ( \"test\" ). books . aggregate ( [ { $group : { _id : \"$author\" , books : { $push : \"$title\" } } } , { $out : \"authors\" } ] )",
+            "{ \"_id\" : \"Dante\" , \"books\" : [ \"The Banquet\" , \"Divine Comedy\" , \"Eclogues\" ] } { \"_id\" : \"Homer\" , \"books\" : [ \"The Odyssey\" , \"Iliad\" ] }",
+            "db. getSiblingDB ( \"test\" ). authors . find ( )",
+            "{ \"_id\" : \"Homer\" , \"books\" : [ \"The Odyssey\" , \"Iliad\" ] } { \"_id\" : \"Dante\" , \"books\" : [ \"The Banquet\" , \"Divine Comedy\" , \"Eclogues\" ] }"
+          ]
+        },
+        {
+          "subsection_id": "output-to-a-different-database",
+          "heading": "Output to a Different Database",
+          "heading_level": 3,
+          "content": "",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "For a replica set or a standalone, if the\noutput database does not exist, $out also creates\nthe database.\n$out can output to a collection in a database different from where the\naggregation is run.\nThe following aggregation operation pivots the data in the books collection to have titles grouped by authors and then writes the\nresults to the authors collection in the reporting database:\nThe $group stage groups by the authors and uses $push to add the titles to a books array field:\nTo view the documents in the output collection, run the following\noperation:\nThe collection contains the following documents:\nThe C# examples on this page use the sample_mflix database\nfrom the Atlas sample datasets . To learn how to create a\nfree MongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB .NET/C#\nDriver documentation.\nThe following Movie class models the documents in the sample_mflix.movies collection:",
+      "code_blocks": [
+        "db. getSiblingDB ( \"test\" ). books . aggregate ( [ { $group : { _id : \"$author\" , books : { $push : \"$title\" } } } , { $out : { db : \"reporting\" , coll : \"authors\" } } ] )",
+        "{ \"_id\" : \"Dante\" , \"books\" : [ \"The Banquet\" , \"Divine Comedy\" , \"Eclogues\" ] } { \"_id\" : \"Homer\" , \"books\" : [ \"The Odyssey\" , \"Iliad\" ] }",
+        "db. getSiblingDB ( \"reporting\" ). authors . find ( )",
+        "{ \"_id\" : \"Homer\" , \"books\" : [ \"The Odyssey\" , \"Iliad\" ] } { \"_id\" : \"Dante\" , \"books\" : [ \"The Banquet\" , \"Divine Comedy\" , \"Eclogues\" ] }",
+        "public class Movie { public ObjectId Id { get ; set ; } public int Runtime { get ; set ; } public string Title { get ; set ; } public string Rated { get ; set ; } public List< string > Genres { get ; set ; } public string Plot { get ; set ; } public ImdbData Imdb { get ; set ; } public int Year { get ; set ; } public int Index { get ; set ; } public string [] Comments { get ; set ; } [ BsonElement( \"lastupdated\" ) ] public DateTime LastUpdated { get ; set ; } }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "conventionpack-for-pascal-case",
+          "heading": "ConventionPack for Pascal Case",
+          "heading_level": 3,
+          "content": "The C# classes on this page use Pascal case for their property names, but the\nfield names in the MongoDB collection use camel case. To account for this difference,\nyou can use the following code to register a ConventionPack when your\napplication starts:\nTo use the MongoDB .NET/C# driver to add a $out stage to an aggregation\npipeline, call the Out() method on a PipelineDefinition object.\nThe following example creates a pipeline stage that writes the results of the pipeline into the movies collection:\nThe Node.js examples on this page use the sample_mflix database from the Atlas sample datasets . To learn how to create a free\nMongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB Node.js driver documentation.\nTo use the MongoDB Node.js driver to add a $out stage to an aggregation\npipeline, use the $out operator in a pipeline object.\nThe following example creates a pipeline stage that writes the results of the pipeline into the movies collection . The\nexample then runs the aggregation pipeline:\n$merge\n$planCacheStats\n- Definition\n- Syntax\n- Behaviors\n- Examples\n- Definition\n- Syntax\n- Behaviors\n- Examples",
+          "code_blocks": [
+            "var camelCaseConvention = new ConventionPack { new CamelCaseElementNameConvention() }; ConventionRegistry.Register( \"CamelCase\" , camelCaseConvention, type => true );",
+            "var movieCollection = client .GetDatabase( \"sample_mflix\" ) .GetCollection<Movie>( \"movies\" ); var pipeline = new EmptyPipelineDefinition<Movie>() .Out(movieCollection);",
+            "const pipeline = [ { $out : { db : \"sample_mflix\" , coll : \"movies\" } }] ; const cursor = collection. aggregate ( pipeline) ; return cursor ;"
+          ]
+        }
+      ]
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:27.688241",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "agg-out",
+  "source_type": "manual",
+  "file_stub": "d2_agg-out"
+}

@@ -1,0 +1,86 @@
+{
+  "url": "https://www.mongodb.com/docs/atlas/atlas-ui/query/sort/",
+  "doc_type": "mongodb_docs_atlas",
+  "method_name": null,
+  "title": "Sort the Returned Documents",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "set-the-sort-order",
+      "heading": "Set the Sort Order",
+      "heading_level": 2,
+      "content": "To set the sort order:",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "in-atlas-,-go-to-the-data-explorer-page-for-your-project.",
+          "heading": "In Atlas , go to the Data Explorer page for your project.",
+          "heading_level": 3,
+          "content": "- If it's not already displayed, select the\norganization that contains your project from the Organizations menu in the navigation bar.\n- If it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\n- In the sidebar, click Data Explorer under\nthe Database heading. The Data Explorer displays.\nIf it's not already displayed, select the\norganization that contains your project from the Organizations menu in the navigation bar.\nIf it's not already displayed, select the\norganization that contains your project from the Organizations menu in the navigation bar.\nIf it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\nIf it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\nIn the sidebar, click Data Explorer under\nthe Database heading. The Data Explorer displays.\nIn the sidebar, click Data Explorer under\nthe Database heading.\nThe Data Explorer displays.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "set-the-sort-order.",
+          "heading": "Set the sort order.",
+          "heading_level": 3,
+          "content": "- Select the collection.\n- In the Query Bar, click Options .\n- Enter the sort document into the Sort field. To specify ascending order for a field, set the field to 1 in the sort document. To specify descending order for a field, set\nthe field and -1 in the sort documents. Example The following sort document sorts results first by year in descending order, and within each year, sort by name in ascending order. { year : - 1 , name : 1 } As you type, the Find button is disabled and the Sort label turns red until a valid query is\nentered.\n- To specify ascending order for a field, set the field to 1 in the sort document.\n- To specify descending order for a field, set\nthe field and -1 in the sort documents.\n- Click Find to run the query and view the updated\nresults.\nSelect the collection.\nIn the Query Bar, click Options .\nEnter the sort document into the Sort field. To specify ascending order for a field, set the field to 1 in the sort document. To specify descending order for a field, set\nthe field and -1 in the sort documents. Example The following sort document sorts results first by year in descending order, and within each year, sort by name in ascending order. { year : - 1 , name : 1 } As you type, the Find button is disabled and the Sort label turns red until a valid query is\nentered.\nEnter the sort document into the Sort field.\n- To specify ascending order for a field, set the field to 1 in the sort document.\n- To specify descending order for a field, set\nthe field and -1 in the sort documents.\nTo specify ascending order for a field, set the field to 1 in the sort document.\nTo specify descending order for a field, set\nthe field and -1 in the sort documents.\nTo specify descending order for a field, set\nthe field and -1 in the sort documents.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "example",
+      "heading": "Example",
+      "heading_level": 2,
+      "content": "The following sort document sorts results first by year in descending order, and within each year, sort by name in ascending order.\nAs you type, the Find button is disabled and the Sort label turns red until a valid query is\nentered.\nClick Find to run the query and view the updated\nresults.\nClick Find to run the query and view the updated\nresults.",
+      "code_blocks": [
+        "{ year : - 1 , name : 1 }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "clear-the-query",
+      "heading": "Clear the Query",
+      "heading_level": 2,
+      "content": "To clear the query bar and the results of the query, click Reset .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "how-does-the-atlas-query-compare-to-mongodb-and-sql-queries?",
+      "heading": "How Does the Atlas Query Compare to MongoDB and SQL Queries?",
+      "heading_level": 2,
+      "content": "$sort corresponds to the ORDER BY ... clause\nin a SQL SELECT statement.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "example",
+      "heading": "Example",
+      "heading_level": 2,
+      "content": "You have 3,235 articles. You would like to see a list of articles\nsorted alphabetically by headline.",
+      "code_blocks": [
+        "SELECT * FROM article ORDER BY headline ASC ;",
+        "db. article . aggregate ( { $sort : { headline : 1 } } ) ;",
+        "$sort : { headline : 1 }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "See the sort entry in the MongoDB Manual .\nSet Returned Fields\nAdjust Maximum Time",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:36.861659",
+  "exam_code": "associate_developer_python",
+  "domain_id": 5,
+  "domain_name": "Tools and Tooling",
+  "seed_id": "atlas-data-explorer-sort",
+  "source_type": "atlas",
+  "file_stub": "d5_atlas-data-explorer-sort"
+}

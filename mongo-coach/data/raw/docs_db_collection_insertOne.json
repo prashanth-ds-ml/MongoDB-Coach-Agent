@@ -1,0 +1,170 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.insertOne/",
+  "doc_type": "mongodb_docs_method",
+  "method_name": "db.collection.insertOne",
+  "title": "db.collection.insertOne() (mongosh method)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Inserts a single document into a collection.\n- A boolean acknowledged as true if the operation ran with write concern or false if write concern was disabled.\n- A field insertedId with the _id value of the\ninserted document.\nA boolean acknowledged as true if the operation ran with write concern or false if write concern was disabled.\nA field insertedId with the _id value of the\ninserted document.\nA field insertedId with the _id value of the\ninserted document.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "This method is available in deployments hosted in the following environments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "This command is supported in all MongoDB Atlas clusters.\nFor information on Atlas support for all commands, see Unsupported Commands .\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The insertOne() method has the following\nform:",
+      "code_blocks": [
+        "db. collection . insertOne ( < document > , { writeConcern : < document > } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "parameters",
+          "heading": "Parameters",
+          "heading_level": 3,
+          "content": "The insertOne() method takes the following\nparameters:\ndocument\nA document to insert into the collection.\nwriteConcern\ndocument\nOptional. A document expressing the write concern . Omit to use the default write concern.\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "behaviors",
+      "heading": "Behaviors",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "collection-creation",
+          "heading": "Collection Creation",
+          "heading_level": 3,
+          "content": "If the collection does not exist, then the insertOne() method creates the collection.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "_id-field",
+          "heading": "_id Field",
+          "heading_level": 3,
+          "content": "If the document does not specify an _id field, then mongod will add the _id field and assign a unique ObjectId() for the document before inserting. Most\ndrivers create an ObjectId and insert the _id field, but the mongod will create and populate the _id if the driver or\napplication does not.\nIf the document contains an _id field, the _id value must be\nunique within the collection to avoid duplicate key error.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "explainability",
+          "heading": "Explainability",
+          "heading_level": 3,
+          "content": "insertOne() is not compatible with db.collection.explain() .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "error-handling",
+          "heading": "Error Handling",
+          "heading_level": 3,
+          "content": "On error, db.collection.insertOne() throws either a writeError or writeConcernError exception.\nIf your collection uses schema validation and has validationAction set to error , inserting an invalid document throws a MongoServerError and db.collection.insertOne() fails.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "transactions",
+          "heading": "Transactions",
+          "heading_level": 3,
+          "content": "db.collection.insertOne() can be used inside distributed transactions .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "In most cases, a distributed transaction incurs a greater\nperformance cost over single document writes, and the\navailability of distributed transactions should not be a\nreplacement for effective schema design. For many scenarios, the denormalized data model (embedded documents and arrays) will continue to be optimal for your\ndata and use cases. That is, for many scenarios, modeling your data\nappropriately will minimize the need for distributed\ntransactions.\nFor additional transactions usage considerations\n(such as runtime limit and oplog size limit), see also Production Considerations .\nYou can create collections and indexes inside a distributed\ntransaction if the\ntransaction is not a cross-shard write transaction.\nIf you specify an insert on a non-existing collection\nin a transaction, MongoDB creates the collection implicitly.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Create Collections and Indexes in a Transaction\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "oplog-entries",
+          "heading": "Oplog Entries",
+          "heading_level": 3,
+          "content": "If a db.collection.insertOne() operation successfully inserts a\ndocument, the operation adds an entry on the oplog (operations\nlog). If the operation fails, the operation does not add an entry on the\noplog.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "insert-a-document-without-specifying-an-_id-field",
+          "heading": "Insert a Document without Specifying an _id Field",
+          "heading_level": 3,
+          "content": "In the following example, the document passed to the insertOne() method does not contain the _id field:\nThe operation returns the following document:\nBecause the documents did not include _id , mongod creates and adds the _id field and\nassigns it a unique ObjectId() value.\nThe ObjectId values are specific to the machine and time when the\noperation is run. As such, your values may differ from those in the\nexample.",
+          "code_blocks": [
+            "try { db. products . insertOne ( { item : \"card\" , qty : 15 } ) ; } catch ( e) { print ( e) ; } ;",
+            "{ \"acknowledged\" : true , \"insertedId\" : ObjectId ( \"56fc40f9d735c28df206d078\" ) }"
+          ]
+        },
+        {
+          "subsection_id": "insert-a-document-specifying-an-_id-field",
+          "heading": "Insert a Document Specifying an _id Field",
+          "heading_level": 3,
+          "content": "In the following example, the document passed to the insertOne() method includes the _id field.\nThe value of _id must be unique within the collection to avoid\nduplicate key error.\nThe operation returns the following:\nInserting an duplicate value for any key that is part of a unique index , such as _id , throws an exception. The following attempts to insert\na document with a _id value that already exists:\nSince _id: 10 already exists, the following exception is thrown:",
+          "code_blocks": [
+            "try { db. products . insertOne ( { _id : 10 , item : \"box\" , qty : 20 } ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"insertedId\" : 10 }",
+            "try { db. products . insertOne ( { _id : 10 , \"item\" : \"packing peanuts\" , \"qty\" : 200 } ) ; } catch ( e) { print ( e) ; }",
+            "WriteError ( { \"index\" : 0 , \"code\" : 11000 , \"errmsg\" : \"E11000 duplicate key error collection: inventory.products index: _id_ dup key: { : 10.0 }\" , \"op\" : { \"_id\" : 10 , \"item\" : \"packing peanuts\" , \"qty\" : 200 } })"
+          ]
+        },
+        {
+          "subsection_id": "increase-write-concern",
+          "heading": "Increase Write Concern",
+          "heading_level": 3,
+          "content": "Given a three member replica set, the following operation specifies a w of majority , wtimeout of 100 :\nIf the acknowledgment takes longer than the wtimeout limit, the following\nexception is thrown:",
+          "code_blocks": [
+            "try { db. products . insertOne ( { \"item\" : \"envelopes\" , \"qty\" : 100 , type : \"Self-Sealing\" } , { writeConcern : { w : \"majority\" , wtimeout : 100 } } ) ; } catch ( e) { print ( e) ; }",
+            "WriteConcernError ( { \"code\" : 64 , \"errmsg\" : \"waiting for replication timed out\" , \"errInfo\" : { \"wtimeout\" : true , \"writeConcern\" : { \"w\" : \"majority\" , \"wtimeout\" : 100 , \"provenance\" : \"getLastErrorDefaults\" } } })"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "- To insert multiple documents, see db.collection.insertMany()\n- WriteResult.writeConcernError\nTo insert multiple documents, see db.collection.insertMany()\nWriteResult.writeConcernError\ndb.collection.insertMany\ndb.collection.isCapped\n- Definition\n- Compatibility\n- Syntax\n- Behaviors\n- Examples\n- Definition\n- Compatibility\n- Syntax\n- Behaviors\n- Examples",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:45:44.560442"
+}

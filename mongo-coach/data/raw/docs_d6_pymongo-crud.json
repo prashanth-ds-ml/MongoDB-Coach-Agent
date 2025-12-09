@@ -1,0 +1,198 @@
+{
+  "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/crud/",
+  "doc_type": "mongodb_docs_driver_python",
+  "method_name": null,
+  "title": "CRUD Operations",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "overview",
+      "heading": "Overview",
+      "heading_level": 2,
+      "content": "This page contains code examples that show how to connect your Python application\nto MongoDB with various settings.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "To learn more about the connection options on this page, see the link\nprovided in each section.\nTo use a connection example from this page, copy the code example into the sample application or your own application.\nBe sure to replace all placeholders in the code examples, such as <hostname> , with\nthe relevant values for your MongoDB deployment.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "sample-application",
+          "heading": "Sample Application",
+          "heading_level": 3,
+          "content": "You can use the following sample application to test the code examples on this\npage. To use the sample application, perform the following steps:\n- Ensure you have PyMongo installed.\n- Copy the following code and paste it into a new .py file.\n- Copy a code example from this page and paste it on the specified lines in the file.\nEnsure you have PyMongo installed.\nCopy the following code and paste it into a new .py file.\nCopy a code example from this page and paste it on the specified lines in the file.\nSelect the Synchronous or Asynchronous tab to see the\ncorresponding code:",
+          "code_blocks": [
+            "1 import pymongo 2 from pymongo import MongoClient 3 4 try : 5 uri = \"<connection string URI>\" 6 client = MongoClient(uri) 7 8 database = client[ \"<database name>\" ] 9 collection = database[ \"<collection name>\" ] 10 11 # start example code here 12 13 # end example code here 14 15 client.close() 16 17 except Exception as e: 18 raise Exception( 19 \"The following error occurred: \" , e)",
+            "1 import asyncio 2 import pymongo 3 from pymongo import AsyncMongoClient 4 5 async def main () : 6 try : 7 uri = \"<connection string URI>\" 8 client = AsyncMongoClient(uri) 9 10 database = client[ \"<database name>\" ] 11 collection = database[ \"<collection name>\" ] 12 13 # start example code here 14 15 # end example code here 16 17 await client.close() 18 19 except Exception as e: 20 raise Exception( 21 \"The following error occurred: \" , e) 22 23 asyncio.run(main())"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "insert-one",
+      "heading": "Insert One",
+      "heading_level": 2,
+      "content": "To learn more about the insert_one() method, see the Insert Documents guide.",
+      "code_blocks": [
+        "result = collection.insert_one({ \"<field name>\" : \"<value>\" }) print (result.acknowledged)",
+        "result = await collection.insert_one({ \"<field name>\" : \"<value>\" }) print (result.acknowledged)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "insert-multiple",
+      "heading": "Insert Multiple",
+      "heading_level": 2,
+      "content": "To learn more about the insert_many() method, see the Insert Documents guide.",
+      "code_blocks": [
+        "document_list = [ { \"<field name>\" : \"<value>\" }, { \"<field name>\" : \"<value>\" } ] result = collection.insert_many(document_list) print (result.acknowledged)",
+        "document_list = [ { \"<field name>\" : \"<value>\" }, { \"<field name>\" : \"<value>\" } ] result = await collection.insert_many(document_list) print (result.acknowledged)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "update-one",
+      "heading": "Update One",
+      "heading_level": 2,
+      "content": "To learn more about the update_one() method, see the Update Documents guide.",
+      "code_blocks": [
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } update_operation = { \"$set\" : { \"<field name>\" : \"<value>\" } } result = collection.update_one(query_filter, update_operation) print (result.modified_count)",
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } update_operation = { \"$set\" : { \"<field name>\" : \"<value>\" } } result = await collection.update_one(query_filter, update_operation) print (result.modified_count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "update-multiple",
+      "heading": "Update Multiple",
+      "heading_level": 2,
+      "content": "To learn more about the update_many() method, see the Update Documents guide.",
+      "code_blocks": [
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } update_operation = { \"$set\" : { \"<field name>\" : \"<value>\" } } result = collection.update_many(query_filter, update_operation) print (result.modified_count)",
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } update_operation = { \"$set\" : { \"<field name>\" : \"<value>\" } } result = await collection.update_many(query_filter, update_operation) print (result.modified_count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "replace-one",
+      "heading": "Replace One",
+      "heading_level": 2,
+      "content": "To learn more about the replace_one() method, see the Replace Documents guide.",
+      "code_blocks": [
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } replace_document = { \"<new document field name>\" : \"<new document value>\" } result = collection.replace_one(query_filter, replace_document) print (result.modified_count)",
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } replace_document = { \"<new document field name>\" : \"<new document value>\" } result = await collection.replace_one(query_filter, replace_document) print (result.modified_count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "delete-one",
+      "heading": "Delete One",
+      "heading_level": 2,
+      "content": "To learn more about the delete_one() method, see the Delete Documents guide.",
+      "code_blocks": [
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } result = collection.delete_one(query_filter) print (result.deleted_count)",
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } result = await collection.delete_one(query_filter) print (result.deleted_count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "delete-multiple",
+      "heading": "Delete Multiple",
+      "heading_level": 2,
+      "content": "To learn more about the delete_many() method, see the Delete Documents guide.",
+      "code_blocks": [
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } result = collection.delete_many(query_filter) print (result.deleted_count)",
+        "query_filter = { \"<field to match>\" : \"<value to match>\" } result = await collection.delete_many(query_filter) print (result.deleted_count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "bulk-write",
+      "heading": "Bulk Write",
+      "heading_level": 2,
+      "content": "To learn more about the bulk_write() method, see the Bulk Write guide.",
+      "code_blocks": [
+        "operations = [ pymongo.InsertOne( { \"<field name>\" : \"<value>\" } ), pymongo.UpdateMany( { \"<field to match>\" : \"<value to match>\" }, { \"$set\" : { \"<field name>\" : \"<value>\" }}, ), pymongo.DeleteOne( { \"<field to match>\" : \"<value to match>\" } ), ] result = collection.bulk_write(operations) print (result)",
+        "operations = [ pymongo.InsertOne( { \"<field name>\" : \"<value>\" } ), pymongo.UpdateMany( { \"<field to match>\" : \"<value to match>\" }, { \"$set\" : { \"<field name>\" : \"<value>\" }}, ), pymongo.DeleteOne( { \"<field to match>\" : \"<value to match>\" } ), ] result = await collection.bulk_write(operations) print (result)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "find-one",
+      "heading": "Find One",
+      "heading_level": 2,
+      "content": "To learn more about the find_one() method, see Find One Document in\nthe Retrieve Data guide.",
+      "code_blocks": [
+        "results = collection.find_one({ \"<field name>\" : \"<value>\" }) print (results)",
+        "results = await collection.find_one({ \"<field name>\" : \"<value>\" }) print (results)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "find-multiple",
+      "heading": "Find Multiple",
+      "heading_level": 2,
+      "content": "To learn more about the find() method, see Find Multiple Documents in\nthe Retrieve Data guide.",
+      "code_blocks": [
+        "results = collection.find({ \"<field name>\" : \"<value>\" }) for document in results: print (document)",
+        "results = collection.find({ \"<field name>\" : \"<value>\" }) async for document in results: print (document)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "count-documents-in-a-collection",
+      "heading": "Count Documents in a Collection",
+      "heading_level": 2,
+      "content": "To learn more about the count_documents() method, see the Retrieve an Accurate Count guide.",
+      "code_blocks": [
+        "count = collection.count_documents({}) print (count)",
+        "count = await collection.count_documents({}) print (count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "count-documents-returned-from-a-query",
+      "heading": "Count Documents Returned from a Query",
+      "heading_level": 2,
+      "content": "To learn more about the count_documents() method, see the Retrieve an Accurate Count guide.",
+      "code_blocks": [
+        "count = collection.count_documents({ \"<field name>\" : \"<value>\" }) print (count)",
+        "count = await collection.count_documents({ \"<field name>\" : \"<value>\" }) print (count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "estimated-document-count",
+      "heading": "Estimated Document Count",
+      "heading_level": 2,
+      "content": "To learn more about the estimated_document_count() method, see the Retrieve an Estimated Count guide.",
+      "code_blocks": [
+        "count = collection.estimated_document_count() print (count)",
+        "count = await collection.estimated_document_count() print (count)"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "retrieve-distinct-values",
+      "heading": "Retrieve Distinct Values",
+      "heading_level": 2,
+      "content": "To learn more about the distinct() method, see the Retrieve Distinct Field Values guide.\nDatabases & Collections\nInsert Documents\n- Overview\n- Sample Application\n- Insert One\n- Insert Multiple\n- Update One\n- Update Multiple\n- Replace One\n- Delete One\n- Delete Multiple\n- Bulk Write\n- Find One\n- Find Multiple\n- Count Documents in a Collection\n- Count Documents Returned from a Query\n- Estimated Document Count\n- Retrieve Distinct Values\nOverview\nSample Application\nInsert One\nInsert Multiple\nUpdate One\nUpdate Multiple\nReplace One\nDelete One\nDelete Multiple\nBulk Write\nFind One\nFind Multiple\nCount Documents in a Collection\nCount Documents Returned from a Query\nEstimated Document Count\nRetrieve Distinct Values\n- Overview\n- Sample Application\n- Insert One\n- Insert Multiple\n- Update One\n- Update Multiple\n- Replace One\n- Delete One\n- Delete Multiple\n- Bulk Write\n- Find One\n- Find Multiple\n- Count Documents in a Collection\n- Count Documents Returned from a Query\n- Estimated Document Count\n- Retrieve Distinct Values\nOverview\nSample Application\nInsert One\nInsert Multiple\nUpdate One\nUpdate Multiple\nReplace One\nDelete One\nDelete Multiple\nBulk Write\nFind One\nFind Multiple\nCount Documents in a Collection\nCount Documents Returned from a Query\nEstimated Document Count\nRetrieve Distinct Values",
+      "code_blocks": [
+        "results = collection.distinct( \"<field name>\" ) for document in results: print (document)",
+        "results = await collection.distinct( \"<field name>\" ) for document in results: print (document)"
+      ],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:42.558310",
+  "exam_code": "associate_developer_python",
+  "domain_id": 6,
+  "domain_name": "Drivers – Python",
+  "seed_id": "pymongo-crud",
+  "source_type": "driver",
+  "file_stub": "d6_pymongo-crud"
+}

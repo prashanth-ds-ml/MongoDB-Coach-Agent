@@ -1,0 +1,160 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/command/createsearchindexes/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "createSearchIndexes (database command)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "New in version 7.0 : ( Also available starting in 6.0.7 )\nCreates one or more MongoDB Search indexes or Vector Search indexes on a specified collection or view.\nThe mongosh method db.collection.createSearchIndex() provides a wrapper around the createSearchIndexes database command.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "This command can only be run on a deployment hosted on MongoDB Atlas .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "Command syntax:",
+      "code_blocks": [
+        "db. runCommand ( { createSearchIndexes : \"<collection name>\" , indexes : [ { name : \"<index name>\" , type : \"<search index type>\" , definition : { /* search index definition fields */ } } , ... ] } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "command-fields",
+      "heading": "Command Fields",
+      "heading_level": 2,
+      "content": "The createSearchIndexes command takes the following fields:\ncreateSearchIndexes\nstring\nRequired\nName of the collection on which to create the search index.\nindexes\narray\nRequired\nArray of documents describing the indexes to create.\nindexes.name\nstring\nOptional\nName of the search index to create.\nYou cannot create multiple indexes with the same name on a single\ncollection.\nIf you do not specify a name , the index is named default .\nindexes.type\nstring\nOptional\nType of search index to create. You can specify either:\n- search\n- vectorSearch\nsearch\nvectorSearch\nIf you omit the type field, the index type is search .\nindexes.definition\ndocument\nRequired\nDocument describing the index to create. The definition syntax\ndepends on whether you create a standard search index or a Vector\nSearch index. For the definition syntax, see:\n- Search Index Definition Syntax\n- Vector Search Index Definition Syntax\nSearch Index Definition Syntax\nVector Search Index Definition Syntax",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "search-index-definition-syntax",
+          "heading": "Search Index Definition Syntax",
+          "heading_level": 3,
+          "content": "The search index definition takes the following fields:\nanalyzer\nstring\nOptional\nSpecifies the analyzer to apply to\nstring fields when indexing.\nIf you omit this field, the index uses the standard analyzer .\nsearchAnalyzer\nstring\nOptional\nSpecifies the analyzer to apply to query\ntext before the text is searched.\nIf you omit this field, the index uses the same analyzer specified\nin the analyzer field.\nIf you omit both the searchAnalyzer and the analyzer fields, the index uses the standard analyzer .\nmappings\nobject\nRequired\nSpecifies how to index fields on different paths for this index.\nmappings.dynamic\nboolean\nOptional\nEnables or disables dynamic field mapping for this index.\nIf set to true , the index contains all fields containing supported data types .\nIf set to false , you must specify individual fields to index\nusing mappings.fields .\nIf omitted, defaults to false .\nmappings.fields\ndocument\nConditional\nRequired only if dynamic mapping is disabled.\nSpecifies the fields to index. To learn more, see Define Field Mappings .\nanalyzers\narray\nOptional\nSpecifies the Custom Analyzers to use in this index.\nstoredSource\nboolean or Stored Source Definition\nOptional\nSpecifies document fields to store for queries performed using\nthe returnedStoredSource option.\nYou can store fields of all MongoDB Search Field Types on MongoDB Search.\nThe storedSource value can be one of these:\n- true , to store all fields\n- false , to not store any fields\n- An object that specifies the\nfields to include or exclude from storage\ntrue , to store all fields\nfalse , to not store any fields\nAn object that specifies the\nfields to include or exclude from storage\nAn object that specifies the\nfields to include or exclude from storage\nIf omitted, defaults to false .\nTo learn more, see Define Stored Source Fields in Your MongoDB Search Index .\nsynonyms\narray of Synonym Mapping Definitions\nOptional\nSpecifies synonym mappings to use in your index. Configuring\nsynonyms allows you to index and search for words that have\nthe same or a similar meaning.\nTo learn more, see Define Synonym Mappings in Your MongoDB Search Index .",
+          "code_blocks": [
+            "{ analyzer : \"<analyzer-for-index>\" , searchAnalyzer : \"<analyzer-for-query>\" , mappings : { dynamic : < boolean > , fields : { < field - definition > } } , analyzers : [ < custom - analyzer > ] , storedSource : < boolean > | { < stored - source - definition > } , synonyms : [ { name : \"<synonym-mapping-name>\" , source : { collection : \"<source-collection-name>\" } , analyzer : \"<synonym-mapping-analyzer>\" } ] }"
+          ]
+        },
+        {
+          "subsection_id": "vector-search-index-definition-syntax",
+          "heading": "Vector Search Index Definition Syntax",
+          "heading_level": 3,
+          "content": "The vector search index definition takes the following fields:\nFor explanations of vector search index definition fields, see How to Index Fields for Vector Search .",
+          "code_blocks": [
+            "{ \"fields\" : [ { \"type\" : \"vector\" | \"filter\" , \"path\" : \"<field-to-index>\" , \"numDimensions\" : < number - of - dimensions > , \"similarity\" : \"euclidean\" | \"cosine\" | \"dotProduct\" } ] }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "The createSearchIndexes command triggers an index build. There may be a delay\nbetween when you receive a response from the command and when the index\nis ready.\nTo see the status of your search indexes, use the $listSearchIndexes aggregation stage.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "access-control",
+      "heading": "Access Control",
+      "heading_level": 2,
+      "content": "If your deployment enforces access control, the user running the createSearchIndexes command must have the createSearchIndexes privilege\naction on the database or collection:\nThe built-in readWrite role provides the createSearchIndexes privilege. The following example grants accountUser01 the readWrite role on the products database:",
+      "code_blocks": [
+        "{ resource : { db : < database > , collection : < collection > } , actions : [ \"createSearchIndexes\" ] }",
+        "db. grantRolesToUser ( \"accountUser01\" , [ { role : \"readWrite\" , db : \"products\" } ] )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "output",
+      "heading": "Output",
+      "heading_level": 2,
+      "content": "The createSearchIndexes command output resembles the following:",
+      "code_blocks": [
+        "{ ok : 1 , indexesCreated : [ { id : \"<index Id>\" , name : \"<index name>\" } ] }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "The response field ok: 1 indicates that the command was\nsuccessful. However, there may be a delay between when you receive\nthe response and when the created indexes are ready for use.\nTo see the status of your search indexes, use the $listSearchIndexes aggregation stage.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "create-a-search-index-on-all-fields",
+          "heading": "Create a Search Index on All Fields",
+          "heading_level": 3,
+          "content": "The following example creates a search index named searchIndex01 on\nthe contacts collection:\nThe index definition specifies mappings: { dynamic: true } , which\nmeans that the index contains all fields in the collection that have supported data types .",
+          "code_blocks": [
+            "db. runCommand ( { createSearchIndexes : \"contacts\" , indexes : [ { name : \"searchIndex01\" , definition : { mappings : { dynamic : true } } } ] } )"
+          ]
+        },
+        {
+          "subsection_id": "create-a-search-index-with-a-language-analyzer",
+          "heading": "Create a Search Index with a Language Analyzer",
+          "heading_level": 3,
+          "content": "A language analyzer introduces stop-words, which are words that are not\nsignificant enough to be indexed.\nThe following example creates a search index named frenchIndex01 on\nthe cars collection, and specifies the lucene.french analyzer on\nthe fr field:\nTo learn more about language analyzers, see Language Analyzers .",
+          "code_blocks": [
+            "db. runCommand ( { createSearchIndexes : \"cars\" , indexes : [ { name : \"frenchIndex01\" , definition : { mappings : { fields : { subject : { fields : { fr : { analyzer : \"lucene.french\" , type : \"string\" } } , type : \"document\" } } } } } ] } )"
+          ]
+        },
+        {
+          "subsection_id": "create-multiple-search-indexes",
+          "heading": "Create Multiple Search Indexes",
+          "heading_level": 3,
+          "content": "The following command creates two search indexes on the products collection, searchIndex02 and searchIndex03 :\nsearchIndex02 uses a simple analyzer on\nthe title field. The simple analyzer divides text into searchable\nterms based on non-letter characters, such as whitespace, punctuation,\nor digits.\nsearchIndex03 uses a dynamic field mapping, meaning the index\ncontains all fields in the collection that have supported data\ntypes .",
+          "code_blocks": [
+            "db. runCommand ( { createSearchIndexes : \"products\" , indexes : [ { name : \"searchIndex02\" , definition : { mappings : { fields : { title : { type : \"string\" , analyzer : \"lucene.simple\" } } } } } , { name : \"searchIndex03\" , definition : { mappings : { dynamic : true } } } ] } )"
+          ]
+        },
+        {
+          "subsection_id": "create-a-vector-search-index",
+          "heading": "Create a Vector Search Index",
+          "heading_level": 3,
+          "content": "The following example creates a vector search index named vectorSearchIndex01 on the movies collection:\nThe vector search index contains one dimension and indexes the genre field.",
+          "code_blocks": [
+            "db. runCommand ( { createSearchIndexes : \"movies\" , indexes : [ { name : \"vectorSearchIndex01\" , type : \"vectorSearch\" , definition : { fields : [ { type : \"vector\" , numDimensions : 1 , path : \"genre\" , similarity : \"cosine\" } ] } } ] } )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "- $vectorSearch aggregation stage\n- Tutorial: Semantic Search\n- Vector Search Changelog\n$vectorSearch aggregation stage\nTutorial: Semantic Search\nVector Search Changelog\nAtlas Search\ndropSearchIndex\n- Definition\n- Syntax\n- Command Fields\n- Search Index Definition Syntax\n- Vector Search Index Definition Syntax\n- Behavior\n- Access Control\n- Output\n- Examples\n- Create a Search Index on All Fields\n- Create a Search Index with a Language Analyzer\n- Create Multiple Search Indexes\n- Create a Vector Search Index\n- Learn More\nCommand Fields\nSearch Index Definition Syntax\nVector Search Index Definition Syntax\nBehavior\nAccess Control\nOutput\nCreate a Search Index on All Fields\nCreate a Search Index with a Language Analyzer\nCreate Multiple Search Indexes\nCreate a Vector Search Index\nLearn More\n- Definition\n- Syntax\n- Command Fields\n- Search Index Definition Syntax\n- Vector Search Index Definition Syntax\n- Behavior\n- Access Control\n- Output\n- Examples\n- Create a Search Index on All Fields\n- Create a Search Index with a Language Analyzer\n- Create Multiple Search Indexes\n- Create a Vector Search Index\n- Learn More\nCommand Fields\nSearch Index Definition Syntax\nVector Search Index Definition Syntax\nBehavior\nAccess Control\nOutput\nCreate a Search Index on All Fields\nCreate a Search Index with a Language Analyzer\nCreate Multiple Search Indexes\nCreate a Vector Search Index\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:28.189809",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "createsearchindexes",
+  "source_type": "manual",
+  "file_stub": "d2_createsearchindexes"
+}

@@ -1,0 +1,106 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/bson-type-comparison-order/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Comparison/Sort Order",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "MongoDB enforces comparisons with Comparison Query Predicate Operators only on documents where the BSON type of the target field\nmatches the query operand type through Type Bracketing .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "numeric-types",
+      "heading": "Numeric Types",
+      "heading_level": 2,
+      "content": "MongoDB treats some types as equivalent for comparison purposes.\nFor instance, all numeric types are considered equivalent in comparisons.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "strings",
+      "heading": "Strings",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "binary-comparison",
+          "heading": "Binary Comparison",
+          "heading_level": 3,
+          "content": "By default, MongoDB uses the simple binary comparison to compare\nstrings.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "collation",
+          "heading": "Collation",
+          "heading_level": 3,
+          "content": "Collation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nCollation specification has the following syntax:\nWhen specifying collation, the locale field is mandatory; all\nother collation fields are optional. For descriptions of the fields,\nsee Collation Document .\nIf no collation is specified for the collection or for the\noperations, MongoDB uses the simple binary comparison used in prior\nversions for string comparisons.",
+          "code_blocks": [
+            "{ locale: <string>, caseLevel: <boolean>, caseFirst: <string>, strength: <int>, numericOrdering: <boolean>, alternate: <string>, maxVariable: <string>, backwards: <boolean> }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "arrays",
+      "heading": "Arrays",
+      "heading_level": 2,
+      "content": "In array comparisons:\n- An ascending sort compares the smallest\nelements of the array according to the BSON type sort order.\n- A descending sort compares the largest elements of the array according\nto the reverse BSON type sort order.\n- Comparison Query Predicate Operators , such as $lt and $gt ,\nperform comparisons on arrays lexicographically.\n- When comparing a field whose value is a one element array (for example, [ 1 ] ) with non-array fields (for example, 2 ), the comparison is\nfor 1 and 2 .\n- A comparison of an empty array (for example, [ ] ) considers the empty\narray as less than a null value or a missing field value.\n- A comparison of a nested array (for example, [[1, 2], [3, 4]] ) compares\nany array after the outmost array lexicographically.\nAn ascending sort compares the smallest\nelements of the array according to the BSON type sort order.\nAn ascending sort compares the smallest\nelements of the array according to the BSON type sort order.\nA descending sort compares the largest elements of the array according\nto the reverse BSON type sort order.\nA descending sort compares the largest elements of the array according\nto the reverse BSON type sort order.\nComparison Query Predicate Operators , such as $lt and $gt ,\nperform comparisons on arrays lexicographically.\nComparison Query Predicate Operators , such as $lt and $gt ,\nperform comparisons on arrays lexicographically.\nWhen comparing a field whose value is a one element array (for example, [ 1 ] ) with non-array fields (for example, 2 ), the comparison is\nfor 1 and 2 .\nWhen comparing a field whose value is a one element array (for example, [ 1 ] ) with non-array fields (for example, 2 ), the comparison is\nfor 1 and 2 .\nA comparison of an empty array (for example, [ ] ) considers the empty\narray as less than a null value or a missing field value.\nA comparison of an empty array (for example, [ ] ) considers the empty\narray as less than a null value or a missing field value.\nA comparison of a nested array (for example, [[1, 2], [3, 4]] ) compares\nany array after the outmost array lexicographically.\nA comparison of a nested array (for example, [[1, 2], [3, 4]] ) compares\nany array after the outmost array lexicographically.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Comparison Query Predicate Operators enforce type-bracketing when\nthe query is an array. If the indexed value is an array,\nthe operator performs a type-bracketed comparison\nelement-wise over the indexed array.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "objects",
+      "heading": "Objects",
+      "heading_level": 2,
+      "content": "MongoDB's comparison of BSON objects uses the following order:\n- Recursively compare key-value pairs in the order that they appear\nwithin the BSON object.\n- Compare the field types. MongoDB uses the following comparison\norder for field types, from lowest to highest: MinKey (internal type) Null Numbers (ints, longs, doubles, decimals) Symbol, String Object Array BinData ObjectId Boolean Date Timestamp Regular Expression JavaScript Code JavaScript Code with Scope MaxKey (internal type)\n- MinKey (internal type)\n- Null\n- Numbers (ints, longs, doubles, decimals)\n- Symbol, String\n- Object\n- Array\n- BinData\n- ObjectId\n- Boolean\n- Date\n- Timestamp\n- Regular Expression\n- JavaScript Code\n- JavaScript Code with Scope\n- MaxKey (internal type)\n- If the field types are equal, compare the key field names .\n- If the key field names are equal, compare the field values.\n- If the field values are equal, compare the next key/value pair\n(return to step 1). An object without further pairs is less than an\nobject with further pairs.\nRecursively compare key-value pairs in the order that they appear\nwithin the BSON object.\nRecursively compare key-value pairs in the order that they appear\nwithin the BSON object.\nCompare the field types. MongoDB uses the following comparison\norder for field types, from lowest to highest: MinKey (internal type) Null Numbers (ints, longs, doubles, decimals) Symbol, String Object Array BinData ObjectId Boolean Date Timestamp Regular Expression JavaScript Code JavaScript Code with Scope MaxKey (internal type)\nCompare the field types. MongoDB uses the following comparison\norder for field types, from lowest to highest:\n- MinKey (internal type)\n- Null\n- Numbers (ints, longs, doubles, decimals)\n- Symbol, String\n- Object\n- Array\n- BinData\n- ObjectId\n- Boolean\n- Date\n- Timestamp\n- Regular Expression\n- JavaScript Code\n- JavaScript Code with Scope\n- MaxKey (internal type)\nMinKey (internal type)\nNull\nNumbers (ints, longs, doubles, decimals)\nSymbol, String\nObject\nArray\nBinData\nObjectId\nBoolean\nDate\nTimestamp\nRegular Expression\nJavaScript Code\nJavaScript Code with Scope\nMaxKey (internal type)\nIf the field types are equal, compare the key field names .\nIf the key field names are equal, compare the field values.\nIf the field values are equal, compare the next key/value pair\n(return to step 1). An object without further pairs is less than an\nobject with further pairs.\nIf the field values are equal, compare the next key/value pair\n(return to step 1). An object without further pairs is less than an\nobject with further pairs.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "dates-and-timestamps",
+      "heading": "Dates and Timestamps",
+      "heading_level": 2,
+      "content": "Date objects sort before Timestamp objects.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "non-existent-fields",
+      "heading": "Non-existent Fields",
+      "heading_level": 2,
+      "content": "The comparison treats a non-existent field as if it were null. A\nsort on the a field in documents { } and { a: null } would treat the documents as equivalent in sort order.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "bindata",
+      "heading": "BinData",
+      "heading_level": 2,
+      "content": "MongoDB sorts BinData in the following order:\n- First, the length or size of the data.\n- Then, by the BSON one-byte subtype.\n- Finally, by the data, performing a byte-by-byte comparison on unsigned bytes.\nFirst, the length or size of the data.\nThen, by the BSON one-byte subtype.\nFinally, by the data, performing a byte-by-byte comparison on unsigned bytes.\nBSON Types\nMigrate Undefined Data and Queries\n- Numeric Types\n- Strings\n- Arrays\n- Objects\n- Dates and Timestamps\n- Non-existent Fields\n- BinData\nNumeric Types\nStrings\nArrays\nObjects\nDates and Timestamps\nNon-existent Fields\nBinData\n- Numeric Types\n- Strings\n- Arrays\n- Objects\n- Dates and Timestamps\n- Non-existent Fields\n- BinData\nNumeric Types\nStrings\nArrays\nObjects\nDates and Timestamps\nNon-existent Fields\nBinData",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:09.515695",
+  "exam_code": "associate_developer_python",
+  "domain_id": 1,
+  "domain_name": "MongoDB Overview and the Document Model",
+  "seed_id": "bson-comparison-order",
+  "source_type": "manual",
+  "file_stub": "d1_bson-comparison-order"
+}

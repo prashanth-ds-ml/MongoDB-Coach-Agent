@@ -1,0 +1,115 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "What is MongoDB?",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "work-with-your-data-in-mongodb",
+      "heading": "Work with your data in MongoDB",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "deploy-mongodb",
+          "heading": "Deploy MongoDB",
+          "heading_level": 3,
+          "content": "Create a cluster in the MongoDB Atlas UI or the Atlas CLI\nquickly and easily. To learn more, see Create a Cluster in the MongoDB Atlas documentation\nand Get Started with Atlas in the Atlas CLI\ndocumentation.\nFor self-hosted deployments,\nsee Replication in the MongoDB manual\nto create a replica\nset.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "connect-to-your-deployment",
+          "heading": "Connect to your deployment",
+          "heading_level": 3,
+          "content": "Access deployments in the\nMongoDB Atlas UI or connect with drivers or the MongoDB Shell (mongosh) in the MongoDB\nmanual.\nTo learn more, see Find Your Connection String in the MongoDB manual.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "insert,-query,-update,-or-delete-documents",
+          "heading": "Insert, query, update, or delete documents",
+          "heading_level": 3,
+          "content": "Perform CRUD operations in the MongoDB Atlas UI or by using the\nMongoDB Query API - with or without transactions.\nTo learn more, see Create, View, Update, and Delete Documents in the MongoDB Atlas documentation and MongoDB CRUD Operations in the MongoDB manual.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "model-your-data",
+          "heading": "Model your data",
+          "heading_level": 3,
+          "content": "Design your data schema to support frequent access patterns.\nYou can update or enforce your schema at any point.\nTo learn more, see Data Modeling Introduction in the MongoDB manual.",
+          "code_blocks": [
+            "➜ atlas setup ? Do you want to setup your Atlas database with default settings ? ( Y / n) ➜ Y We are deploying Cluster9876543 ... Please store your database authentication access details in a secure location. Database User Username : Cluster9876543 Database User Password : abcdef12345 Creating your cluster ... [ Its safe to 'Ctrl + C' ]"
+          ]
+        },
+        {
+          "subsection_id": "import-your-data",
+          "heading": "Import your data",
+          "heading_level": 3,
+          "content": "Import data from a CSV or JSON file with database tools.\nTo learn more, see Migrate or Import Data in the MongoDB Atlas\ndocumentation and mongoimport in the database tools documentation.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "aggregate-your-data",
+          "heading": "Aggregate your data",
+          "heading_level": 3,
+          "content": "Use aggregation pipelines to process your data in multiple\nstages and return the computed results. You can\npreview the results at each pipeline stage when you\nrun aggregation pipelines in MongoDB Atlas.\nTo learn more, see Run Aggregation Pipelines in the MongoDB Atlas documentation\nand Aggregation Operations in the MongoDB manual.",
+          "code_blocks": [
+            "test > db. orders . insertMany ( [ { \"item\" : \"almonds\" , \"price\" : 12 , \"quantity\" : 2 } , { \"item\" : \"pecans\" , \"price\" : 20 , \"quantity\" : 1 } , ]) test > db. inventory . insertMany ( [ { \"sku\" : \"almonds\" , \"description\" : \"product 1\" , \"instock\" : 120 } , { \"sku\" : \"cashews\" , \"description\" : \"product 3\" , \"instock\" : 60 } , { \"sku\" : \"pecans\" , \"description\" : \"product 4\" , \"instock\" : 70 } ]) test > db. orders . aggregate ( [ { $match : { price : { $lt : 15 } } } , { $lookup : { from : \"inventory\" , localField : \"item\" , foreignField : \"sku\" , as : \"inventory_docs\" } } , { $sort : { price : 1 } } , ])"
+          ]
+        },
+        {
+          "subsection_id": "authenticate-a-client",
+          "heading": "Authenticate a client",
+          "heading_level": 3,
+          "content": "Verify the identity of a user, replica set member, or\nsharded cluster member with authentication.\nTo learn more, see Atlas UI Authenication in the MongoDB Atlas documentation\nand Authentication in the MongoDB\nmanual.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "control-access-to-your-database",
+          "heading": "Control access to your database",
+          "heading_level": 3,
+          "content": "Enable Role-Based Access Controls to manage user privileges\non your entire database cluster or individual collections.\nTo learn more, see Atlas UI Authorization in the MongoDB Atlas documentation\nand Role-Based Access Controls in the MongoDB manual.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "encrypt-your-most-sensitive-data",
+          "heading": "Encrypt your most sensitive data",
+          "heading_level": 3,
+          "content": "Client-Side Field Level Encryption protects data while it is\nin-use by the database. Fields are encrypted before they\nleave your application, protecting them over the network, in\nmemory and at rest.\nTo learn more, see Client-Side Field Level Encryption in the MongoDB manual.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "create-a-cluster",
+          "heading": "Create a cluster",
+          "heading_level": 3,
+          "content": "Create a free cluster, or an auto-scaling cluster\nin the MongoDB Atlas UI. To learn more, see Choose a Cluster Type in the MongoDB Atlas\ndocumentation.\nFor self-hosted deployments, provide redundancy and\nresilience for your database by deploying a replica set. To\nlearn more, see Replication in the\nMongoDB manual.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "scale-out-your-database",
+          "heading": "Scale out your database",
+          "heading_level": 3,
+          "content": "Use sharding to horizontally scale your database or to\nensure location-based separation of data.\nTo learn more, see Shard a Collection in the MongoDB Atlas\ndocumentation and Sharding in the MongoDB manual.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "go-further-with-mongodb",
+      "heading": "Go Further with MongoDB",
+      "heading_level": 2,
+      "content": "Explore libraries and tools for MongoDB.\nUse MongoDB in your application's language\nLearn about Drivers\nVisually explore your data with MongoDB Compass\nView Compass Docs\nManage and monitor your deployments\nView Ops Manager",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:07.687805",
+  "exam_code": "associate_developer_python",
+  "domain_id": 1,
+  "domain_name": "MongoDB Overview and the Document Model",
+  "seed_id": "manual-overview",
+  "source_type": "manual",
+  "file_stub": "d1_manual-overview"
+}

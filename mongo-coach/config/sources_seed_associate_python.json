@@ -1,0 +1,250 @@
+{
+  "exam_code": "associate_developer_python",
+  "version": "v1-2025-12",
+  "driver_language": "python",
+  "domains": [
+    {
+      "id": 1,
+      "name": "MongoDB Overview and the Document Model",
+      "weight_percent": 8,
+      "objectives": ["1.1", "1.2"],
+      "seed_urls": [
+        {
+          "id": "manual-overview",
+          "url": "https://www.mongodb.com/docs/manual/",
+          "source_type": "manual"
+        },
+        {
+          "id": "bson-types",
+          "url": "https://www.mongodb.com/docs/manual/reference/bson-types/",
+          "source_type": "manual"
+        },
+        {
+          "id": "bson-comparison-order",
+          "url": "https://www.mongodb.com/docs/manual/reference/bson-type-comparison-order/",
+          "source_type": "manual"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "CRUD",
+      "weight_percent": 51,
+      "objectives": [
+        "2.1","2.2","2.3","2.4","2.5","2.6","2.7",
+        "2.8","2.9","2.10","2.11","2.12","2.13",
+        "2.14","2.15","2.16","2.17","2.18","2.19",
+        "2.20","2.21","2.22"
+      ],
+      "seed_urls": [
+        {
+          "id": "crud-overview",
+          "url": "https://www.mongodb.com/docs/manual/crud/",
+          "source_type": "manual"
+        },
+        {
+          "id": "query-docs",
+          "url": "https://www.mongodb.com/docs/manual/tutorial/query-documents/",
+          "source_type": "manual"
+        },
+        {
+          "id": "methods-root",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/",
+          "source_type": "manual"
+        },
+        {
+          "id": "insert-one",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.insertOne/",
+          "source_type": "manual"
+        },
+        {
+          "id": "insert-many",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.insertMany/",
+          "source_type": "manual"
+        },
+        {
+          "id": "find",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.find/",
+          "source_type": "manual"
+        },
+        {
+          "id": "update-one",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.updateOne/",
+          "source_type": "manual"
+        },
+        {
+          "id": "update-legacy",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.update/",
+          "source_type": "manual"
+        },
+        {
+          "id": "delete-one",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.deleteOne/",
+          "source_type": "manual"
+        },
+        {
+          "id": "find-and-modify",
+          "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.findAndModify/",
+          "source_type": "manual"
+        },
+        {
+          "id": "agg-core-pipeline",
+          "url": "https://www.mongodb.com/docs/manual/core/aggregation-pipeline/",
+          "source_type": "manual"
+        },
+        {
+          "id": "agg-overview",
+          "url": "https://www.mongodb.com/docs/manual/aggregation/",
+          "source_type": "manual"
+        },
+        {
+          "id": "agg-match",
+          "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/match/",
+          "source_type": "manual"
+        },
+        {
+          "id": "agg-group",
+          "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/group/",
+          "source_type": "manual"
+        },
+        {
+          "id": "agg-lookup",
+          "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/",
+          "source_type": "manual"
+        },
+        {
+          "id": "agg-out",
+          "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/out/",
+          "source_type": "manual"
+        },
+        {
+          "id": "createsearchindexes",
+          "url": "https://www.mongodb.com/docs/manual/reference/command/createsearchindexes/",
+          "source_type": "manual"
+        },
+        {
+          "id": "atlas-search-overview",
+          "url": "https://www.mongodb.com/docs/atlas/atlas-search/",
+          "source_type": "atlas"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Indexes",
+      "weight_percent": 17,
+      "objectives": ["3.1","3.2","3.3","3.4","3.5","3.6"],
+      "seed_urls": [
+        {
+          "id": "indexes-overview",
+          "url": "https://www.mongodb.com/docs/manual/indexes/",
+          "source_type": "manual"
+        },
+        {
+          "id": "index-types-overview",
+          "url": "https://www.mongodb.com/docs/manual/core/indexes/index-types/",
+          "source_type": "manual"
+        },
+        {
+          "id": "index-ttl",
+          "url": "https://www.mongodb.com/docs/manual/core/index-ttl/",
+          "source_type": "manual"
+        },
+        {
+          "id": "index-partial",
+          "url": "https://www.mongodb.com/docs/manual/core/index-partial/",
+          "source_type": "manual"
+        },
+        {
+          "id": "atlas-indexes-ui",
+          "url": "https://www.mongodb.com/docs/atlas/atlas-ui/indexes/",
+          "source_type": "atlas"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Data Modeling",
+      "weight_percent": 4,
+      "objectives": ["4.1","4.2"],
+      "seed_urls": [
+        {
+          "id": "data-modeling-overview",
+          "url": "https://www.mongodb.com/docs/v8.0/data-modeling/",
+          "source_type": "manual"
+        },
+        {
+          "id": "embedding-vs-references",
+          "url": "https://www.mongodb.com/docs/v8.0/data-modeling/concepts/embedding-vs-references/",
+          "source_type": "manual"
+        },
+        {
+          "id": "design-antipatterns",
+          "url": "https://www.mongodb.com/docs/v8.0/data-modeling/design-antipatterns/",
+          "source_type": "manual"
+        },
+        {
+          "id": "data-model-examples",
+          "url": "https://www.mongodb.com/docs/v7.0/applications/data-models/",
+          "source_type": "manual"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Tools and Tooling",
+      "weight_percent": 2,
+      "objectives": ["5.1"],
+      "seed_urls": [
+        {
+          "id": "atlas-sample-data",
+          "url": "https://www.mongodb.com/docs/atlas/sample-data/",
+          "source_type": "atlas"
+        },
+        {
+          "id": "atlas-data-explorer",
+          "url": "https://www.mongodb.com/docs/atlas/atlas-ui/data-explorer/",
+          "source_type": "atlas"
+        },
+        {
+          "id": "atlas-data-explorer-sort",
+          "url": "https://www.mongodb.com/docs/atlas/atlas-ui/query/sort/",
+          "source_type": "atlas"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Drivers – Python",
+      "weight_percent": 18,
+      "objectives": ["6.1","6.2","6.3","6.4","6.5","6.6","6.7","6.8","6.9","6.10"],
+      "seed_urls": [
+        {
+          "id": "pymongo-get-started",
+          "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/get-started/",
+          "source_type": "driver"
+        },
+        {
+          "id": "pymongo-mongoclient",
+          "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/connect/mongoclient/",
+          "source_type": "driver"
+        },
+        {
+          "id": "pymongo-connection-options",
+          "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/connect/connection-options/",
+          "source_type": "driver"
+        },
+        {
+          "id": "pymongo-crud",
+          "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/crud/",
+          "source_type": "driver"
+        },
+        {
+          "id": "connection-string-manual",
+          "url": "https://www.mongodb.com/docs/manual/reference/connection-string/",
+          "source_type": "manual"
+        }
+      ]
+    }
+  ]
+}

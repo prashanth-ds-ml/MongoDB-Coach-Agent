@@ -1,0 +1,110 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/core/aggregation-pipeline/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Aggregation Pipeline",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Aggregation pipelines run with the db.collection.aggregate() method do not modify documents in\na collection, unless the pipeline contains a $merge or $out stage.\nYou can run aggregation pipelines in the UI for deployments hosted in MongoDB Atlas .\nWhen you run aggregation pipelines on MongoDB Atlas deployments in the\nMongoDB Atlas UI, you can preview the results at each stage.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "complete-aggregation-pipeline-examples",
+      "heading": "Complete Aggregation Pipeline Examples",
+      "heading_level": 2,
+      "content": "The Complete Aggregation Pipeline Tutorials section contains complete\ntutorials that provide detailed explanations of common aggregation tasks\nin a step-by-step format. The tutorials include examples for MongoDB\nShell and each of the official MongoDB drivers .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "additional-aggregation-pipeline-stage-details",
+      "heading": "Additional Aggregation Pipeline Stage Details",
+      "heading_level": 2,
+      "content": "An aggregation pipeline consists of one or more stages that process documents:\n- A stage does not have to output one document for every input\ndocument. For example, some stages may produce new documents or\nfilter out documents.\n- The same stage can appear multiple times in the pipeline with these\nstage exceptions: $out , $merge , and $geoNear .\nA stage does not have to output one document for every input\ndocument. For example, some stages may produce new documents or\nfilter out documents.\nA stage does not have to output one document for every input\ndocument. For example, some stages may produce new documents or\nfilter out documents.\nThe same stage can appear multiple times in the pipeline with these\nstage exceptions: $out , $merge , and $geoNear .\nThe same stage can appear multiple times in the pipeline with these\nstage exceptions: $out , $merge , and $geoNear .\nFor all aggregation stages, see Aggregation Stages .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "expressions-and-operators",
+          "heading": "Expressions and Operators",
+          "heading_level": 3,
+          "content": "Some aggregation pipeline stages accept expressions . Operators calculate values based on input expressions.\nIn the MongoDB Query Language, you can build expressions from the\nfollowing components:\nConstants\n3\nOperators\n$add\nField path expressions\n\"$<path.to.field>\"\nFor example, { $add: [ 3, \"$inventory.total\" ] } is an expression\nthat consists of the $add operator and two operands:\n- The constant 3\n- The field path expression \"$inventory.total\"\nThe constant 3\nThe field path expression \"$inventory.total\"\nThe expression returns the result of adding 3 to the value at path inventory.total of the input document.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "field-paths",
+          "heading": "Field Paths",
+          "heading_level": 3,
+          "content": "Field path expressions are used to access fields in\ninput documents. To specify a field path, prefix the field name or the dotted field path (if the field is in an\nembedded document) with a dollar sign $ . For example, \"$user\" to\nspecify the field path for the user field or \"$user.name\" to\nspecify the field path to the embedded \"user.name\" field.\n\"$<field>\" is equivalent to \"$$CURRENT.<field>\" where the CURRENT is a system variable that defaults to the root of\nthe current object, unless stated otherwise in specific stages.\nFor more information and examples, see Field Paths .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "run-an-aggregation-pipeline",
+      "heading": "Run an Aggregation Pipeline",
+      "heading_level": 2,
+      "content": "To run an aggregation pipeline, use:\n- db.collection.aggregate() or\n- aggregate\ndb.collection.aggregate() or\naggregate",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "update-documents-using-an-aggregation-pipeline",
+      "heading": "Update Documents Using an Aggregation Pipeline",
+      "heading_level": 2,
+      "content": "To update documents with an aggregation pipeline, use:\nfindAndModify\nupdate",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "other-considerations",
+      "heading": "Other Considerations",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "aggregation-pipeline-limitations",
+          "heading": "Aggregation Pipeline Limitations",
+          "heading_level": 3,
+          "content": "An aggregation pipeline has limitations on the value types and the\nresult size. See Aggregation Pipeline Limits .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "aggregation-pipelines-and-sharded-collections",
+          "heading": "Aggregation Pipelines and Sharded Collections",
+          "heading_level": 3,
+          "content": "An aggregation pipeline supports operations on sharded collections.\nSee Aggregation Pipeline and Sharded Collections .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "aggregation-pipelines-as-an-alternative-to-map-reduce",
+          "heading": "Aggregation Pipelines as an Alternative to Map-Reduce",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 5.0, map-reduce is\ndeprecated:\n- Instead of map-reduce , you should use an aggregation pipeline . Aggregation\npipelines provide better performance and usability than map-reduce.\n- You can rewrite map-reduce operations using aggregation pipeline\nstages , such as $group , $merge , and others.\n- For map-reduce operations that require custom functionality, you can\nuse the $accumulator and $function aggregation\noperators. You can use those\noperators to define custom aggregation expressions in JavaScript.\nInstead of map-reduce , you should use an aggregation pipeline . Aggregation\npipelines provide better performance and usability than map-reduce.\nInstead of map-reduce , you should use an aggregation pipeline . Aggregation\npipelines provide better performance and usability than map-reduce.\nYou can rewrite map-reduce operations using aggregation pipeline\nstages , such as $group , $merge , and others.\nYou can rewrite map-reduce operations using aggregation pipeline\nstages , such as $group , $merge , and others.\nFor map-reduce operations that require custom functionality, you can\nuse the $accumulator and $function aggregation\noperators. You can use those\noperators to define custom aggregation expressions in JavaScript.\nFor map-reduce operations that require custom functionality, you can\nuse the $accumulator and $function aggregation\noperators. You can use those\noperators to define custom aggregation expressions in JavaScript.\nFor examples of aggregation pipeline alternatives to map-reduce, see:\n- Map-Reduce to Aggregation Pipeline\n- Map-Reduce Examples\nMap-Reduce to Aggregation Pipeline\nMap-Reduce Examples",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "To learn more about aggregation pipelines, see:\n- Expressions\n- Aggregation Stages\nExpressions\nAggregation Stages\nAggregation Operations\nField Paths\nMaster \" Fundamentals of Data Transformation \" for free!\n- Complete Aggregation Pipeline Examples\n- Additional Aggregation Pipeline Stage Details\n- Run an Aggregation Pipeline\n- Update Documents Using an Aggregation Pipeline\n- Other Considerations\n- Learn More\nComplete Aggregation Pipeline Examples\nAdditional Aggregation Pipeline Stage Details\nRun an Aggregation Pipeline\nUpdate Documents Using an Aggregation Pipeline\nOther Considerations\nLearn More\n- Complete Aggregation Pipeline Examples\n- Additional Aggregation Pipeline Stage Details\n- Run an Aggregation Pipeline\n- Update Documents Using an Aggregation Pipeline\n- Other Considerations\n- Learn More\nComplete Aggregation Pipeline Examples\nAdditional Aggregation Pipeline Stage Details\nRun an Aggregation Pipeline\nUpdate Documents Using an Aggregation Pipeline\nOther Considerations\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:24.151104",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "agg-core-pipeline",
+  "source_type": "manual",
+  "file_stub": "d2_agg-core-pipeline"
+}

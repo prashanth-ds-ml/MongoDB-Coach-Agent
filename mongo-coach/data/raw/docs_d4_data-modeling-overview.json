@@ -1,0 +1,71 @@
+{
+  "url": "https://www.mongodb.com/docs/v8.0/data-modeling/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Data Modeling in MongoDB",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "use-cases",
+      "heading": "Use Cases",
+      "heading_level": 2,
+      "content": "Consider the following examples that take advantage of the document model's\nflexibility:\n- Your company tracks which department each employee works in. You can\nembed department information in the employee collection to return relevant\ninformation in a single query.\n- Your e-commerce application shows the five most recent reviews on a product\npage. You can store all reviews, including older ones, in a separate\ncollection because they are not accessed as frequently.\n- Your clothing store needs to create a single-page application for a\nproduct catalog. Different products have different attributes and, as a\nresult, might have different document fields and field types. Despite these\ndifferences, you can store all of the products in the same collection.\nYour company tracks which department each employee works in. You can\nembed department information in the employee collection to return relevant\ninformation in a single query.\nYour company tracks which department each employee works in. You can\nembed department information in the employee collection to return relevant\ninformation in a single query.\nYour e-commerce application shows the five most recent reviews on a product\npage. You can store all reviews, including older ones, in a separate\ncollection because they are not accessed as frequently.\nYour e-commerce application shows the five most recent reviews on a product\npage. You can store all reviews, including older ones, in a separate\ncollection because they are not accessed as frequently.\nYour clothing store needs to create a single-page application for a\nproduct catalog. Different products have different attributes and, as a\nresult, might have different document fields and field types. Despite these\ndifferences, you can store all of the products in the same collection.\nYour clothing store needs to create a single-page application for a\nproduct catalog. Different products have different attributes and, as a\nresult, might have different document fields and field types. Despite these\ndifferences, you can store all of the products in the same collection.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "get-started",
+      "heading": "Get Started",
+      "heading_level": 2,
+      "content": "To ensure that your data model has a logical structure and achieves\noptimal performance, plan your schema prior to using your database at a\nproduction scale. To determine your data model, use the following schema design process :\n- Identify your application's workload .\n- Map relationships between objects in your collections .\n- Apply design patterns .\nIdentify your application's workload .\nMap relationships between objects in your collections .\nApply design patterns .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "details",
+      "heading": "Details",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "developing-with-a-flexible-data-model",
+          "heading": "Developing with a Flexible Data Model",
+          "heading_level": 3,
+          "content": "MongoDB's flexible schema lets you adapt your data model without requiring\nsignificant changes to the underlying database. This way, you can iteratively\nimprove your data model as you develop your application.\nBy developing with MongoDB's flexible schema, you can:\n- Map your data model directly to objects that exist in code.\n- Add schema validation only to the sections and aspects of the documents that\nneed stricter control.\nMap your data model directly to objects that exist in code.\nAdd schema validation only to the sections and aspects of the documents that\nneed stricter control.\nAdd schema validation only to the sections and aspects of the documents that\nneed stricter control.\nFor an example of how you can iteratively modify your data model, see Modify Your Data Model .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "document-relationships",
+          "heading": "Document Relationships",
+          "heading_level": 3,
+          "content": "The value of a document field can include any of the BSON data types , including other documents, arrays, and arrays of documents. These\nobjects can be used to represent different types of relationships in\nyour data model, including:\n- One-to-one relationships : Each document is associated with exactly one\nother document. For example, a patient has exactly one medical record.\n- One-to-many relationships : Each document is associated with multiple other\ndocuments. For example, a web application user can have many posts or\ncomments.\n- Many-to-many relationships : Each document can be associated with multiple\nother documents, and vice versa. For example, a student can be enrolled in\nmultiple courses, and each course can have multiple students.\nOne-to-one relationships : Each document is associated with exactly one\nother document. For example, a patient has exactly one medical record.\nOne-to-one relationships : Each document is associated with exactly one\nother document. For example, a patient has exactly one medical record.\nOne-to-many relationships : Each document is associated with multiple other\ndocuments. For example, a web application user can have many posts or\ncomments.\nOne-to-many relationships : Each document is associated with multiple other\ndocuments. For example, a web application user can have many posts or\ncomments.\nMany-to-many relationships : Each document can be associated with multiple\nother documents, and vice versa. For example, a student can be enrolled in\nmultiple courses, and each course can have multiple students.\nMany-to-many relationships : Each document can be associated with multiple\nother documents, and vice versa. For example, a student can be enrolled in\nmultiple courses, and each course can have multiple students.\nIn MongoDB, you can model relationships by either embedding or referencing your data. By choosing the best data-linking method, you can\noptimize your data model for your application's specific access patterns.\nTo learn more about modeling relationships in MongoDB, see:\n- Document Relationships .\n- Link Related Data .\nDocument Relationships .\nLink Related Data .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "schema-design:-differences-between-relational-and-document-databases",
+          "heading": "Schema Design: Differences Between Relational and Document Databases",
+          "heading_level": 3,
+          "content": "When you design a schema for a document database like MongoDB, consider the\nfollowing important differences from relational databases:\nYou must determine a table's schema before you insert data. While you\ncan change your data model in a relational database, a fixed schema\nrequires more planning upfront, including consideration of how changes\naffect dependent references.\nYou can easily change your data model over time as the needs of your\napplication evolve.\nYou often need to join data from several different tables to\nreturn the data needed by your application.\nThe flexible data model lets you store data according to your\napplication's data access patterns. For example, embedding data allows you to avoid complex joins across\nmultiple collections, while improving performance and reducing your\ndeployment's workload.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "- Best Practices for Data Modeling in MongoDB\n- Data Modeling in MongoDB Compass\nBest Practices for Data Modeling in MongoDB\nData Modeling in MongoDB Compass\nReference\nBest Practices\nMaster \" Relational to Document Model \" for free!\n- Use Cases\n- Get Started\n- Details\n- Developing with a Flexible Data Model\n- Document Relationships\n- Schema Design: Differences Between Relational and Document Databases\n- Learn More\nUse Cases\nGet Started\nDetails\nDeveloping with a Flexible Data Model\nDocument Relationships\nSchema Design: Differences Between Relational and Document Databases\nLearn More\n- Use Cases\n- Get Started\n- Details\n- Developing with a Flexible Data Model\n- Document Relationships\n- Schema Design: Differences Between Relational and Document Databases\n- Learn More\nUse Cases\nGet Started\nDetails\nDeveloping with a Flexible Data Model\nDocument Relationships\nSchema Design: Differences Between Relational and Document Databases\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:32.734456",
+  "exam_code": "associate_developer_python",
+  "domain_id": 4,
+  "domain_name": "Data Modeling",
+  "seed_id": "data-modeling-overview",
+  "source_type": "manual",
+  "file_stub": "d4_data-modeling-overview"
+}

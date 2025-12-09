@@ -1,0 +1,135 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/core/index-partial/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Partial Indexes",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "create-a-partial-index",
+      "heading": "Create a Partial Index",
+      "heading_level": 2,
+      "content": "To create a partial index, use the db.collection.createIndex() method with the partialFilterExpression option. The partialFilterExpression option accepts a document that specifies the filter condition using:\n- equality expressions (i.e. field: value or using the $eq operator)\n- $exists: true expression\n- $gt , $gte , $lt , $lte expressions\n- $type expressions\n- $and operator\n- $or operator\n- $in operator\n- $geoWithin operator\n- $geoIntersects operator\nequality expressions (i.e. field: value or using the $eq operator)\n$exists: true expression\n$gt , $gte , $lt , $lte expressions\n$type expressions\n$and operator\n$or operator\n$in operator\n$geoWithin operator\n$geoIntersects operator\nFor example, the following operation creates a compound index that\nindexes only the documents with a rating field greater than 5.\nYou can specify a partialFilterExpression option for all MongoDB index types . When specifying a partialFilterExpression for a TTL index on a time series collection,\nyou can only filter on the collection metaField .",
+      "code_blocks": [
+        "db. restaurants . createIndex ( { cuisine : 1 , name : 1 } , { partialFilterExpression : { rating : { $gt : 5 } } } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "To learn how to manage indexes in MongoDB Compass , see Manage Indexes .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "query-coverage",
+          "heading": "Query Coverage",
+          "heading_level": 3,
+          "content": "MongoDB will not use the partial index for a query or sort operation if\nusing the index results in an incomplete result set.\nTo use the partial index, a query must contain the filter expression\n(or a modified filter expression that specifies a subset of the filter\nexpression) as part of its query condition.\nFor example, given the following index:\nThe following query can use the index since the query predicate\nincludes the condition rating: { $gte: 8 } that matches a subset of\ndocuments matched by the index filter expression rating: { $gt: 5\n} :\nHowever, the following query cannot use the partial index on the cuisine field because using the index results in an incomplete\nresult set. Specifically, the query predicate includes the condition rating: { $lt: 8 } while the index has the filter rating: { $gt:\n5 } . That is, the query { cuisine: \"Italian\", rating: { $lt: 8 }\n} matches more documents (e.g. an Italian restaurant with a rating\nequal to 1) than are indexed.\nSimilarly, the following query cannot use the partial index because the\nquery predicate does not include the filter expression and using the\nindex would return an incomplete result set.",
+          "code_blocks": [
+            "db. restaurants . createIndex ( { cuisine : 1 } , { partialFilterExpression : { rating : { $gt : 5 } } } )",
+            "db. restaurants . find ( { cuisine : \"Italian\" , rating : { $gte : 8 } } )",
+            "db. restaurants . find ( { cuisine : \"Italian\" , rating : { $lt : 8 } } )",
+            "db. restaurants . find ( { cuisine : \"Italian\" } )"
+          ]
+        },
+        {
+          "subsection_id": "comparison-with-sparse-indexes",
+          "heading": "Comparison with Sparse Indexes",
+          "heading_level": 3,
+          "content": "Use partial indexes over sparse indexes if you want\nmore precise control over which documents to index:\n- Sparse indexes include or exclude documents solely based on the presence of\nthe indexed field (or multiple fields, for sparse compound indexes).\n- Partial indexes include or exclude documents based on the filter expression.\nThe expression can include fields other than index keys, and\ncan specify conditions other than a field existing.\nSparse indexes include or exclude documents solely based on the presence of\nthe indexed field (or multiple fields, for sparse compound indexes).\nSparse indexes include or exclude documents solely based on the presence of\nthe indexed field (or multiple fields, for sparse compound indexes).\nPartial indexes include or exclude documents based on the filter expression.\nThe expression can include fields other than index keys, and\ncan specify conditions other than a field existing.\nPartial indexes include or exclude documents based on the filter expression.\nThe expression can include fields other than index keys, and\ncan specify conditions other than a field existing.\nFor example, a partial index can implement the same behavior as a sparse index.\nThis partial index supports the same queries as a sparse index on the name field:\nHowever, a partial index can also filter on fields other than the index key.\nFor example, a partial index on the name field can check for the existence\nof the email field:\nFor the query optimizer to choose this partial index, the query\npredicate must include a condition on the name field as well\nas a non-null match on the email field.\nFor example, the following query can use the index because it includes\nboth a condition on the name field and a non-null match on the email field:\nHowever, the following query cannot use the index because it\nincludes a null match on the email field, which is not permitted\nby the filter expression { email: { $exists: true } } :",
+          "code_blocks": [
+            "db. contacts . createIndex ( { name : 1 } , { partialFilterExpression : { name : { $exists : true } } } )",
+            "db. contacts . createIndex ( { name : 1 } , { partialFilterExpression : { email : { $exists : true } } } )",
+            "db. contacts . find ( { name : \"xyz\" , email : { $regex : / \\. org$/ } } )",
+            "db. contacts . find ( { name : \"xyz\" , email : { $exists : false } } )"
+          ]
+        },
+        {
+          "subsection_id": "partial-ttl-indexes",
+          "heading": "Partial TTL Indexes",
+          "heading_level": 3,
+          "content": "Partial indexes can also be TTL indexes. Partial TTL indexes match the\nspecified filter expression and expire only those documents. For details, see Expire Documents with Filter Conditions .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "restrictions",
+      "heading": "Restrictions",
+      "heading_level": 2,
+      "content": "- You cannot specify both the partialFilterExpression option and\nthe sparse option.\n- _id indexes cannot be partial indexes.\n- Shard key indexes cannot be partial indexes.\n- If you are using Client-Side Field Level Encryption or Queryable Encryption , a partialFilterExpression cannot reference an\nencrypted field.\nYou cannot specify both the partialFilterExpression option and\nthe sparse option.\nYou cannot specify both the partialFilterExpression option and\nthe sparse option.\n_id indexes cannot be partial indexes.\nShard key indexes cannot be partial indexes.\nIf you are using Client-Side Field Level Encryption or Queryable Encryption , a partialFilterExpression cannot reference an\nencrypted field.\nIf you are using Client-Side Field Level Encryption or Queryable Encryption , a partialFilterExpression cannot reference an\nencrypted field.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "equivalent-indexes",
+          "heading": "Equivalent Indexes",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 7.3, you cannot create equivalent indexes, which are\npartial indexes with the same index keys and the same partial\nexpressions that use a collation .\nFor databases in MongoDB 7.3 with existing equivalent indexes, the\nindexes are retained but only the first equivalent index is used in\nqueries. This is the same behavior as MongoDB versions earlier than 7.3.\nFor an example, see Equivalent Indexes Example .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "create-a-partial-index-on-a-collection",
+          "heading": "Create a Partial Index On A Collection",
+          "heading_level": 3,
+          "content": "Consider a collection restaurants that contains documents that resemble\nthe following example:\nYou could add a partial index on the borough and cuisine fields\nchoosing only to index documents where the rating.grade field is A :\nThen, the following query on the restaurants collection uses the partial index\nto return the restaurants in the Bronx with rating.grade equal to A :\nHowever, the following query cannot use the partial index because the\nquery predicate does not include the rating.grade field:",
+          "code_blocks": [
+            "db. restaurants . insertOne ( { _id : ObjectId ( \"5641f6a7522545bc535b5dc9\" ) , address : { building : \"1007\" , coord : [ - 73.856077 , 40.848447 ] , street : \"Morris Park Ave\" , zipcode : \"10462\" } , borough : \"Bronx\" , cuisine : \"Bakery\" , rating : { date : ISODate ( \"2014-03-03T00:00:00Z\" ) , grade : \"A\" , score : 2 } , name : \"Morris Park Bake Shop\" , restaurant_id : \"30075445\" } )",
+            "db. restaurants . createIndex ( { borough : 1 , cuisine : 1 } , { partialFilterExpression : { 'rating.grade' : { $eq : \"A\" } } } )",
+            "db. restaurants . find ( { borough : \"Bronx\" , 'rating.grade' : \"A\" } )",
+            "db. restaurants . find ( { borough : \"Bronx\" , cuisine : \"Bakery\" } )"
+          ]
+        },
+        {
+          "subsection_id": "partial-index-with-unique-constraint",
+          "heading": "Partial Index with Unique Constraint",
+          "heading_level": 3,
+          "content": "Partial indexes only index the documents in a collection that meet a\nspecified filter expression. If you specify both the partialFilterExpression and a unique constraint , the unique constraint only applies to the\ndocuments that meet the filter expression. A partial index with a\nunique constraint does not prevent the insertion of documents that do\nnot meet the unique constraint if the documents do not meet the filter\ncriteria.\nFor example, a collection users contains the following documents:\nThe following operation creates an index that specifies a unique\nconstraint on the username field and a partial\nfilter expression age: { $gte: 21 } .\nThe index prevents the insertion of the following documents since\ndocuments already exist with the specified usernames and the age fields are greater than 21 :\nHowever, the following documents with duplicate usernames are allowed\nsince the unique constraint only applies to documents with age greater than or equal to 21.",
+          "code_blocks": [
+            "db. users . insertMany ( [ { _id : ObjectId ( \"56424f1efa0358a27fa1f99a\" ) , username : \"david\" , ag : 29 } , { _id : ObjectId ( \"56424f37fa0358a27fa1f99b\" ) , username : \"amanda\" , age : 35 } , { _id : ObjectId ( \"56424fe2fa0358a27fa1f99c\" ) , username : \"rajiv\" , age : 57 } ] )",
+            "db. users . createIndex ( { username : 1 } , { unique : true , partialFilterExpression : { age : { $gte : 21 } } } )",
+            "db. users . insertMany ( [ { username : \"david\" , age : 27 } , { username : \"amanda\" , age : 25 } , { username : \"rajiv\" , age : 32 } ] )",
+            "db. users . insertMany ( [ { username : \"david\" , age : 20 } , { username : \"amanda\" } , { username : \"rajiv\" , age : null } ] )"
+          ]
+        },
+        {
+          "subsection_id": "equivalent-indexes-example",
+          "heading": "Equivalent Indexes Example",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 7.3, you cannot create equivalent indexes, which are\npartial indexes with the same index keys and the same partial\nexpressions that use a collation .\nFor databases in MongoDB 7.3 with existing equivalent indexes, the\nindexes are retained but only the first equivalent index is used in\nqueries. This is the same behavior as MongoDB versions earlier than 7.3.\nIn previous MongoDB versions, you can create two equivalent indexes. The\nfollowing example creates a pizzas collection and two equivalent\nindexes named index0 and index1 :\nThe indexes are equivalent because the two indexes specify the same\npizza size and only differ in the text case in the partial filter\nexpression. Only one index is used by queries: the index that was\ncreated first, which is index0 in the previous example.\nStarting in MongoDB 7.3, you cannot create the second index ( index1 )\nand this error is returned:\nIn MongoDB versions earlier than 7.3, you can create the indexes but\nonly the first index ( index0 ) is used with these queries:\nHidden\nSparse\n- Create a Partial Index\n- Behavior\n- Restrictions\n- Examples\nCreate a Partial Index\nBehavior\nRestrictions\n- Create a Partial Index\n- Behavior\n- Restrictions\n- Examples\nCreate a Partial Index\nBehavior\nRestrictions",
+          "code_blocks": [
+            "// Create the pizzas collection db. pizzas . insertMany ( [ { _id : 0 , type : \"pepperoni\" , size : \"small\" , price : 4 } , { _id : 1 , type : \"cheese\" , size : \"medium\" , price : 7 } , { _id : 2 , type : \"vegan\" , size : \"large\" , price : 8 } ] ) // Create two equivalent indexes with medium pizza sizes db. pizzas . createIndex ( { type : 1 } , { name : \"index0\" , partialFilterExpression : { size : \"medium\" } , collation : { locale : \"en_US\" , strength : 1 } } ) db. pizzas . createIndex ( { type : 1 } , { name : \"index1\" , partialFilterExpression : { size : \"MEDIUM\" } , collation : { locale : \"en_US\" , strength : 1 } } )",
+            "MongoServerError: Index already exists with a different name: index0",
+            "db. pizzas . find ( { type : \"cheese\" , size : \"medium\" } ). collation ( { locale : \"en_US\" , strength : 1 } ) db. pizzas . find ( { type : \"cheese\" , size : \"MEDIUM\" } ). collation ( { locale : \"en_US\" , strength : 1 } ) db. pizzas . find ( { type : \"cheese\" , size : \"Medium\" } ). collation ( { locale : \"en_US\" , strength : 1 } )"
+          ]
+        }
+      ]
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:31.902453",
+  "exam_code": "associate_developer_python",
+  "domain_id": 3,
+  "domain_name": "Indexes",
+  "seed_id": "index-partial",
+  "source_type": "manual",
+  "file_stub": "d3_index-partial"
+}

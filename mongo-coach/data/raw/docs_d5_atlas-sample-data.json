@@ -1,0 +1,129 @@
+{
+  "url": "https://www.mongodb.com/docs/atlas/sample-data/",
+  "doc_type": "mongodb_docs_atlas",
+  "method_name": null,
+  "title": "Load Data into Atlas",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "load-sample-data",
+      "heading": "Load Sample Data",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "required-access",
+          "heading": "Required Access",
+          "heading_level": 3,
+          "content": "To load sample data, you must have Project Owner access to the project.\nUsers with Organization Owner access must add themselves to the\nproject as a Project Owner .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "prerequisites",
+          "heading": "Prerequisites",
+          "heading_level": 3,
+          "content": "To utilize the sample data provided by Atlas , you must create\nan Atlas cluster to load data into. To learn more,\nsee Cluster Types .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "load-sample-data-into-your-cluster",
+          "heading": "Load Sample Data into Your Cluster",
+          "heading_level": 3,
+          "content": "You can load sample data into your Atlas cluster from the Atlas CLI or the Atlas UI . To load sample data into your local deployment, see Load Sample Data into Your Local Deployment .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "You can use the local deployment steps to load data\ninto a MongoDB Community or Enterprise cluster.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "load-sample-data-into-your-local-deployment",
+          "heading": "Load Sample Data into Your Local Deployment",
+          "heading_level": 3,
+          "content": "To load sample data into your local deployment:\nRun the following command in your terminal to download the sample data:\nRun the following command to load the data into your deployment,\nreplacing <port-number> with the port where you're hosting the\ndeployment:",
+          "code_blocks": [
+            "curl https://atlas-education.s3.amazonaws.com/sampledata.archive -o sampledata.archive",
+            "mongorestore --archive=sampledata.archive --port=<port-number>"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "available-sample-datasets",
+      "heading": "Available Sample Datasets",
+      "heading_level": 2,
+      "content": "The following table shows the sample datasets available for Atlas clusters. Click a sample dataset to learn more about it.\nFor instructions on loading this sample data into your Atlas cluster, see Load Sample Data .\nSample AirBnB Listings Dataset\nContains details on AirBnB listings.\nSample Analytics Dataset\nContains training data for a mock financial services\napplication.\nSample Geospatial Dataset\nContains shipwreck data.\nSample Guides Dataset\nContains planet data.\nSample Mflix Dataset\nContains movie data. Includes vector embeddings .\nSample Restaurants Dataset\nContains restaurant data.\nSample Supply Store Dataset\nContains data from a mock office supply store.\nSample Training Dataset\nContains MongoDB training services dataset.\nSample Weather Dataset\nContains detailed weather reports.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "sample-data-namespaces",
+      "heading": "Sample Data Namespaces",
+      "heading_level": 2,
+      "content": "When you load the sample data, Atlas creates the following\nnamespaces on your cluster:",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "warning",
+      "heading": "Warning",
+      "heading_level": 2,
+      "content": "If any of these namespaces already exist on your\ncluster when you attempt to load the sample data,\nthe operation will fail and no sample data will be loaded into your\ncluster.\nsample_airbnb\nlistingsAndReviews\nsample_analytics\naccounts\nsample_analytics\ncustomers\nsample_analytics\ntransactions\nsample_geospatial\nshipwrecks\nsample_guides\nplanets\nsample_mflix\ncomments\nsample_mflix\nembedded_movies\nsample_mflix\nmovies\nsample_mflix\ntheaters\nsample_mflix\nusers\nsample_supplies\nsales\nsample_training\ncompanies\nsample_training\ngrades\nsample_training\ninspections\nsample_training\nposts\nsample_training\nroutes\nsample_training\ntrips\nsample_training\nzips\nsample_weatherdata\ndata",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tutorials-using-sample-data",
+      "heading": "Tutorials Using Sample Data",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "atlas-tutorials",
+          "heading": "Atlas Tutorials",
+          "heading_level": 3,
+          "content": "The Get Started with Atlas tutorial walks through setting up\nan Atlas cluster and populating that cluster with sample\ndata.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "mongodb-charts-tutorials",
+          "heading": "MongoDB Charts Tutorials",
+          "heading_level": 3,
+          "content": "The following MongoDB Charts tutorials guide you through\nvisualizing sample data provided by Atlas :",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "To visualize data in MongoDB Charts from the Atlas UI, click Visualize Your Data when viewing a specific database\nor collection. Charts loads the data source and you can\nstart building a chart in the Charts view. For detailed\nsteps, see Build Charts .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "mongodb-courses-that-use-sample-data",
+      "heading": "MongoDB Courses that Use Sample Data",
+      "heading_level": 2,
+      "content": "Download Query Logs\nSample Airbnb\n- Load Sample Data\n- Available Sample Datasets\n- Sample Data Namespaces\n- Tutorials Using Sample Data\n- MongoDB Courses that Use Sample Data\nLoad Sample Data\nAvailable Sample Datasets\nSample Data Namespaces\nTutorials Using Sample Data\nMongoDB Courses that Use Sample Data\n- Load Sample Data\n- Available Sample Datasets\n- Sample Data Namespaces\n- Tutorials Using Sample Data\n- MongoDB Courses that Use Sample Data\nLoad Sample Data\nAvailable Sample Datasets\nSample Data Namespaces\nTutorials Using Sample Data\nMongoDB Courses that Use Sample Data",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:35.931446",
+  "exam_code": "associate_developer_python",
+  "domain_id": 5,
+  "domain_name": "Tools and Tooling",
+  "seed_id": "atlas-sample-data",
+  "source_type": "atlas",
+  "file_stub": "d5_atlas-sample-data"
+}

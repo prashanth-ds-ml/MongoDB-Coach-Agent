@@ -1,0 +1,199 @@
+{
+  "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/get-started/",
+  "doc_type": "mongodb_docs_driver_python",
+  "method_name": null,
+  "title": "Get Started with PyMongo",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "overview",
+      "heading": "Overview",
+      "heading_level": 2,
+      "content": "PyMongo is a Python package that you can use to connect\nto and communicate with MongoDB. This guide shows you how to create an\napplication that uses PyMongo to connect to a MongoDB cluster hosted on\nMongoDB Atlas.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "MongoDB Atlas is a fully managed cloud database service that hosts your MongoDB\ndeployments. You can create your own free (no credit card required) MongoDB Atlas\ndeployment by following the steps in this guide.\nFollow this guide to connect a sample Python application to a MongoDB Atlas\ndeployment. If you prefer to connect to MongoDB using a different driver or\nprogramming language, see our list of official drivers .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "download-and-install",
+      "heading": "Download and Install",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "alternative-installation-methods",
+          "heading": "Alternative Installation Methods",
+          "heading_level": 3,
+          "content": "The following steps show you how to install PyMongo by using pip . To install\nPyMongo from source, see Install from Source in the API documentation.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "install-dependencies",
+          "heading": "Install dependencies",
+          "heading_level": 3,
+          "content": "Ensure you have the following dependencies installed\nin your development environment:\n- Python3 version 3.8 or later\n- pip\n- dnspython\nPython3 version 3.8 or later\npip\ndnspython",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "create-a-project-directory",
+          "heading": "Create a project directory",
+          "heading_level": 3,
+          "content": "In your shell, run the following command to create a\ndirectory called pymongo-quickstart for this project:\nSelect the tab corresponding to your operating system and run the following commands\nto create a quickstart.py application file in the pymongo-quickstart directory:",
+          "code_blocks": [
+            "mkdir pymongo-quickstart",
+            "cd pymongo-quickstart touch quickstart.py",
+            "cd pymongo-quickstart type nul > quickstart.py"
+          ]
+        },
+        {
+          "subsection_id": "install-pymongo",
+          "heading": "Install PyMongo",
+          "heading_level": 3,
+          "content": "Select the tab corresponding to your operating system and run the following commands\nto create and activate a virtual environment in which to install the driver:\nWith the virtual environment activated, run the following command to\ninstall the current version of PyMongo:\nAfter you complete these steps, you have a new project directory\nand the driver dependencies installed.",
+          "code_blocks": [
+            "python3 -m venv venv source venv /bin/activate",
+            "python3 -m venv venv . venv\\Scripts\\activate",
+            "python3 -m pip install pymongo"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "create-a-mongodb-deployment",
+      "heading": "Create a MongoDB Deployment",
+      "heading_level": 2,
+      "content": "You can create a free-tier MongoDB deployment on MongoDB Atlas\nto store and manage your data. MongoDB Atlas hosts and manages\nyour MongoDB database in the cloud.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "create-a-free-mongodb-deployment-on-atlas",
+          "heading": "Create a free MongoDB deployment on Atlas",
+          "heading_level": 3,
+          "content": "Complete the Get Started with Atlas guide to set up a new Atlas account and load sample data into a new free\ntier MongoDB deployment.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "save-your-credentials",
+          "heading": "Save your credentials",
+          "heading_level": 3,
+          "content": "After you create your database user, save that user's\nusername and password to a safe location for use in an upcoming step.\nAfter you complete these steps, you have a new free tier MongoDB\ndeployment on Atlas, database user credentials, and sample data loaded\nin your database.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "create-a-connection-string",
+      "heading": "Create a Connection String",
+      "heading_level": 2,
+      "content": "You can connect to your MongoDB deployment by providing a connection URI , also called a connection string , which\ninstructs the driver on how to connect to a MongoDB deployment\nand how to behave while connected.\nThe connection string includes the hostname or IP address and\nport of your deployment, the authentication mechanism, user credentials\nwhen applicable, and connection options.\nTo connect to an instance or deployment not hosted on Atlas, see Choose a Connection Target .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "find-your-mongodb-atlas-connection-string",
+          "heading": "Find your MongoDB Atlas connection string",
+          "heading_level": 3,
+          "content": "To retrieve your connection string for the deployment that\nyou created in the previous step ,\nlog into your Atlas account and navigate to the Database section and click the Connect button\nfor your new deployment.\nProceed to the Connect your application section and select\n\"Python\" from the Driver selection menu and the version\nthat best matches the version you installed from the Version selection menu.\nSelect the Password (SCRAM) authentication mechanism.\nDeselect the Include full driver code example option to view\nthe connection string.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "copy-your-connection-string",
+          "heading": "Copy your connection string",
+          "heading_level": 3,
+          "content": "Click the button on the right of the connection string to copy it to\nyour clipboard as shown in the following screenshot:",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "update-the-placeholders",
+          "heading": "Update the placeholders",
+          "heading_level": 3,
+          "content": "Paste this connection string into a file in your preferred text editor\nand replace the <username> and <password> placeholders with\nyour database user's username and password.\nSave this file to a safe location for use in the next step.\nAfter completing these steps, you have a connection string that\ncontains your database username and password.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "connect-to-mongodb",
+      "heading": "Connect to MongoDB",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "create-your-pymongo-application",
+          "heading": "Create your PyMongo application",
+          "heading_level": 3,
+          "content": "Copy and paste the following code into the quickstart.py file in your application.\nSelect the Synchronous or Asynchronous tab to see the\ncorresponding code:",
+          "code_blocks": [
+            "from pymongo import MongoClient uri = \"<connection string URI>\" client = MongoClient(uri) try : database = client.get_database( \"sample_mflix\" ) movies = database.get_collection( \"movies\" ) # Query for a movie that has the title 'Back to the Future' query = { \"title\" : \"Back to the Future\" } movie = movies.find_one(query) print (movie) client.close() except Exception as e: raise Exception( \"Unable to find the document due to the following error: \" , e)",
+            "import asyncio from pymongo import AsyncMongoClient async def main () : uri = \"<connection string URI>\" client = AsyncMongoClient(uri) try : database = client.get_database( \"sample_mflix\" ) movies = database.get_collection( \"movies\" ) # Query for a movie that has the title 'Back to the Future' query = { \"title\" : \"Back to the Future\" } movie = await movies.find_one(query) print (movie) await client.close() except Exception as e: raise Exception( \"Unable to find the document due to the following error: \" , e) # Run the async function asyncio.run(main())"
+          ]
+        },
+        {
+          "subsection_id": "assign-the-connection-string",
+          "heading": "Assign the connection string",
+          "heading_level": 3,
+          "content": "Replace the <connection string URI> placeholder with the\nconnection string that you copied from the Create a Connection String step of this guide.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "run-your-application",
+          "heading": "Run your application",
+          "heading_level": 3,
+          "content": "In your shell, run the following command to start this application:\nThe output includes details of the retrieved movie document:",
+          "code_blocks": [
+            "python3 quickstart.py",
+            "{ _id: ..., plot: 'A young man is accidentally sent 30 years into the past...', genres: [ 'Adventure', 'Comedy', 'Sci-Fi' ], ... title: 'Back to the Future', ... }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "If you encounter an error or see no output, check whether you specified the\nproper connection string, and that you loaded the\nsample data.\nAfter you complete these steps, you have a working application that\nuses the driver to connect to your MongoDB deployment, runs a query on\nthe sample data, and prints out the result.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "next-steps",
+      "heading": "Next Steps",
+      "heading_level": 2,
+      "content": "Congratulations on completing the tutorial!\nIn this tutorial, you created a Python application that\nconnects to a MongoDB deployment hosted on MongoDB Atlas\nand retrieves a document that matches a query.\nLearn more about PyMongo from the following resources:\n- Learn how to insert documents in the Insert Documents section.\n- Learn how to find documents in the Query section.\n- Learn how to update documents in the Update Documents section.\n- Learn how to delete documents in the Delete Documents section.\nLearn how to insert documents in the Insert Documents section.\nLearn how to find documents in the Query section.\nLearn how to update documents in the Update Documents section.\nLearn how to delete documents in the Delete Documents section.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "If you run into issues on this step, submit feedback by\nusing the Rate this page tab on the right or\nbottom right side of this page.\nYou can find support for general questions by using the MongoDB Stack Overflow tag or\nthe MongoDB Reddit community .\nOverview\nConnect\n- Overview\n- Download and Install\n- Install dependencies\n- Create a project directory\n- Install PyMongo\n- Create a MongoDB Deployment\n- Create a free MongoDB deployment on Atlas\n- Save your credentials\n- Create a Connection String\n- Find your MongoDB Atlas connection string\n- Copy your connection string\n- Update the placeholders\n- Connect to MongoDB\n- Create your PyMongo application\n- Assign the connection string\n- Run your application\n- Next Steps\nOverview\nDownload and Install\nInstall dependencies\nCreate a project directory\nInstall PyMongo\nCreate a MongoDB Deployment\nCreate a free MongoDB deployment on Atlas\nSave your credentials\nCreate a Connection String\nFind your MongoDB Atlas connection string\nCopy your connection string\nUpdate the placeholders\nConnect to MongoDB\nCreate your PyMongo application\nAssign the connection string\nRun your application\nNext Steps\n- Overview\n- Download and Install\n- Install dependencies\n- Create a project directory\n- Install PyMongo\n- Create a MongoDB Deployment\n- Create a free MongoDB deployment on Atlas\n- Save your credentials\n- Create a Connection String\n- Find your MongoDB Atlas connection string\n- Copy your connection string\n- Update the placeholders\n- Connect to MongoDB\n- Create your PyMongo application\n- Assign the connection string\n- Run your application\n- Next Steps\nOverview\nDownload and Install\nInstall dependencies\nCreate a project directory\nInstall PyMongo\nCreate a MongoDB Deployment\nCreate a free MongoDB deployment on Atlas\nSave your credentials\nCreate a Connection String\nFind your MongoDB Atlas connection string\nCopy your connection string\nUpdate the placeholders\nConnect to MongoDB\nCreate your PyMongo application\nAssign the connection string\nRun your application\nNext Steps",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:37.522246",
+  "exam_code": "associate_developer_python",
+  "domain_id": 6,
+  "domain_name": "Drivers – Python",
+  "seed_id": "pymongo-get-started",
+  "source_type": "driver",
+  "file_stub": "d6_pymongo-get-started"
+}

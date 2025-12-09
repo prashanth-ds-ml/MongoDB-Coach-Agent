@@ -1,0 +1,70 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/aggregation/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Aggregation Operations",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "get-started",
+      "heading": "Get Started",
+      "heading_level": 2,
+      "content": "To perform aggregation operations, you can use:\n- Aggregation pipelines , which are\nthe preferred method for performing aggregations.\n- Single purpose aggregation methods , which are simple but lack the\ncapabilities of an aggregation pipeline.\nAggregation pipelines , which are\nthe preferred method for performing aggregations.\nAggregation pipelines , which are\nthe preferred method for performing aggregations.\nSingle purpose aggregation methods , which are simple but lack the\ncapabilities of an aggregation pipeline.\nSingle purpose aggregation methods , which are simple but lack the\ncapabilities of an aggregation pipeline.\nYou can run aggregation pipelines in the UI for deployments hosted in MongoDB Atlas .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "aggregation-pipelines",
+      "heading": "Aggregation Pipelines",
+      "heading_level": 2,
+      "content": "An aggregation pipeline consists of one or more stages that process documents. These\ndocuments can come from a collection, a view, or a specially designed stage.\nEach stage performs an operation on the input documents. For example, a stage\ncan $filter documents, $group documents, and calculate\nvalues. The documents that a stage outputs are then passed to the next stage in\nthe pipeline.\nAn aggregation pipeline can return results for groups of documents. You can also\nupdate documents with an aggregation pipeline using the stages shown in Updates with Aggregation Pipeline .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Aggregation pipelines run with the db.collection.aggregate() method do not modify documents in\na collection, unless the pipeline contains a $merge or $out stage.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "aggregation-pipeline-example",
+          "heading": "Aggregation Pipeline Example",
+          "heading_level": 3,
+          "content": "The following example pipeline uses documents from the sample data available in MongoDB Atlas, specifically the sample_training.routes collection. In this pipeline, we'll find the top\nthree airlines that offer the most direct flights out of the airport in\nPortland, Oregon, USA (PDX).\nFirst, add a $match stage to filter the documents to flights\nthat have a src_airport value of PDX and zero stops :\nThe $match stage reduces the number of documents in our pipeline from 66,985\nto 113. Next, $group the documents by airline name and count\nthe number of flights:\nThe $group stage reduces the number of documents in the pipeline to 16\nairlines. To find the airlines with the most flights, use the $sort stage to sort the remaining documents in descending order:\nAfter you sort your documents, use the $limit stage to return the\ntop three airlines that offer the most direct flights out of PDX:\nAfter putting the documents in the sample_training.routes collection through\nthis aggregation pipeline, the top three airlines offering non-stop flights from\nPDX are Alaska, American, and United Airlines with 39, 17, and 13 flights,\nrespectively.\nThe full pipeline resembles the following:\nFor runnable examples containing sample input documents, see Complete Aggregation Pipeline Examples .",
+          "code_blocks": [
+            "{ $match : { \"src_airport\" : \"PDX\" , \"stops\" : 0 } }",
+            "{ $group : { _id : { \"airline name\" : \"$airline.name\" , } count : { $sum : 1 } } }",
+            "{ $sort : { count : - 1 } }",
+            "{ $limit : 3 }",
+            "db. routes . aggregate ( [ { $match : { \"src_airport\" : \"PDX\" , \"stops\" : 0 } } , { $group : { _id : { \"airline name\" : \"$airline.name\" , } count : { $sum : 1 } } } , { $sort : { count : - 1 } } , { $limit : 3 } ] )"
+          ]
+        },
+        {
+          "subsection_id": "learn-more-about-aggregation-pipelines",
+          "heading": "Learn More About Aggregation Pipelines",
+          "heading_level": 3,
+          "content": "To learn more about aggregation pipelines, see Aggregation Pipeline .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "single-purpose-aggregation-methods",
+      "heading": "Single Purpose Aggregation Methods",
+      "heading_level": 2,
+      "content": "The single purpose aggregation methods aggregate documents from a single\ncollection. The methods are simple but lack the capabilities of an\naggregation pipeline.\ndb.collection.estimatedDocumentCount()\nReturns an approximate count of the documents in a collection or\na view.\ndb.collection.count()\nReturns a count of the number of documents in a collection or a\nview.\ndb.collection.distinct()\nReturns an array of documents that have distinct values for the\nspecified field.\nMonetary Data\nAggregation Pipeline\nMaster \" Fundamentals of Data Transformation \" for free!\n- Get Started\n- Aggregation Pipelines\n- Single Purpose Aggregation Methods\nGet Started\nAggregation Pipelines\nSingle Purpose Aggregation Methods\n- Get Started\n- Aggregation Pipelines\n- Single Purpose Aggregation Methods\nGet Started\nAggregation Pipelines\nSingle Purpose Aggregation Methods",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:24.501021",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "agg-overview",
+  "source_type": "manual",
+  "file_stub": "d2_agg-overview"
+}

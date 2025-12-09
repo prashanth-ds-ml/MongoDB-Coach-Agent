@@ -1,0 +1,383 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.updateOne/",
+  "doc_type": "mongodb_docs_method",
+  "method_name": "db.collection.updateOne",
+  "title": "db.collection.updateOne() (mongosh method)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Updates a single document within the collection based on the filter.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "This method is available in deployments hosted in the following environments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "This command is supported in all MongoDB Atlas clusters.\nFor information on Atlas support for all commands, see Unsupported Commands .\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The updateOne() method has the following syntax:",
+      "code_blocks": [
+        "db. collection . updateOne ( < filter > , < update > , { upsert : < boolean > , writeConcern : < document > , collation : < document > , arrayFilters : [ < filterdocument1 > , ... ] , hint : <document|string>, let: <document>, sort: <document>, maxTimeMS: <int>, bypassDocumentValidation: <boolean> } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "parameters",
+          "heading": "Parameters",
+          "heading_level": 3,
+          "content": "The db.collection.updateOne() method takes the following\nparameters:\nfilter\ndocument\nThe selection criteria for the update. The same query\nselectors as in the find() method are available.\nSpecify an empty document { } to update the first document returned in\nthe collection.\nupdate\ndocument or pipeline\nThe modifications to apply. Can be one of the following:\nUpdate document\nContains only update operator expressions .\nFor more information, see Update with an Update Operator Expressions Document\nAggregation pipeline\nContains only the following aggregation stages:\n- $addFields and its alias $set\n- $project and its alias $unset\n- $replaceRoot and its alias $replaceWith\n$addFields and its alias $set\n$project and its alias $unset\n$replaceRoot and its alias $replaceWith\nFor more information, see Update with an Aggregation Pipeline .\nTo update with a replacement document, see db.collection.replaceOne() .\nupsert\nboolean\nOptional. When true , updateOne() either:\n- Creates a new document if no documents match the filter .\nFor more details see upsert behavior .\n- Updates a single document that matches the filter .\nCreates a new document if no documents match the filter .\nFor more details see upsert behavior .\nCreates a new document if no documents match the filter .\nFor more details see upsert behavior .\nUpdates a single document that matches the filter .\nTo avoid multiple upserts , ensure that the filter field(s) are uniquely indexed .\nDefaults to false , which does not insert a new document when no\nmatch is found.\nwriteConcern\ndocument\nOptional. A document expressing the write concern . Omit to use the default write concern.\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .\ncollation\ndocument\nOptional.\nSpecifies the collation to use for the operation.\nCollation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nThe collation option has the following syntax:\nWhen specifying collation, the locale field is mandatory; all\nother collation fields are optional. For descriptions of the fields,\nsee Collation Document .\nIf the collation is unspecified but the collection has a\ndefault collation (see db.createCollection() ), the\noperation uses the collation specified for the collection.\nIf no collation is specified for the collection or for the\noperations, MongoDB uses the simple binary comparison used in prior\nversions for string comparisons.\nYou cannot specify multiple collations for an operation. For\nexample, you cannot specify different collations per field, or if\nperforming a find with a sort, you cannot use one collation for the\nfind and another for the sort.\narrayFilters\narray\nOptional. An array of filter documents that determine which array elements to\nmodify for an update operation on an array field.\nIn the update document, use the $[<identifier>] filtered\npositional operator to define an identifier, which you then reference\nin the array filter documents. You cannot have an array filter\ndocument for an identifier if the identifier is not included in the\nupdate document.\nThe <identifier> must begin with a lowercase letter and\ncontain only alphanumeric characters.\nYou can include the same identifier multiple times in the update\ndocument; however, for each distinct identifier ( $[identifier] )\nin the update document, you must specify exactly one corresponding array filter document. That is, you cannot specify\nmultiple array filter documents for the same identifier. For\nexample, if the update statement includes the identifier x (possibly multiple times), you cannot specify the following for arrayFilters that includes 2 separate filter documents for x :\nHowever, you can specify compound conditions on the same identifier\nin a single filter document, such as in the following examples:\nFor examples, see Specify arrayFilters for an Array Update Operations .\nhint\nDocument or string\nOptional. A document or string that specifies the index to use to support the query predicate .\nThe option can take an index specification document or the index\nname string.\nIf you specify an index that does not exist, the operation\nerrors.\nFor an example, see Specify hint for Update Operations .\nlet\nDocument\nOptional.\nSpecifies a document with a list of variables. This allows you to\nimprove command readability by separating the variables from the query\ntext.\nThe document syntax is:\nThe variable is set to the value returned by the expression, and cannot\nbe changed afterwards.\nTo access the value of a variable in the command, use the double\ndollar sign prefix ( $$ ) together with your variable name in the form $$<variable_name> . For example: $$targetTotal .\nTo use a variable to filter results, you must access the variable\nwithin the $expr operator.\nFor a complete example using let and variables,\nsee Update with let Variables .\nsort\nDocument\nOptional.\nDetermines which document the operation updates if the query\nselects multiple documents. updateOne updates\nthe first document in the sort order specified by this argument.\nIf the sort argument is not a document, the operation errors.\nMongoDB does not store documents in a collection in a particular order.\nWhen sorting on a field which contains duplicate values, documents\ncontaining those values may be returned in any order.\nThe $sort operation is not a \"stable sort,\" which means that documents\nwith equivalent sort keys are not guaranteed to remain in the same relative\norder in the output as they were in the input.\nIf the field specified in the sort criteria does not exist in two documents, then\nthe value on which they are sorted is the same. The two documents may be returned\nin any order.\nIf consistent sort order is desired, include at least one field in your\nsort that contains unique values. The easiest way to guarantee this is\nto include the _id field in your sort query.\nSee Sort Consistency for more information.\nNew in version 8.0 .\nmaxTimeMS\ninteger\nOptional. Specifies the time limit in milliseconds for the\nupdate operation to run before timing out.\nbypassDocumentValidation\nboolean\nOptional. Enables insert to bypass schema validation\nduring the operation. This lets you insert documents that do not\nmeet the validation requirements.",
+          "code_blocks": [
+            "collation: { locale: <string>, caseLevel: <boolean>, caseFirst: <string>, strength: <int>, numericOrdering: <boolean>, alternate: <string>, maxVariable: <string>, backwards: <boolean> }",
+            "// INVALID [ { \"x.a\" : { $gt : 85 } } , { \"x.b\" : { $gt : 80 } } ]",
+            "// Example 1 [ { $or : [ { \"x.a\" : { $gt : 85 }} , { \"x.b\" : { $gt : 80 }}] } ] // Example 2 [ { $and : [ { \"x.a\" : { $gt : 85 }} , { \"x.b\" : { $gt : 80 }}] } ] // Example 3 [ { \"x.a\" : { $gt : 85 } , \"x.b\" : { $gt : 80 } } ]",
+            "{ < variable_name_1 > : < expression_1 > , ... , < variable_name_n > : < expression_n > }"
+          ]
+        },
+        {
+          "subsection_id": "returns",
+          "heading": "Returns",
+          "heading_level": 3,
+          "content": "The method returns a document that contains:\n- matchedCount containing the number of matched documents\n- modifiedCount containing the number of modified documents\n- upsertedId containing the _id for the upserted document\n- upsertedCount containing the number of upserted documents\n- A boolean acknowledged as true if the operation ran with write concern or false if write concern was disabled\nmatchedCount containing the number of matched documents\nmodifiedCount containing the number of modified documents\nupsertedId containing the _id for the upserted document\nupsertedCount containing the number of upserted documents\nA boolean acknowledged as true if the operation ran with write concern or false if write concern was disabled",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "access-control",
+      "heading": "Access Control",
+      "heading_level": 2,
+      "content": "On deployments running with authorization , the\nuser must have access that includes the following privileges:\n- update action on the specified collection(s).\n- find action on the specified collection(s).\n- insert action on the specified collection(s) if the\noperation results in an upsert.\nupdate action on the specified collection(s).\nfind action on the specified collection(s).\ninsert action on the specified collection(s) if the\noperation results in an upsert.\ninsert action on the specified collection(s) if the\noperation results in an upsert.\nThe built-in role readWrite provides the required\nprivileges.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "updates-a-single-document",
+          "heading": "Updates a Single Document",
+          "heading_level": 3,
+          "content": "db.collection.updateOne() finds the first document that\nmatches the filter and applies the specified update modifications.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "update-with-an-update-operator-expressions-document",
+          "heading": "Update with an Update Operator Expressions Document",
+          "heading_level": 3,
+          "content": "For the update specifications , the db.collection.updateOne() method can accept a document that\nonly contains update operator expressions.\nFor example:",
+          "code_blocks": [
+            "db. collection . updateOne ( < query > , { $set : { status : \"D\" } , $inc : { quantity : 2 } } , ... )"
+          ]
+        },
+        {
+          "subsection_id": "update-with-an-aggregation-pipeline",
+          "heading": "Update with an Aggregation Pipeline",
+          "heading_level": 3,
+          "content": "The db.collection.updateOne() method can accept an aggregation pipeline [ <stage1>, <stage2>, ... ] that specifies the modifications to perform.\nThe pipeline can consist of the following stages:\n- $addFields and its alias $set\n- $project and its alias $unset\n- $replaceRoot and its alias $replaceWith\n$addFields and its alias $set\n$project and its alias $unset\n$replaceRoot and its alias $replaceWith\nUsing the aggregation pipeline allows for a more expressive update\nstatement, such as expressing conditional updates based on current\nfield values or updating one field using the value of another field(s).\nFor example:",
+          "code_blocks": [
+            "db. collection . updateOne ( < query > , [ { $set : { status : \"Modified\" , comments : [ \"$misc1\" , \"$misc2\" ] } } , { $unset : [ \"misc1\" , \"misc2\" ] } ] ... )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The $set and $unset used in the pipeline refers to the\naggregation stages $set and $unset respectively, and not the update operators $set and $unset .\nFor examples, see Update with Aggregation Pipeline .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "upsert",
+          "heading": "Upsert",
+          "heading_level": 3,
+          "content": "- Starting in MongoDB 7.1, if you specify upsert: true on a\nsharded collection, you do not need to include the full shard\nkey in the filter .\n- If upsert: true and no documents match the filter , db.collection.updateOne() creates a new\ndocument based on the filter criteria and update modifications. See Update with Upsert .\n- For additional db.collection.updateOne() behavior on a\nsharded collection, see Sharded Collections .\nStarting in MongoDB 7.1, if you specify upsert: true on a\nsharded collection, you do not need to include the full shard\nkey in the filter .\nStarting in MongoDB 7.1, if you specify upsert: true on a\nsharded collection, you do not need to include the full shard\nkey in the filter .\nIf upsert: true and no documents match the filter , db.collection.updateOne() creates a new\ndocument based on the filter criteria and update modifications. See Update with Upsert .\nIf upsert: true and no documents match the filter , db.collection.updateOne() creates a new\ndocument based on the filter criteria and update modifications. See Update with Upsert .\nFor additional db.collection.updateOne() behavior on a\nsharded collection, see Sharded Collections .\nFor additional db.collection.updateOne() behavior on a\nsharded collection, see Sharded Collections .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "capped-collection",
+          "heading": "Capped Collection",
+          "heading_level": 3,
+          "content": "If an update operation changes the document size, the operation will fail.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "sharded-collections",
+          "heading": "Sharded Collections",
+          "heading_level": 3,
+          "content": "To use db.collection.updateOne() on a sharded collection:\n- Starting in MongoDB 7.1, if you specify upsert: true on a\nsharded collection, you do not need to include the full shard\nkey in the filter .\n- If you don't specify upsert: true , you must include an exact\nmatch on the _id field or target a single shard (such as by\nincluding the shard key in the filter ).\nStarting in MongoDB 7.1, if you specify upsert: true on a\nsharded collection, you do not need to include the full shard\nkey in the filter .\nStarting in MongoDB 7.1, if you specify upsert: true on a\nsharded collection, you do not need to include the full shard\nkey in the filter .\nIf you don't specify upsert: true , you must include an exact\nmatch on the _id field or target a single shard (such as by\nincluding the shard key in the filter ).\nIf you don't specify upsert: true , you must include an exact\nmatch on the _id field or target a single shard (such as by\nincluding the shard key in the filter ).\nHowever, documents in a sharded collection can be missing the shard key fields . To target a\ndocument that is missing the shard key, you can use the null equality match in conjunction with another filter condition\n(such as on the _id field). For example:\nYou can update a document's shard key value unless the shard key field is the\nimmutable _id field.",
+          "code_blocks": [
+            "{ _id : < value > , < shardkeyfield > : null } // _id of the document missing shard key"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "warning",
+      "heading": "Warning",
+      "heading_level": 2,
+      "content": "Documents in sharded collections can be missing the shard key fields.\nTake precaution to avoid accidentally removing the shard key when changing\na document's shard key value.\nTo modify the existing shard key value with db.collection.updateOne() :\n- You must run on a mongos . Do not issue the operation directly on the shard.\n- You must run either in a transaction or as a retryable write .\n- You must include an equality filter on the full shard key.\nYou must run on a mongos . Do not issue the operation directly on the shard.\nYou must run either in a transaction or as a retryable write .\nYou must include an equality filter on the full shard key.\nSee also upsert on a Sharded Collection .\n- Starting in version 7.1, you do not need to provide the shard key or _id field in the query specification.\n- Documents in a sharded collection can be missing the shard key fields . To use db.collection.updateOne() to set a missing shard key,\nyou must run on a mongos . Do not issue\nthe operation directly on the shard. In addition, the following requirements also apply: Task Requirements To set to null Requires equality filter on the full shard key if upsert: true . To set to a non- null value Must be performed either inside a transaction or as a retryable write . Requires equality filter on the full shard key if upsert: true . Tip Since a missing key value is returned as part of a null equality\nmatch, to avoid updating a null-valued key, include additional\nquery conditions (such as on the _id field) as appropriate.\nStarting in version 7.1, you do not need to provide the shard key or _id field in the query specification.\nDocuments in a sharded collection can be missing the shard key fields . To use db.collection.updateOne() to set a missing shard key,\nyou must run on a mongos . Do not issue\nthe operation directly on the shard. In addition, the following requirements also apply: Task Requirements To set to null Requires equality filter on the full shard key if upsert: true . To set to a non- null value Must be performed either inside a transaction or as a retryable write . Requires equality filter on the full shard key if upsert: true . Tip Since a missing key value is returned as part of a null equality\nmatch, to avoid updating a null-valued key, include additional\nquery conditions (such as on the _id field) as appropriate.\nDocuments in a sharded collection can be missing the shard key fields . To use db.collection.updateOne() to set a missing shard key,\nyou must run on a mongos . Do not issue\nthe operation directly on the shard.\nIn addition, the following requirements also apply:\nTo set to null\nRequires equality filter on the full shard key if upsert: true .\nTo set to a non- null value\nMust be performed either inside a transaction or as a retryable write .\nRequires equality filter on the full shard key if upsert: true .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Since a missing key value is returned as part of a null equality\nmatch, to avoid updating a null-valued key, include additional\nquery conditions (such as on the _id field) as appropriate.\nSee also:\n- upsert on a Sharded Collection\n- Missing Shard Key Fields\nupsert on a Sharded Collection\nMissing Shard Key Fields",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "explainability",
+          "heading": "Explainability",
+          "heading_level": 3,
+          "content": "updateOne() is not compatible with db.collection.explain() .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "transactions",
+          "heading": "Transactions",
+          "heading_level": 3,
+          "content": "db.collection.updateOne() can be used inside distributed transactions .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "In most cases, a distributed transaction incurs a greater\nperformance cost over single document writes, and the\navailability of distributed transactions should not be a\nreplacement for effective schema design. For many scenarios, the denormalized data model (embedded documents and arrays) will continue to be optimal for your\ndata and use cases. That is, for many scenarios, modeling your data\nappropriately will minimize the need for distributed\ntransactions.\nFor additional transactions usage considerations\n(such as runtime limit and oplog size limit), see also Production Considerations .\nYou can create collections and indexes inside a distributed\ntransaction if the\ntransaction is not a cross-shard write transaction.\ndb.collection.updateOne() with upsert: true can be run on an existing\ncollection or a non-existing collection. If run on a non-existing\ncollection, the operation creates the collection.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Create Collections and Indexes in a Transaction\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "oplog-entries",
+          "heading": "Oplog Entries",
+          "heading_level": 3,
+          "content": "If a db.collection.updateOne() operation successfully updates a\ndocument, the operation adds an entry on the oplog (operations\nlog). If the operation fails or does not find a document to update, the\noperation does not add an entry on the oplog.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "update-using-update-operator-expressions",
+          "heading": "Update using Update Operator Expressions",
+          "heading_level": 3,
+          "content": "The restaurant collection contains the  following documents:\nThe following operation updates a single document where name: \"Central Perk Cafe\" with the violations field:\nThe operation returns:\nIf no matches were found, the operation instead returns:\nSetting upsert: true would insert the document if no match was found. See Update with Upsert",
+          "code_blocks": [
+            "db. restaurant . insertMany ( [ { _id : 1 , name : \"Central Perk Cafe\" , Borough : \"Manhattan\" } , { _id : 2 , name : \"Rock A Feller Bar and Grill\" , Borough : \"Queens\" , violations : 2 } , { _id : 3 , name : \"Empire State Pub\" , Borough : \"Brooklyn\" , violations : 0 } ] )",
+            "try { db. restaurant . updateOne ( { \"name\" : \"Central Perk Cafe\" } , { $set : { \"violations\" : 3 } } ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"matchedCount\" : 1 , \"modifiedCount\" : 1 }",
+            "{ \"acknowledged\" : true , \"matchedCount\" : 0 , \"modifiedCount\" : 0 }"
+          ]
+        },
+        {
+          "subsection_id": "update-with-aggregation-pipeline",
+          "heading": "Update with Aggregation Pipeline",
+          "heading_level": 3,
+          "content": "The db.collection.updateOne() can use an aggregation pipeline for the\nupdate. The pipeline can consist of the following stages:\n- $addFields and its alias $set\n- $project and its alias $unset\n- $replaceRoot and its alias $replaceWith\n$addFields and its alias $set\n$project and its alias $unset\n$replaceRoot and its alias $replaceWith\nUsing the aggregation pipeline allows for a more expressive update\nstatement, such as expressing conditional updates based on current\nfield values or updating one field using the value of another field(s).\nThe following examples uses the aggregation pipeline to modify a field\nusing the values of the other fields in the document.\nCreate a students collection with the following documents:\nAssume that instead of separate commentsSemester1 and commentsSemester2 fields in the first document, you want to gather these into a comments field,\nlike the second document. The following update operation uses an\naggregation pipeline to:\n- add the new comments field and set the lastUpdate field.\n- remove the commentsSemester1 and commentsSemester2 fields for all\ndocuments in the collection.\nadd the new comments field and set the lastUpdate field.\nremove the commentsSemester1 and commentsSemester2 fields for all\ndocuments in the collection.\nremove the commentsSemester1 and commentsSemester2 fields for all\ndocuments in the collection.\nMake sure that the filter in the update command targets a unique document. The\nfield id in the code below is an example of such a filter:",
+          "code_blocks": [
+            "db. students . insertMany ( [ { _id : 1 , student : \"Skye\" , points : 75 , commentsSemester1 : \"great at math\" , commentsSemester2 : \"loses temper\" , lastUpdate : ISODate ( \"2019-01-01T00:00:00Z\" ) } , { _id : 2 , student : \"Elizabeth\" , points : 60 , commentsSemester1 : \"well behaved\" , commentsSemester2 : \"needs improvement\" , lastUpdate : ISODate ( \"2019-01-01T00:00:00Z\" ) } ] )",
+            "db. students . updateOne ( { _id : 1 } , [ { $set : { status : \"Modified\" , comments : [ \"$commentsSemester1\" , \"$commentsSemester2\" ] , lastUpdate : \"$$NOW\" } } , { $unset : [ \"commentsSemester1\" , \"commentsSemester2\" ] } ] )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The $set and $unset used in the pipeline refers to the\naggregation stages $set and $unset respectively, and not the update operators $set and $unset .\nThe $set stage:\n- creates a new array field comments whose elements are the current\ncontent of the misc1 and misc2 fields and\n- sets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\ncreates a new array field comments whose elements are the current\ncontent of the misc1 and misc2 fields and\ncreates a new array field comments whose elements are the current\ncontent of the misc1 and misc2 fields and\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nAfter the command, the collection contains the following documents:\nNote that after introducing a sort, only the first document encountered in the\nsort order is modified and the remaining documents are left untouched.\nThe aggregation pipeline allows the update to perform conditional\nupdates based on the current field values as well as use current field\nvalues to calculate a separate field value.\nFor example, create a students3 collection with the following documents:\nThe third document _id: 3 is missing the average and grade fields. Using an aggregation pipeline, you can update the document with\nthe calculated grade average and letter grade.",
+      "code_blocks": [
+        "{ _id : 2 , student : \"Elizabeth\" , status : \"Modified\" , points : 60 , lastUpdate : ISODate ( \"2020-01-23T05:11:45.784Z\" ) , comments : [ \"well behaved\" , \"needs improvement\" ] } { _id : 1 , student : 'Skye' , points : 75 , commentsSemester1 : 'great at math' , commentsSemester2 : 'loses temper' , lastUpdate : ISODate ( \"2019-01-01T00:00:00.000Z\" ) }",
+        "db. students3 . insertMany ( [ { _id : 1 , tests : [ 95 , 92 , 90 ] , average : 92 , grade : \"A\" , lastUpdate : ISODate ( \"2020-01-23T05:18:40.013Z\" ) } , { _id : 2 , tests : [ 94 , 88 , 90 ] , average : 91 , grade : \"A\" , lastUpdate : ISODate ( \"2020-01-23T05:18:40.013Z\" ) } , { _id : 3 , tests : [ 70 , 75 , 82 ] , lastUpdate : ISODate ( \"2019-01-01T00:00:00Z\" ) } ] )",
+        "db. students3 . updateOne ( { _id : 3 } , [ { $set : { average : { $trunc : [ { $avg : \"$tests\" } , 0 ] } , lastUpdate : \"$$NOW\" } } , { $set : { grade : { $switch : { branches : [ { case : { $gte : [ \"$average\" , 90 ] } , then : \"A\" } , { case : { $gte : [ \"$average\" , 80 ] } , then : \"B\" } , { case : { $gte : [ \"$average\" , 70 ] } , then : \"C\" } , { case : { $gte : [ \"$average\" , 60 ] } , then : \"D\" } ] , default : \"F\" } } } } ] )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The $set used in the pipeline refers to the aggregation stage $set , and not the update operators $set .\nThe $set stage:\n- calculates a new field average based on the average of the tests field. See $avg for more information on the $avg aggregation operator and $trunc for more\ninformation on the $trunc truncate aggregation operator.\n- sets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\ncalculates a new field average based on the average of the tests field. See $avg for more information on the $avg aggregation operator and $trunc for more\ninformation on the $trunc truncate aggregation operator.\ncalculates a new field average based on the average of the tests field. See $avg for more information on the $avg aggregation operator and $trunc for more\ninformation on the $trunc truncate aggregation operator.\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nAfter the command, the collection contains the following documents:",
+      "code_blocks": [
+        "{ _id : 1 , tests : [ 95 , 92 , 90 ] , average : 92 , grade : \"A\" , lastUpdate : ISODate ( \"2020-01-23T05:18:40.013Z\" ) } { _id : 2 , tests : [ 94 , 88 , 90 ] , average : 91 , grade : \"A\" , lastUpdate : ISODate ( \"2020-01-23T05:18:40.013Z\" ) } { _id : 3 , tests : [ 70 , 75 , 82 ] , lastUpdate : ISODate ( \"2020-01-24T17:33:30.674Z\" ) , average : 75 , grade : \"C\" }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Updates with Aggregation Pipeline",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "update-with-upsert",
+          "heading": "Update with Upsert",
+          "heading_level": 3,
+          "content": "The restaurant collection contains the following documents:\nThe following operation attempts to update the document with name : \"Pizza Rat's Pizzaria\" , while upsert: true :\nSince upsert:true the document is inserted based on the filter and update criteria. The operation returns:\nThe collection now contains the following documents:\nThe name field was filled in using the filter criteria, while the update operators were used to create the rest of the document.\nThe following operation updates the first document with violations that\nare greater than 10 :\nThe operation returns:\nThe collection now contains the following documents:\nSince no documents matched the filter, and upsert was true , updateOne() inserted the document with a generated _id and the update criteria only.",
+          "code_blocks": [
+            "db. restaurant . insertMany ( [ { _id : 1 , name : \"Central Perk Cafe\" , Borough : \"Manhattan\" , violations : 3 } , { _id : 2 , name : \"Rock A Feller Bar and Grill\" , Borough : \"Queens\" , violations : 2 } , { _id : 3 , name : \"Empire State Pub\" , Borough : \"Brooklyn\" , violations : \"0\" } ] )",
+            "try { db. restaurant . updateOne ( { \"name\" : \"Pizza Rat's Pizzaria\" } , { $set : { \"_id\" : 4 , \"violations\" : 7 , \"borough\" : \"Manhattan\" } } , { upsert : true } ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"matchedCount\" : 0 , \"modifiedCount\" : 0 , \"upsertedId\" : 4 , \"upsertedCount\" : 1 }",
+            "{ _id : 1 , name : \"Central Perk Cafe\" , Borough : \"Manhattan\" , violations : 3 } , { _id : 2 , name : \"Rock A Feller Bar and Grill\" , Borough : \"Queens\" , violations : 2 } , { _id : 3 , name : \"Empire State Pub\" , Borough : \"Brooklyn\" , violations : 4 } , { _id : 4 , name : \"Pizza Rat's Pizzaria\" , Borough : \"Manhattan\" , violations : 7 }",
+            "try { db. restaurant . updateOne ( { \"violations\" : { $gt : 10 } } , { $set : { \"Closed\" : true } } , { upsert : true } ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"matchedCount\" : 0 , \"modifiedCount\" : 0 , \"upsertedId\" : ObjectId ( \"56310c3c0c5cbb6031cafaea\" ) }",
+            "{ _id : 1 , name : \"Central Perk Cafe\" , Borough : \"Manhattan\" , violations : 3 } , { _id : 2 , name : \"Rock A Feller Bar and Grill\" , Borough : \"Queens\" , violations : 2 } , { _id : 3 , name : \"Empire State Pub\" , Borough : \"Brooklyn\" , violations : 4 } , { _id : 4 , name : \"Pizza Rat's Pizzaria\" , Borough : \"Manhattan\" , grade : 7 } { _id : ObjectId ( \"56310c3c0c5cbb6031cafaea\" ) , Closed : true }"
+          ]
+        },
+        {
+          "subsection_id": "update-with-write-concern",
+          "heading": "Update with Write Concern",
+          "heading_level": 3,
+          "content": "Given a three member replica set, the following operation specifies a w of majority , wtimeout of 100 :\nIf the primary and at least one secondary acknowledge each write operation\nwithin 100 milliseconds, it returns:\nIf the acknowledgment takes longer than the wtimeout limit, the following\nexception is thrown:\nThe following table explains the possible values of errInfo.writeConcern.provenance :\nclientSupplied\nThe write concern was specified in the application.\ncustomDefault\nThe write concern originated from a custom defined\ndefault value. See setDefaultRWConcern .\ngetLastErrorDefaults\nThe write concern originated from the replica set's settings.getLastErrorDefaults field.\nimplicitDefault\nThe write concern originated from the server in absence\nof all other write concern specifications.",
+          "code_blocks": [
+            "try { db. restaurant . updateOne ( { \"name\" : \"Pizza Rat's Pizzaria\" } , { $inc : { \"violations\" : 3 } , $set : { \"Closed\" : true } } , { w : \"majority\" , wtimeout : 100 } ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"matchedCount\" : 1 , \"modifiedCount\" : 1 }",
+            "WriteConcernError ( { \"code\" : 64 , \"errmsg\" : \"waiting for replication timed out\" , \"errInfo\" : { \"wtimeout\" : true , \"writeConcern\" : { \"w\" : \"majority\" , \"wtimeout\" : 100 , \"provenance\" : \"getLastErrorDefaults\" } } })"
+          ]
+        },
+        {
+          "subsection_id": "update-with-sort",
+          "heading": "Update with Sort",
+          "heading_level": 3,
+          "content": "New in version 8.0 .\nThe following example deactivates the lowest rated active user:",
+          "code_blocks": [
+            "db. people . updateOne ( { state : \"active\" } , { $set : { state : \"inactive\" } } , { sort : { rating : 1 } } )"
+          ]
+        },
+        {
+          "subsection_id": "specify-collation",
+          "heading": "Specify Collation",
+          "heading_level": 3,
+          "content": "Collation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nA collection myColl has the following documents:\nThe following operation includes the collation option:",
+          "code_blocks": [
+            "db. myColl . insertMany ( [ { _id : 1 , category : \"café\" , status : \"A\" } , { _id : 2 , category : \"cafe\" , status : \"a\" } , { _id : 3 , category : \"cafE\" , status : \"a\" } ] )",
+            "db. myColl . updateOne ( { category : \"cafe\" } , { $set : { status : \"Updated\" } } , { collation : { locale : \"fr\" , strength : 1 } } ) ;"
+          ]
+        },
+        {
+          "subsection_id": "specify-arrayfilters-for-an-array-update-operations",
+          "heading": "Specify arrayFilters for an Array Update Operations",
+          "heading_level": 3,
+          "content": "When updating an array field, you can specify arrayFilters that\ndetermine which array elements to update.\nCreate a collection students with the following documents:\nTo modify all elements that are greater than or equal to 100 in the grades array, use the filtered positional operator $[<identifier>] with the arrayFilters option in the db.collection.updateOne() method:\nThe operation updates the grades field of a single document, and\nafter the operation, the collection has the following documents:\nCreate a collection students2 with the following documents:\nTo modify the value of the mean field for all elements in the grades array where the grade is greater than or equal to 85 ,\nuse the filtered positional operator $[<identifier>] with\nthe arrayFilters in the db.collection.updateOne() method:\nThe operation updates the array of a single document, and after the\noperation, the collection has the following documents:",
+          "code_blocks": [
+            "db. students . insertMany ( [ { _id : 1 , grades : [ 95 , 92 , 90 ] } , { _id : 2 , grades : [ 98 , 100 , 102 ] } , { _id : 3 , grades : [ 95 , 110 , 100 ] } ] )",
+            "db. students . updateOne ( { grades : { $gte : 100 } } , { $set : { \"grades.$[element]\" : 100 } } , { arrayFilters : [ { \"element\" : { $gte : 100 } } ] } )",
+            "{ _id : 1 , grades : [ 95 , 92 , 90 ] } { _id : 2 , grades : [ 98 , 100 , 100 ] } { _id : 3 , grades : [ 95 , 110 , 100 ] }",
+            "db. students2 . insertMany ( [ { _id : 1 , grades : [ { grade : 80 , mean : 75 , std : 6 } , { grade : 85 , mean : 90 , std : 4 } , { grade : 85 , mean : 85 , std : 6 } ] } , { _id : 2 , grades : [ { grade : 90 , mean : 75 , std : 6 } , { grade : 87 , mean : 90 , std : 3 } , { grade : 85 , mean : 85 , std : 4 } ] } ] )",
+            "db. students2 . updateOne ( { } , { $set : { \"grades.$[elem].mean\" : 100 } } , { arrayFilters : [ { \"elem.grade\" : { $gte : 85 } } ] } )",
+            "{ _id : 1 , grades : [ { grade : 80 , mean : 75 , std : 6 } , { grade : 85 , mean : 100 , std : 4 } , { grade : 85 , mean : 100 , std : 6 } ] } { _id : 2 , grades : [ { grade : 90 , mean : 75 , std : 6 } , { grade : 87 , mean : 90 , std : 3 } , { grade : 85 , mean : 85 , std : 4 } ] }"
+          ]
+        },
+        {
+          "subsection_id": "specify-hint-for-update-operations",
+          "heading": "Specify hint for Update Operations",
+          "heading_level": 3,
+          "content": "Create a sample students collection with the following documents:\nCreate the following indexes on the collection:\nThe following update operation explicitly hints to use the index {\ngrade: 1 } :",
+          "code_blocks": [
+            "db. students . insertMany ( [ { _id : 1 , student : \"Richard\" , grade : \"F\" , points : 0 , comments1 : null , comments2 : null } , { _id : 2 , student : \"Jane\" , grade : \"A\" , points : 60 , comments1 : \"well behaved\" , comments2 : \"fantastic student\" } , { _id : 3 , student : \"Ronan\" , grade : \"F\" , points : 0 , comments1 : null , comments2 : null } , { _id : 4 , student : \"Noah\" , grade : \"D\" , points : 20 , comments1 : \"needs improvement\" , comments2 : null } , { _id : 5 , student : \"Adam\" , grade : \"F\" , points : 0 , comments1 : null , comments2 : null } , { _id : 6 , student : \"Henry\" , grade : \"A\" , points : 86 , comments1 : \"fantastic student\" , comments2 : \"well behaved\" } ] )",
+            "db. students . createIndex ( { grade : 1 } ) db. students . createIndex ( { points : 1 } )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "If you specify an index that does not exist, the operation errors.\nThe update command returns the following:",
+      "code_blocks": [
+        "db. students . updateOne ( { \"points\" : { $lte : 20 } , \"grade\" : \"F\" } , { $set : { \"comments1\" : \"failed class\" } } , { hint : { grade : 1 } } )",
+        "{ \"acknowledged\" : true , \"matchedCount\" : 1 , \"modifiedCount\" : 1 }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Even though 3 documents match the criteria of the update, updateOne only\nmodifies the first document it finds. Therefore, even though the students\nRichard, Ronan, and Adam all meet the criteria, only Richard will be updated.\nTo see the index used, run explain on the operation:",
+      "code_blocks": [
+        "db. students . explain ( ). update ( { \"points\" : { $lte : 20 } , \"grade\" : \"F\" } , { $set : { \"comments1\" : \"failed class\" } } , { multi : true , hint : { grade : 1 } } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "write-concern-errors-in-sharded-clusters",
+          "heading": "Write Concern Errors in Sharded Clusters",
+          "heading_level": 3,
+          "content": "Changed in version 8.1.2 .\nWhen db.collection.updateOne() executes on mongos in a sharded cluster, a writeConcernError is\nalways reported in the response, even when one or more other errors occur.\nIn previous releases, other errors sometimes caused db.collection.updateOne() to not report write concern errors.\nFor example, if a document fails validation, triggering a DocumentValidationFailed error,\nand a write concern error also occurs, both the DocumentValidationFailed error and the writeConcernError are returned in the top-level field of the response.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "user-roles-and-document-updates",
+          "heading": "User Roles and Document Updates",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 7.0, you can use the new USER_ROLES system variable to return user roles .\nThe example in this section shows updates to fields in a collection\ncontaining medical information. The example reads the current user roles\nfrom the USER_ROLES system variable and only performs the updates if\nthe user has a specific role.\nTo use a system variable, add $$ to the start of the variable name.\nSpecify the USER_ROLES system variable as $$USER_ROLES .\nThe example creates these users:\n- James with a Billing role.\n- Michelle with a Provider role.\nJames with a Billing role.\nMichelle with a Provider role.\nPerform the following steps to create the roles, users, and collection:\nCreate roles named Billing and Provider with the required\nprivileges and resources.\nRun:\nCreate users named James and Michelle with the required\nroles.\nRun:\nLog in as as Michelle , who has the Provider role, and perform an\nupdate:\nRun:\nThe previous example uses $setIntersection to return\ndocuments where the intersection between the \"Provider\" string and\nthe user roles from $$USER_ROLES.role is not empty. Michelle has\nthe Provider role, so the update is performed.\nNext, log in as as James , who does not have the Provider role,\nand attempt to perform the same update:\nRun:\nThe previous example does not update any documents.",
+          "code_blocks": [
+            "db. createRole ( { role : \"Billing\" , privileges : [ { resource : { db : \"test\" , collection : \"medicalView\" } , actions : [ \"find\" ] } ] , roles : [ ] } ) db. createRole ( { role : \"Provider\" , privileges : [ { resource : { db : \"test\" , collection : \"medicalView\" } , actions : [ \"find\" ] } ] , roles : [ ] } )",
+            "db. createUser ( { user : \"James\" , pwd : \"js008\" , roles : [ { role : \"Billing\" , db : \"test\" } ] } ) db. createUser ( { user : \"Michelle\" , pwd : \"me009\" , roles : [ { role : \"Provider\" , db : \"test\" } ] } )",
+            "db. medical . insertMany ( [ { _id : 0 , patientName : \"Jack Jones\" , diagnosisCode : \"CAS 17\" , creditCard : \"1234-5678-9012-3456\" } , { _id : 1 , patientName : \"Mary Smith\" , diagnosisCode : \"ACH 01\" , creditCard : \"6541-7534-9637-3456\" } ] )",
+            "db. auth ( \"Michelle\" , \"me009\" )",
+            "// Attempt to update one document db. medical . updateOne ( { // User must have the Provider role to perform the update $expr : { $ne : [ { $setIntersection : [ [ \"Provider\" ] , \"$$USER_ROLES.role\" ] } , [ ] ] } } , // Update diagnosisCode { $set : { diagnosisCode : \"ACH 01\" } } )",
+            "db. auth ( \"James\" , \"js008\" )",
+            "// Attempt to update one document db. medical . updateOne ( { // User must have the Provider role to perform the update $expr : { $ne : [ { $setIntersection : [ [ \"Provider\" ] , \"$$USER_ROLES.role\" ] } , [ ] ] } } , // Update diagnosisCode { $set : { diagnosisCode : \"ACH 01\" } } )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "To update multiple documents, see db.collection.updateMany() .\ndb.collection.updateMany\ndb.collection.validate\n- Definition\n- Compatibility\n- Syntax\n- Access Control\n- Behavior\n- Examples\nAccess Control\nBehavior\n- Definition\n- Compatibility\n- Syntax\n- Access Control\n- Behavior\n- Examples\nAccess Control\nBehavior",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:18.481065",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "update-one",
+  "source_type": "manual",
+  "file_stub": "d2_update-one"
+}

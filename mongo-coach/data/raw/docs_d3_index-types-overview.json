@@ -1,0 +1,89 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/core/indexes/index-types/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Index Types",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "single-field-index",
+      "heading": "Single Field Index",
+      "heading_level": 2,
+      "content": "Single field indexes collect and sort data from a single field in each\ndocument in a collection.\nThis image shows an index on a single field, score :\nTo learn more, see Single Field Indexes .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compound-index",
+      "heading": "Compound Index",
+      "heading_level": 2,
+      "content": "Compound indexes collect and sort data from multiple field values from each\ndocument in a collection. You can use the compound index to query the first\nfield or any prefix fields of the index.\nThe order of fields in a compound index is very important. The B-tree created\nby a compound index stores the sorted data in the order that the index specifies\nthe fields.\nFor example, the following image shows a compound index where documents\nare first sorted by userid in ascending order (alphabetically).\nThen, the scores for each userid are sorted in descending order:\nTo learn more, see Compound Indexes .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "multikey-index",
+      "heading": "Multikey Index",
+      "heading_level": 2,
+      "content": "Multikey indexes collect and sort data stored in arrays.\nYou do not need to explicitly specify the multikey type. When you create\nan index on a field that contains an array value, MongoDB automatically\nsets the index to be a multikey index.\nThis image shows a multikey index on the addr.zip field:\nTo learn more, see Multikey Indexes .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "geospatial-index",
+      "heading": "Geospatial Index",
+      "heading_level": 2,
+      "content": "Geospatial indexes improve performance for queries on geospatial\ncoordinate data. To learn more, see Geospatial Indexes .\nMongoDB provides two types of geospatial indexes:\n- 2d indexes that use planar geometry to return\nresults.\n- 2dsphere indexes that use spherical geometry\nto return results.\n2d indexes that use planar geometry to return\nresults.\n2d indexes that use planar geometry to return\nresults.\n2dsphere indexes that use spherical geometry\nto return results.\n2dsphere indexes that use spherical geometry\nto return results.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "text-index",
+      "heading": "Text Index",
+      "heading_level": 2,
+      "content": "Text indexes support text search queries on fields containing string content.\nTo learn more, see Text Indexes on Self-Managed Deployments .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "use-mongodb-search-or-vector-search",
+          "heading": "Use MongoDB Search or Vector Search",
+          "heading_level": 3,
+          "content": "MongoDB also offers the following text search solutions:\n- MongoDB Search provides improved performance\nand functionality compared to on-premises text search.\n- Vector Search provides vector search capabilities to perform semantic, hybrid, and generative\nsearch.\nMongoDB Search provides improved performance\nand functionality compared to on-premises text search.\nMongoDB Search provides improved performance\nand functionality compared to on-premises text search.\nVector Search provides vector search capabilities to perform semantic, hybrid, and generative\nsearch.\nVector Search provides vector search capabilities to perform semantic, hybrid, and generative\nsearch.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "hashed-index",
+      "heading": "Hashed Index",
+      "heading_level": 2,
+      "content": "Hashed indexes support hashed sharding . Hashed indexes index the hash of the value\nof a field.\nTo learn more, see Hashed Indexes .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "clustered-index",
+      "heading": "Clustered Index",
+      "heading_level": 2,
+      "content": "New in version 5.3 .\nClustered indexes specify the order in which clustered collections store data. Collections created with a\nclustered index are called clustered collections.\nTo learn how to create a collection with a clustered index, see Clustered Collection Examples .\nDrop\nSingle Field\n- Single Field Index\n- Compound Index\n- Multikey Index\n- Geospatial Index\n- Text Index\n- Hashed Index\n- Clustered Index\nSingle Field Index\nCompound Index\nMultikey Index\nGeospatial Index\nText Index\nHashed Index\nClustered Index\n- Single Field Index\n- Compound Index\n- Multikey Index\n- Geospatial Index\n- Text Index\n- Hashed Index\n- Clustered Index\nSingle Field Index\nCompound Index\nMultikey Index\nGeospatial Index\nText Index\nHashed Index\nClustered Index",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:31.042815",
+  "exam_code": "associate_developer_python",
+  "domain_id": 3,
+  "domain_name": "Indexes",
+  "seed_id": "index-types-overview",
+  "source_type": "manual",
+  "file_stub": "d3_index-types-overview"
+}

@@ -1,0 +1,78 @@
+{
+  "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/connect/connection-options/",
+  "doc_type": "mongodb_docs_driver_python",
+  "method_name": null,
+  "title": "Specify Connection Options",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "overview",
+      "heading": "Overview",
+      "heading_level": 2,
+      "content": "This section describes the MongoDB connection and authentication options\navailable in PyMongo. You can configure your connection by using either\nthe connection URI or arguments to the MongoClient constructor.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "using-the-connection-uri",
+          "heading": "Using the Connection URI",
+          "heading_level": 3,
+          "content": "If you pass a connection URI to the MongoClient constructor, you can include\nconnection options in the string as <name>=<value> pairs. In the following example,\nthe connection URI contains the connectTimeoutMS option with a value of 60000 and the tls option with a value of true . Select the Synchronous or Asynchronous tab to see the corresponding code:",
+          "code_blocks": [
+            "uri = \"mongodb://<hostname>:<port>/?connectTimeoutMS=60000&tls=true\" client = pymongo.MongoClient(uri)",
+            "uri = \"mongodb://<hostname>:<port>/?connectTimeoutMS=60000&tls=true\" client = pymongo.AsyncMongoClient(uri)"
+          ]
+        },
+        {
+          "subsection_id": "using-a-mongoclient",
+          "heading": "Using a MongoClient",
+          "heading_level": 3,
+          "content": "You can pass connection options as arguments to the MongoClient constructor\ninstead of including them in your connection URI.\nConfiguring the connection this way makes it easier to\nchange settings at runtime and helps you catch errors during compilation.\nThe following example shows how to use the MongoClient constructor to set\nconnection options. Select the Synchronous or Asynchronous tab to\nsee the corresponding code:",
+          "code_blocks": [
+            "uri = \"mongodb://<hostname>:<port>\" client = pymongo.MongoClient(uri, connectTimeoutMS= 60000 , tls= True )",
+            "uri = \"mongodb://<hostname>:<port>\" client = pymongo.AsyncMongoClient(uri, connectTimeoutMS= 60000 , tls= True )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "connection-options",
+      "heading": "Connection Options",
+      "heading_level": 2,
+      "content": "To learn about the connection options available in PyMongo, see the following\nsections:\n- Enable Authentication\n- Compress Network Traffic\n- Customize Server Selection\n- Stable API\n- Limit Server Execution Time\n- Connection Pools\n- Configure CRUD Operations\nEnable Authentication\nCompress Network Traffic\nCustomize Server Selection\nStable API\nLimit Server Execution Time\nConnection Pools\nConfigure CRUD Operations",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "authentication-and-encryption",
+          "heading": "Authentication and Encryption",
+          "heading_level": 3,
+          "content": "To learn how to enable TLS encryption and authentication in PyMongo,\nsee Configure Transport Layer Security (TLS) and Authentication Mechanisms in the Security section.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "api-documentation",
+      "heading": "API Documentation",
+      "heading_level": 2,
+      "content": "To learn more about creating a MongoClient object in PyMongo,\nsee the following API documentation:\n- MongoClient\nMongoClient\nChoose a Connection Target\nCompress Network Traffic\n- Overview\n- Using the Connection URI\n- Using a MongoClient\n- Connection Options\n- API Documentation\nOverview\nUsing the Connection URI\nUsing a MongoClient\nConnection Options\nAPI Documentation\n- Overview\n- Using the Connection URI\n- Using a MongoClient\n- Connection Options\n- API Documentation\nOverview\nUsing the Connection URI\nUsing a MongoClient\nConnection Options\nAPI Documentation",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:41.939083",
+  "exam_code": "associate_developer_python",
+  "domain_id": 6,
+  "domain_name": "Drivers – Python",
+  "seed_id": "pymongo-connection-options",
+  "source_type": "driver",
+  "file_stub": "d6_pymongo-connection-options"
+}

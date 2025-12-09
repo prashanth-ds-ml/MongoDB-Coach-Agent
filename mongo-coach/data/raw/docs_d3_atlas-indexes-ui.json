@@ -1,0 +1,196 @@
+{
+  "url": "https://www.mongodb.com/docs/atlas/atlas-ui/indexes/",
+  "doc_type": "mongodb_docs_atlas",
+  "method_name": null,
+  "title": "Manage Indexes",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "considerations",
+          "heading": "Considerations",
+          "heading_level": 3,
+          "content": "Indexes have some negative performance impact on write operations.\nFor collections with high write-to-read ratio, indexes are expensive\nsince each insert must also update any indexes. For a detailed list\nof considerations for indexes, see Operational Considerations for Indexes .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "required-roles",
+      "heading": "Required Roles",
+      "heading_level": 2,
+      "content": "To create, drop, or hide indexes, you must have access provided by at least one\nof the following roles:\n- Project Owner or Organization Owner\n- Project Data Access Admin\nProject Owner or Organization Owner\nProject Data Access Admin",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "considerations",
+      "heading": "Considerations",
+      "heading_level": 2,
+      "content": "By default, you can have up to three concurrent index builds. To learn\nmore, see Maximum Concurrent Index Builds .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "indexes-tab",
+      "heading": "Indexes Tab",
+      "heading_level": 2,
+      "content": "The Indexes tab lists the existing indexes for a collection.\nTo access the Indexes tab for a collection:",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "in-atlas-,-go-to-the-data-explorer-page-for-your-project.",
+          "heading": "In Atlas , go to the Data Explorer page for your project.",
+          "heading_level": 3,
+          "content": "- If it's not already displayed, select the\norganization that contains your project from the Organizations menu in the navigation bar.\n- If it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\n- In the sidebar, click Data Explorer under\nthe Database heading. The Data Explorer displays.\nIf it's not already displayed, select the\norganization that contains your project from the Organizations menu in the navigation bar.\nIf it's not already displayed, select the\norganization that contains your project from the Organizations menu in the navigation bar.\nIf it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\nIf it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\nIn the sidebar, click Data Explorer under\nthe Database heading. The Data Explorer displays.\nIn the sidebar, click Data Explorer under\nthe Database heading.\nThe Data Explorer displays.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "view-indexes.",
+          "heading": "View indexes.",
+          "heading_level": 3,
+          "content": "- Select the collecion.\n- Click the Indexes tab.\nSelect the collecion.\nClick the Indexes tab.\nFor each index, Atlas displays the following information:\nName and Definition\nThe name of the index and keys.\nType\nRegular, text, geospatial or hashed index.\nSize\nHow large the index is.\nUsage\nNumber of times the index has been used in a lookup since the time\nthe index was created or the last server restart.\nWARNING: The Usage metrics show index usage statistics\nonly for the primary node and should only be used for informational\npurposes. For more comprehensive index usage statistics, run the $indexStats aggregation stage on each node.\nProperties\nAny special properties (such as uniqueness, partial) of the\nindex.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "create-an-index",
+      "heading": "Create an Index",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "open-the-index-creation-dialog",
+          "heading": "Open the index creation dialog",
+          "heading_level": 3,
+          "content": "From the Indexes tab, click the Create\nIndex button.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "add-fields-to-the-index",
+          "heading": "Add fields to the index",
+          "heading_level": 3,
+          "content": "- Specify an index key. To specify an existing document field as an index key, select\nthe field from the dropdown list. To specify a field that does not exist in any document as an\nindex key, enter the field name in the input box. To create a compound index ,\nclick the plus icon next to the index type dropdown.\n- To specify an existing document field as an index key, select\nthe field from the dropdown list.\n- To specify a field that does not exist in any document as an\nindex key, enter the field name in the input box.\n- To create a compound index ,\nclick the plus icon next to the index type dropdown.\n- Use the dropdown to the right of each field name to specify the\nindex type. You can specify one of the following types: Ascending Descending 2dsphere Text\n- Ascending\n- Descending\n- 2dsphere\n- Text\nSpecify an index key. To specify an existing document field as an index key, select\nthe field from the dropdown list. To specify a field that does not exist in any document as an\nindex key, enter the field name in the input box. To create a compound index ,\nclick the plus icon next to the index type dropdown.\nSpecify an index key.\n- To specify an existing document field as an index key, select\nthe field from the dropdown list.\n- To specify a field that does not exist in any document as an\nindex key, enter the field name in the input box.\n- To create a compound index ,\nclick the plus icon next to the index type dropdown.\nTo specify an existing document field as an index key, select\nthe field from the dropdown list.\nTo specify an existing document field as an index key, select\nthe field from the dropdown list.\nTo specify a field that does not exist in any document as an\nindex key, enter the field name in the input box.\nTo specify a field that does not exist in any document as an\nindex key, enter the field name in the input box.\nTo create a compound index ,\nclick the plus icon next to the index type dropdown.\nTo create a compound index ,\nclick the plus icon next to the index type dropdown.\nUse the dropdown to the right of each field name to specify the\nindex type. You can specify one of the following types: Ascending Descending 2dsphere Text\nUse the dropdown to the right of each field name to specify the\nindex type. You can specify one of the following types:\n- Ascending\n- Descending\n- 2dsphere\n- Text\nAscending\nDescending\n2dsphere\nText\nTo learn how to specify a wildcard index, see Create a Wildcard Index .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "optional.-specify-index-options",
+          "heading": "Optional. Specify index options",
+          "heading_level": 3,
+          "content": "Atlas supports the following index options:\nCreate unique index\nEnsure that the indexed fields do not store duplicate values.\nYou cannot perform a rolling build for a unique index. If you enable\nbuilding indexes in a rolling fashion with the unique index option, Atlas rejects your configuration with an error message.\nUnique Indexes\nIndex name\nSpecify a name for the index.\nSpecify an Index Name\nCreate a TTL index\nDelete documents automatically after a specified number of\nseconds since the indexed field value.\nTTL Indexes\nPartial filter expression\nIndex only the documents which match the specified filter\nexpression.\nFor example:\nThe following partial filter expression only indexes\ndocuments where the timezone field exists:\nPartial Indexes\nWildcard projection\nSupport unknown or arbitrary fields which match the specified\nprojection in the index. To use a wildcard projection, set\nyour index field name to $** . This directs Atlas to use all fields in the document (excluding _id ).\nFor example:\nConsider the following wildcard projection document:\nIf your index field name is $** , your index only\nincludes the values of the fields in that projection.\nCreate a Wildcard Index\nUse custom collation\nCreate a custom collation for the index by typing or pasting the\ncollation document in the text box.\nCollation Document\nCreate sparse index\nIndex skips over any document that is missing the indexed field.\nSparse Indexes\nBuild in rolling process\nCan minimize the performance impact of index builds.\nIMPORTANT: Building an index in a rolling fashion reduces the resiliency of your\ncluster and increases index build times. We only recommend using rolling index builds when\nregular index builds do not meet your needs.\nWARNING: Avoid performing rolling index and replicated index build processes\nconcurrently as it might lead to unexpected issues, such as broken\nbuilds and crash loops.\nYou can only build rolling indexes on M10+ Clusters.\nDuring a rolling index build, Atlas takes each node out of the replica set,\nstarts it in standalone mode to build the index, and then returns it to the replica set.\nThis process repeats for each node in the cluster in a rolling sequence.\nNodes may appear as down, while Atlas builds indexes offline.\nThis is expected behavior, not an issue.\nRolling Index Builds",
+          "code_blocks": [
+            "{ \"timezone\" : { \"$exists\" : true } }",
+            "{ \"product_attributes.elements\" : 1 , \"product_attributes.resistance\" : 1 }"
+          ]
+        },
+        {
+          "subsection_id": "click-create-index-.",
+          "heading": "Click Create Index .",
+          "heading_level": 3,
+          "content": "",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "mongodb-vector-search-and-mongodb-search-indexes",
+          "heading": "MongoDB Vector Search and MongoDB Search Indexes",
+          "heading_level": 3,
+          "content": "You can't create MongoDB Search or MongoDB Vector Search indexes in Data Explorer. To manage\nMongoDB Search and MongoDB Vector Search indexes for your collection, see:\n- Supported Clients .\n- Create a MongoDB Vector Search Index\nSupported Clients .\nCreate a MongoDB Vector Search Index",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "create-a-wildcard-index",
+          "heading": "Create a Wildcard Index",
+          "heading_level": 3,
+          "content": "You can create wildcard indexes to\nsupport queries against unknown or arbitrary fields. To create a\nwildcard index in Atlas , manually type the wildcard index\nfield ( <field>.$** ) into the Select a field name input.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "example",
+      "heading": "Example",
+      "heading_level": 2,
+      "content": "Consider a collection where documents contain a userMetadata object. The fields within the userMetadata object may vary\nbetween documents.\nYou can create a wildcard index on userMetadata to account for\nall potential fields within the object. Type the following into\nthe Select a field name input:\nSpecify a type ( ascending or descending ) for your wildcard\nindex, then click Create Index .\nAtlas shows the type of your new index as Wildcard .",
+      "code_blocks": [
+        "userMetadata. $ * *"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "hide-or-unhide-an-index",
+      "heading": "Hide or Unhide an Index",
+      "heading_level": 2,
+      "content": "You can hide an index from the query planner to\nevaluate the potential impact of dropping an index without actually dropping the\nindex.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "hover-over-the-index.",
+          "heading": "Hover over the index.",
+          "heading_level": 3,
+          "content": "From the Indexes tab, hover over the index you want to hide.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "click-the-hide-index-button.",
+          "heading": "Click the Hide Index button.",
+          "heading_level": 3,
+          "content": "Click the closed-eye icon on the right that appears when you hover over\nyour selected index.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "click-confirm-.",
+          "heading": "Click Confirm .",
+          "heading_level": 3,
+          "content": "In the dialog box, confirm the index you want to hide. After you confirm\nyour selection, a Hidden badge appears under the Properties column.\nTo unhide your index, repeat steps 1-3. After you unhide your index, Atlas removes the Hidden badge from the Properties column.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "drop-an-index",
+      "heading": "Drop an Index",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "click-the-trash-can-icon-for-the-index-to-drop.",
+          "heading": "Click the trash can icon for the index to drop.",
+          "heading_level": 3,
+          "content": "From the Indexes tab, to delete an index,\nclick on the trash can icon for that index. A confirmation\ndialog appears.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "confirm-the-index-to-delete.",
+          "heading": "Confirm the index to delete.",
+          "heading_level": 3,
+          "content": "In the dialog, enter the name of the index to delete.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "click-drop-to-drop-the-index.",
+          "heading": "Click Drop to drop the index.",
+          "heading_level": 3,
+          "content": "Intelligent Assistant in Data Explorer\nAggregation Pipelines\n- Required Roles\n- Considerations\n- Indexes Tab\n- Create an Index\n- Hide or Unhide an Index\n- Drop an Index\nRequired Roles\nConsiderations\nIndexes Tab\nCreate an Index\nHide or Unhide an Index\nDrop an Index\n- Required Roles\n- Considerations\n- Indexes Tab\n- Create an Index\n- Hide or Unhide an Index\n- Drop an Index\nRequired Roles\nConsiderations\nIndexes Tab\nCreate an Index\nHide or Unhide an Index\nDrop an Index",
+          "code_blocks": []
+        }
+      ]
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:32.397899",
+  "exam_code": "associate_developer_python",
+  "domain_id": 3,
+  "domain_name": "Indexes",
+  "seed_id": "atlas-indexes-ui",
+  "source_type": "atlas",
+  "file_stub": "d3_atlas-indexes-ui"
+}

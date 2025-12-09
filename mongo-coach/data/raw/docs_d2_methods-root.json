@@ -1,0 +1,169 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/method/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "mongoshMethods",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "javascript-in-mongodb",
+          "heading": "JavaScript in MongoDB",
+          "heading_level": 3,
+          "content": "Although these methods use JavaScript, most\ninteractions with MongoDB do not use JavaScript but use an idiomatic driver in the language\nof the interacting application.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "For details on a specific method, including syntax and examples,\nclick on the link to the method's reference page.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "mongodb-search-index-methods",
+      "heading": "MongoDB Search Index Methods",
+      "heading_level": 2,
+      "content": "MongoDB Search indexes let you query data\nin MongoDB Search , while Vector Search indexes let you query data in Vector Search . MongoDB Search and\nVector Search indexes enable performant\ntext search queries by mapping search terms to the documents that\ncontain those terms.\nUse the following methods to manage MongoDB Search and Vector Search indexes.\ndb.collection.createSearchIndex()\nCreates an MongoDB Search index on a specified collection or view.\ndb.collection.dropSearchIndex()\nDeletes an existing MongoDB Search index .\ndb.collection.getSearchIndexes()\nReturns information about existing MongoDB Search indexes on a specified\ncollection or view.\ndb.collection.updateSearchIndex()\nUpdates an existing MongoDB Search index .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "atlas-stream-processing-methods",
+      "heading": "Atlas Stream Processing Methods",
+      "heading_level": 2,
+      "content": "Atlas Stream Processors let you perform aggregation operations against streams of\ncontinuous data using the same data model and query API that\nyou use with at-rest data.\nUse the following methods to manage Stream Processors:",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "The following methods can only be run on deployments hosted on MongoDB Atlas .\nsp.createStreamProcessor()\nCreates a stream processor.\nsp.listStreamProcessors()\nLists all existing stream processors on the current stream\nprocessing workspace.\nsp.process()\nCreates an ephemeral stream processor.\nsp.processor.drop()\nDeletes an existing stream processor.\nsp.processor.sample()\nReturns an array of sampled results from a currently running stream processor.\nsp.processor.start()\nStarts an existing stream processor.\nsp.processor.stats()\nReturns statistics summarizing an existing stream processor.\nsp.processor.stop()\nStops a currently running stream processor.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "collection",
+      "heading": "Collection",
+      "heading_level": 2,
+      "content": "db.collection.analyzeShardKey()\nCalculates metrics for evaluating a shard key.\ndb.collection.aggregate()\nProvides access to the aggregation pipeline .\ndb.collection.bulkWrite()\nProvides bulk write operation functionality.\ndb.collection.compactStructuredEncryptionData()\nWraps compactStructuredEncryptionData to return\na success or failure object.\ndb.collection.configureQueryAnalyzer()\nConfigures query sampling for a collection.\ndb.collection.count()\nWraps count to return a count of the number of documents in a collection or a view.\ndb.collection.countDocuments()\nWraps the $group aggregation stage with a $sum expression to return a count of the number of documents in a\ncollection or a view.\ndb.collection.createIndex()\nBuilds an index on a collection.\ndb.collection.createIndexes()\nBuilds one or more indexes on a collection.\ndb.collection.dataSize()\nReturns the size of the collection. Wraps the size field in the output of the collStats .\ndb.collection.deleteOne()\nDeletes a single document in a collection.\ndb.collection.deleteMany()\nDeletes multiple documents in a collection.\ndb.collection.distinct()\nReturns an array of documents that have distinct values for the specified field.\ndb.collection.drop()\nRemoves the specified collection from the database.\ndb.collection.dropIndex()\nRemoves a specified index on a collection.\ndb.collection.dropIndexes()\nRemoves all indexes on a collection.\ndb.collection.estimatedDocumentCount()\nWraps count to return an approximate count of the documents in a collection or a view.\ndb.collection.explain()\nReturns information on the query execution of various methods.\ndb.collection.find()\nPerforms a query on a collection or a view and returns a cursor object.\ndb.collection.findAndModify()\nAtomically modifies and returns a single document.\ndb.collection.findOne()\nPerforms a query and returns a single document.\ndb.collection.findOneAndDelete()\nFinds a single document and deletes it.\ndb.collection.findOneAndReplace()\nFinds a single document and replaces it.\ndb.collection.findOneAndUpdate()\nFinds a single document and updates it.\ndb.collection.getIndexes()\nReturns an array of documents that describe the existing indexes on a collection.\ndb.collection.getShardDistribution()\nFor collections in sharded clusters, db.collection.getShardDistribution() reports data of chunk distribution.\ndb.collection.getShardVersion()\nInternal diagnostic method for sharded cluster.\ndb.collection.hideIndex()\nHides an index from the query planner.\ndb.collection.insertOne()\nInserts a new document into a collection.\ndb.collection.insertMany()\nInserts several new documents into a collection.\ndb.collection.isCapped()\nReports if a collection is a capped collection .\ndb.collection.latencyStats()\nReturns latency statistics for a collection.\ndb.collection.mapReduce()\nPerforms map-reduce style data aggregation.\ndb.collection.reIndex()\nRebuilds all existing indexes on a collection.\ndb.collection.remove()\nDeletes documents from a collection.\ndb.collection.renameCollection()\nChanges the name of a collection.\ndb.collection.replaceOne()\nReplaces a single document in a collection.\ndb.collection.stats()\nReports on the state of a collection. Provides a wrapper around the collStats .\ndb.collection.storageSize()\nReports the total size used by the collection in bytes. Provides a wrapper around the storageSize field of the collStats output.\ndb.collection.totalIndexSize()\nReports the total size used by the indexes on a collection. Provides a wrapper around the totalIndexSize field of the collStats output.\ndb.collection.totalSize()\nReports the total size of a collection, including the size of all documents and all indexes on a collection.\ndb.collection.unhideIndex()\nUnhides an index from the query planner.\ndb.collection.updateOne()\nModifies a single document in a collection.\ndb.collection.updateMany()\nModifies multiple documents in a collection.\ndb.collection.watch()\nEstablishes a Change Stream on a collection.\ndb.collection.validate()\nPerforms diagnostic operations on a collection.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "cursor",
+      "heading": "Cursor",
+      "heading_level": 2,
+      "content": "cursor.addOption()\nAdds special wire protocol flags that modify the behavior of the query.'\ncursor.allowDiskUse()\nAllows MongoDB to use temporary files on disk to store data exceeding the 100\nmegabyte system memory limit while processing an in-memory sort operation.\ncursor.batchSize()\nControls the number of documents MongoDB will return to the client in a single network message.\ncursor.close()\nClose a cursor and free associated server resources.\ncursor.isClosed()\nReturns true if the cursor is closed.\ncursor.collation()\nSpecifies the collation for the cursor returned by the db.collection.find() .\ncursor.comment()\nAttaches a comment to the query to allow for traceability in the logs and the system.profile collection.\ncursor.count()\nModifies the cursor to return the number of documents in the result set rather than the documents themselves.\ncursor.explain()\nReports on the query execution plan for a cursor.\ncursor.forEach()\nApplies a JavaScript function for every document in a cursor.\ncursor.hasNext()\nReturns true if the cursor has documents and can be iterated.\ncursor.hint()\nForces MongoDB to use a specific index for a query.\ncursor.isExhausted()\nReturns true if the cursor is closed and there are no objects remaining in the batch.\ncursor.itcount()\nComputes the total number of documents in the cursor client-side by fetching and iterating the result set.\ncursor.limit()\nConstrains the size of a cursor's result set.\ncursor.map()\nApplies a function to each document in a cursor and collects the return values in an array.\ncursor.max()\nSpecifies an exclusive upper index bound for a cursor. For use with cursor.hint()\ncursor.maxTimeMS()\nSpecifies a cumulative time limit in milliseconds for processing operations on a cursor.\ncursor.min()\nSpecifies an inclusive lower index bound for a cursor. For use with cursor.hint()\ncursor.next()\nReturns the next document in a cursor.\ncursor.noCursorTimeout()\nInstructs the server to avoid closing a cursor automatically after a period of inactivity.\ncursor.objsLeftInBatch()\nReturns the number of documents left in the current cursor batch.\ncursor.pretty()\nConfigures the cursor to display results in an easy-to-read format.\ncursor.readConcern()\nSpecifies a read concern for a find() operation.\ncursor.readPref()\nSpecifies a read preference to a cursor to control how the client directs queries to a replica set .\ncursor.returnKey()\nModifies the cursor to return index keys rather than the documents.\ncursor.showRecordId()\nAdds an internal storage engine ID field to each document returned by the cursor.\ncursor.size()\nReturns a count of the documents in the cursor after applying skip() and limit() methods.\ncursor.skip()\nReturns a cursor that begins returning results only after passing or skipping a number of documents.\ncursor.sort()\nReturns results ordered according to a sort specification.\ncursor.tailable()\nMarks the cursor as tailable. Only valid for cursors over capped collections.\ncursor.toArray()\nReturns an array that contains all documents returned by the cursor.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "database",
+      "heading": "Database",
+      "heading_level": 2,
+      "content": "db.adminCommand()\nRuns a command against the admin database.\ndb.aggregate()\nRuns admin/diagnostic pipeline which does not require an underlying collection.\ndb.commandHelp()\nReturns help information for a database command .\ndb.createCollection()\nCreates a new collection or a view. Commonly used to create a capped collection.\ndb.createView()\nCreates a view.\ndb.currentOp()\nReports the current in-progress operations.\ndb.dropDatabase()\nRemoves the current database.\ndb.fsyncLock()\nFlushes writes to disk and locks the database to prevent write operations and assist backup operations. Wraps fsync .\ndb.fsyncUnlock()\nAllows writes to continue on a database locked with db.fsyncLock() .\ndb.getCollection()\nReturns a collection or view object. Used to access collections with names that are not valid in mongosh .\ndb.getCollectionInfos()\nReturns collection information for all collections and views in the current database.\ndb.getCollectionNames()\nLists all collections and views in the current database.\ndb.getLogComponents()\nReturns the log message verbosity levels.\ndb.getMongo()\nReturns the Mongo() connection object for the current connection.\ndb.getName()\nReturns the name of the current database.\ndb.getProfilingStatus()\nReturns a document that reflects the current profiling level and the profiling threshold.\ndb.getReplicationInfo()\nReturns a document with replication statistics.\ndb.getSiblingDB()\nProvides access to the specified database.\ndb.hello()\nReturns a document that reports the state of the replica set.\ndb.help()\nDisplays descriptions of common db object methods.\ndb.hostInfo()\nReturns a document with information about the system MongoDB runs on. Wraps hostInfo\ndb.killOp()\nTerminates a specified operation.\ndb.listCommands()\nDisplays a list of common database commands.\ndb.logout()\nDeprecated . Ends an authenticated session.\ndb.printCollectionStats()\nPrints statistics from every collection. Wraps db.collection.stats() .\ndb.printReplicationInfo()\nPrints a report of the status of the replica set from the perspective of the primary.\ndb.printSecondaryReplicationInfo()\nPrints the status of the replica set from the\nperspective of the secondaries.\ndb.printShardingStatus()\nPrints a report of the sharding configuration and the chunk ranges.\ndb.rotateCertificates()\nPerforms online TLS certificate rotation. Wraps rotateCertificates .\ndb.runCommand()\nRuns a database command .\ndb.serverBuildInfo()\nReturns a document that displays the compilation parameters for the mongod instance. Wraps buildInfo .\ndb.serverCmdLineOpts()\nReturns a document with information about the runtime used to start the MongoDB instance. Wraps getCmdLineOpts .\ndb.serverStatus()\nReturns a document that provides an overview of the state of the database process.\ndb.setLogLevel()\nSets a single log message verbosity level.\ndb.setProfilingLevel()\nModifies the current level of database profiling.\ndb.shutdownServer()\nShuts down the current mongod or mongos process cleanly and safely.\ndb.stats()\nReturns a document that reports on the state of the current database.\ndb.version()\nReturns the version of the mongod instance.\ndb.watch()\nOpens a change stream cursor for a database\nto report on all its non- system collections. Cannot be opened on\nthe admin , local or config databases.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "query-plan-cache",
+      "heading": "Query Plan Cache",
+      "heading_level": 2,
+      "content": "db.collection.getPlanCache()\nReturns an interface to access the query plan cache object and\nassociated PlanCache methods for a collection.\nPlanCache.clear()\nClears all the cached query plans for a collection.\nAccessible through the plan cache object of a specific collection,\ni.e. db.collection.getPlanCache().clear() .\nPlanCache.clearPlansByQuery()\nClears the cached query plans for the specified plan cache query shape .\nAccessible through the plan cache object of a specific collection,\ni.e. db.collection.getPlanCache().clearPlansByQuery()\nPlanCache.help()\nDisplays the methods available for a collection's query plan cache.\nAccessible through the plan cache object of a specific collection,\ni.e. db.collection.getPlanCache().help() .\nPlanCache.list()\nReturns the plan cache information for a collection. Accessible\nthrough the plan cache object of a specific collection, i.e. db.collection.getPlanCache().list() .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "bulk-write-operation",
+      "heading": "Bulk Write Operation",
+      "heading_level": 2,
+      "content": "db.collection.initializeOrderedBulkOp()\nInitializes a Bulk() operations builder for an ordered list of operations.\ndb.collection.initializeUnorderedBulkOp()\nInitializes a Bulk() operations builder for an unordered list of operations.\nMongo.bulkWrite()\nExecutes bulk write operations on multiple namespaces.\nBulk()\nBulk operations builder.\nBulk.execute()\nExecutes a list of operations in bulk.\nBulk.find()\nSpecifies the query condition for an update or a remove operation.\nBulk.find.arrayFilters()\nSpecifies the filters that determine which elements of an array to update for an update or updateOne operation.\nBulk.find.collation()\nSpecifies the collation for the query condition.\nBulk.find.delete()\nAdds a multiple document delete operation to a list of operations.\nBulk.find.deleteOne()\nAdds a single document delete operation to a list of operations.\nBulk.find.hint()\nSpecifies the index to use for the update/replace operation.\nBulk.find.remove()\nAn alias for Bulk.find.delete() .\nBulk.find.removeOne()\nAn alias for Bulk.find.deleteOne() .\nBulk.find.replaceOne()\nAdds a single document replacement operation to a list of operations.\nBulk.find.updateOne()\nAdds a single document update operation to a list of operations.\nBulk.find.update()\nAdds a multi update operation to a list of operations.\nBulk.find.upsert()\nSpecifies upsert: true for an update operation.\nBulk.getOperations()\nReturns an array of write operations executed in the Bulk() operations object.\nBulk.insert()\nAdds an insert operation to a list of operations.\nBulk.toJSON()\nReturns a JSON document that contains the number of operations and batches in the Bulk() operations object.\nBulk.toString()\nReturns the Bulk.toJSON() results as a string.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "user-management",
+      "heading": "User Management",
+      "heading_level": 2,
+      "content": "db.auth()\nAuthenticates a user to a database.\ndb.changeUserPassword()\nChanges an existing user's password.\ndb.createUser()\nCreates a new user.\ndb.dropUser()\nRemoves a single user.\ndb.dropAllUsers()\nDeletes all users associated with a database.\ndb.getUser()\nReturns information about the specified user.\ndb.getUsers()\nReturns information about all users associated with a database.\ndb.grantRolesToUser()\nGrants a role and its privileges to a user.\ndb.removeUser()\nDeprecated. Removes a user from a database.\ndb.revokeRolesFromUser()\nRemoves a role from a user.\ndb.updateUser()\nUpdates user data.\npasswordPrompt()\nPrompts for the password as an alternative to specifying passwords\ndirectly in various mongosh user\nauthentication/management methods.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "role-management",
+      "heading": "Role Management",
+      "heading_level": 2,
+      "content": "db.createRole()\nCreates a role and specifies its privileges.\ndb.dropRole()\nDeletes a user-defined role.\ndb.dropAllRoles()\nDeletes all user-defined roles associated with a database.\ndb.getRole()\nReturns information for the specified role.\ndb.getRoles()\nReturns information for all the user-defined roles in a database.\ndb.grantPrivilegesToRole()\nAssigns privileges to a user-defined role.\ndb.revokePrivilegesFromRole()\nRemoves the specified privileges from a user-defined role.\ndb.grantRolesToRole()\nSpecifies roles from which a user-defined role inherits privileges.\ndb.revokeRolesFromRole()\nRemoves inherited roles from a role.\ndb.updateRole()\nUpdates a user-defined role.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "replication",
+      "heading": "Replication",
+      "heading_level": 2,
+      "content": "rs.add()\nAdds a member to a replica set.\nrs.addArb()\nAdds an arbiter to a replica set.\nrs.conf()\nReturns the replica set configuration document.\nrs.freeze()\nPrevents the current member from seeking election as primary for a period of time.\nrs.help()\nReturns basic help text for replica set functions.\nrs.initiate()\nInitializes a new replica set.\nrs.printReplicationInfo()\nPrints a formatted report of the replica set status from the\nperspective of the primary.\nrs.printSecondaryReplicationInfo()\nPrints a formatted report of the replica set status from the\nperspective of the secondaries.\nrs.reconfig()\nRe-configures a replica set by applying a new replica set configuration object.\nrs.remove()\nRemove a member from a replica set.\nrs.status()\nReturns a document with information about the state of the replica set.\nrs.stepDown()\nCauses the current primary to become a secondary which forces an election .\nrs.syncFrom()\nSets the member that this replica set member will sync from, overriding the default sync target selection logic.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "sharding",
+      "heading": "Sharding",
+      "heading_level": 2,
+      "content": "convertShardKeyToHashed()\nReturns the hashed value for the input.\ndb.checkMetadataConsistency()\nChecks the cluster or database for inconsistent sharding metadata.\nNew in version 7.0 .\ndb.collection.checkMetadataConsistency()\nChecks the collection for inconsistent sharding metadata.\ndb.collection.getShardLocation()\nReturns a document containing the shards where the collection is\nlocated and whether the collection is sharded.\nNew in version 8.1 .\nsh.abortMoveCollection()\nStops an in-progress moveCollection operation.\nNew in version 8.0 .\nsh.abortReshardCollection()\nAborts a resharding operation .\nNew in version 5.0 .\nsh.addShard()\nAdds a shard to a sharded cluster.\nsh.addShardTag()\nThis method aliases to sh.addShardToZone() .\nsh.addShardToZone()\nAssociates a shard to a zone. Supports configuring zones in sharded clusters.\nsh.addTagRange()\nThis method aliases to sh.updateZoneKeyRange() .\nsh.balancerCollectionStatus()\nReturns information on whether the chunks of a sharded\ncollection are balanced.\nsh.checkMetadataConsistency()\nChecks the cluster for inconsistent sharding metadata.\nNew in version 7.0 .\nsh.commitReshardCollection()\nForces a resharding operation to\nblock writes and complete.\nNew in version 5.0 .\nsh.disableAutoMerger()\nDisables automatic chunk merges for a namespace .\nNew in version 7.0 .\nsh.disableAutoSplit()\nDisables auto-splitting for the sharded cluster.\nStarting in MongoDB 6.0.3, automatic chunk splitting is not performed.\nThis is because of balancing policy improvements. Auto-splitting commands\nstill exist, but do not perform an operation.\nsh.disableBalancing()\nDisable balancing on a single collection in a sharded database.\nDoes not affect balancing of other collections in a sharded cluster.\nsh.disableMigrations()\nDisables chunk migrations for a specific collection in a sharded\ncluster.\nsh.enableAutoMerger()\nEnables automatic chunk merges for a namespace .\nNew in version 7.0 .\nsh.enableAutoSplit()\nEnables auto-splitting for the sharded cluster.\nStarting in MongoDB 6.0.3, automatic chunk splitting is not performed.\nThis is because of balancing policy improvements. Auto-splitting commands\nstill exist, but do not perform an operation.\nsh.enableBalancing()\nActivates the sharded collection balancer process\nif previously disabled using sh.disableBalancing() .\nsh.enableMigrations()\nEnables chunk migrations for a specific collection in a sharded\ncluster that were previously disabled using sh.disableMigrations() .\nsh.enableSharding()\nCreates a database.\nsh.getBalancerState()\nReturns a boolean to report if the balancer is currently enabled.\nsh.getShardedDataDistribution()\nReturns data distribution information for sharded collections. sh.getShardedDataDistribution() is a shell helper method for the $shardedDataDistribution aggregation pipeline stage.\nsh.help()\nReturns help text for the sh methods.\nsh.isBalancerRunning()\nReturns a document describing the status of the balancer.\nsh.isConfigShardEnabled()\nReturns whether a cluster has a config shard .\nIf it does, sh.isConfigShardEnabled() also returns\nhost and tag information.\nsh.listShards()\nReturns an array of documents describing the\nshards in a sharded cluster.\nsh.moveChunk()\nMigrates a chunk in a sharded cluster .\nsh.moveCollection()\nMoves a single unsharded collection to a different shard.\nsh.moveRange()\nMove ranges between shards.\nsh.removeRangeFromZone()\nRemoves an association between a range of shard keys and a zone.\nSupports configuring zones in sharded clusters.\nsh.removeShardTag()\nThis method aliases to sh.removeShardFromZone() .\nsh.removeShardFromZone()\nRemoves the association between a shard and a zone. Use to manage zone sharding .\nsh.removeTagRange()\nThis method aliases to sh.removeRangeFromZone() .\nsh.reshardCollection()\nInitiates a resharding operation to change the\nshard key for a collection, changing the distribution of your data.\nNew in version 5.0 .\nsh.setBalancerState()\nEnables or disables the balancer which\nmigrates chunks between shards .\nsh.shardAndDistributeCollection()\nShards a collection and immediately redistributes the data using the\nprovided shard key .\nNew in version 8.0 .\nsh.shardCollection()\nEnables sharding for a collection.\nsh.splitAt()\nDivides an existing chunk into two chunks\nusing a specific value of the shard key as the dividing point.\nsh.splitFind()\nDivides an existing chunk that contains a\ndocument matching a query into two approximately equal chunks.\nsh.startAutoMerger()\nEnables the AutoMerger .\nNew in version 7.0 .\nsh.startBalancer()\nEnables the balancer and waits for balancing to start.\nsh.status()\nReports on the status of a sharded cluster , as db.printShardingStatus() .\nsh.stopAutoMerger()\nDisables the AutoMerger .\nNew in version 7.0 .\nsh.stopBalancer()\nDisables the balancer and waits for any in progress\nbalancing rounds to complete.\nsh.unshardCollection()\nUnshards an existing sharded collection and moves the collection\ndata onto a single shard. When you unshard a collection,\nthe collection cannot be partitioned across multiple shards and the shard key is removed.\nNew in version 8.0 .\nsh.updateZoneKeyRange()\nAssociates a range of shard keys to a zone. Supports configuring zones in sharded clusters.\nsh.waitForBalancer()\nInternal. Waits for the balancer state to change.\nsh.waitForBalancerOff()\nInternal. Waits until the balancer stops running.\nsh.waitForPingChange()\nInternal. Waits for a change in ping state from one of the mongos in the sharded cluster.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "constructors",
+      "heading": "Constructors",
+      "heading_level": 2,
+      "content": "Binary.createFromBase64()\nCreates a binary object from a base64 value.\nBinary.createFromHexString()\nCreates a binary object from a hexadecimal value.\nBinData()\nReturns a binary data object .\nBulkWriteResult()\nWrapper around the result set from Bulk.execute() .\nDate()\nCreates a date object. By default creates a date object including the current date.\nHexData()\nReturns a binary data object .\nObjectId()\nReturns an ObjectId .\nObjectId.createFromBase64()\nCreates an ObjectId from a base64 value.\nObjectId.createFromHexString()\nCreates an ObjectId from a hexadecimal value.\nObjectId.getTimestamp()\nReturns the timestamp portion of an ObjectId .\nObjectId.toString()\nDisplays the string representation of an ObjectId .\nUUID() (mongosh method)\nConverts a 32-byte hexadecimal string to the UUID BSON subtype.\nWriteResult()\nWrapper around the result set from write methods.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "connection",
+      "heading": "Connection",
+      "heading_level": 2,
+      "content": "connect() (mongosh method)\nConnects to a MongoDB instance and to a specified database on that instance.\nMongo()\nCreates a new connection object.\nMongo.getDB()\nReturns a database object.\nMongo.getReadPrefMode()\nReturns the current read preference mode for the MongoDB connection.\nMongo.getReadPrefTagSet()\nReturns the read preference tag set for the MongoDB connection.\nMongo.setCausalConsistency()\nEnables or disables causal consistency on the connection object.\nMongo.setReadPref()\nSets the read preference for the MongoDB connection.\nMongo.startSession()\nStarts a session on the connection object.\nMongo.watch()\nOpens a change stream cursor for a deployment\nto report on all its non- system collections across all its\ndatabases, excluding the internal admin , local , and config databases.\nSession()\nThe session object.\nSessionOptions()\nThe options object for the session.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "in-use-encryption",
+      "heading": "In-Use Encryption",
+      "heading_level": 2,
+      "content": "MongoDB supports two approaches to In-Use Encryption ,\nClient-Side Field Level Encryption (CSFLE) and Queryable Encryption (QE). ClientEncryption is an abstraction used\nacross drivers and mongosh that encapsulates operations for\nboth CSFLE and QE. However, some methods are specific to one feature.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The mongosh ClientEncryption methods\nrequire a database connection with in-use encryption\nenabled. If the current database connection was not initiated with\nin-use encryption enabled, either:\n- Use the Mongo() constructor from the mongosh to establish a connection with the required in-use encryption options.\nThe Mongo() method supports the\nfollowing Key Management Service (KMS) providers for Customer\nMaster Key (CMK) management: Amazon Web Services KMS Azure Key Vault Google Cloud Platform KMS Locally Managed Key or\n- Amazon Web Services KMS\n- Azure Key Vault\n- Google Cloud Platform KMS\n- Locally Managed Key\n- Use the mongosh command line options to establish a\nconnection with the required options. The command line options only\nsupport the Amazon Web Services KMS provider for CMK management.\nUse the Mongo() constructor from the mongosh to establish a connection with the required in-use encryption options.\nThe Mongo() method supports the\nfollowing Key Management Service (KMS) providers for Customer\nMaster Key (CMK) management: Amazon Web Services KMS Azure Key Vault Google Cloud Platform KMS Locally Managed Key or\nUse the Mongo() constructor from the mongosh to establish a connection with the required in-use encryption options.\nThe Mongo() method supports the\nfollowing Key Management Service (KMS) providers for Customer\nMaster Key (CMK) management:\n- Amazon Web Services KMS\n- Azure Key Vault\n- Google Cloud Platform KMS\n- Locally Managed Key\nAmazon Web Services KMS\nAzure Key Vault\nGoogle Cloud Platform KMS\nLocally Managed Key\nor\nUse the mongosh command line options to establish a\nconnection with the required options. The command line options only\nsupport the Amazon Web Services KMS provider for CMK management.\nUse the mongosh command line options to establish a\nconnection with the required options. The command line options only\nsupport the Amazon Web Services KMS provider for CMK management.\nCommands with aliases are grouped together.\ngetKeyVault()\n✓\nReturns the key vault object for the current MongoDB connection.\n✓\nCreates a data encryption key for use with Client-Side Field Level Encryption.\nKeyVault.deleteKey()\n✓\nDeletes the specified data encryption key from the key vault.\nKeyVault.getKey()\n✓\nRetrieves the specified data encryption key from the key vault.\nKeyVault.getKeys()\n✓\nRetrieves all keys in the key vault.\n✓\nAssociates a key alternative name to the specified data encryption key.\n✓\nRemoves a key alternative name from the specified data encryption key.\nKeyVault.getKeyByAltName()\n✓\nRetrieves keys with the specified key alternative name.\nKeyVault.rewrapManyDataKey()\n✓\nDecrypts multiple data keys and re-encrypts them with a new master key.\ngetClientEncryption()\n✓\nReturns the client encryption object for supporting explicit encryption/decryption of fields.\nClientEncryption.createEncryptedCollection()\n✓\nCreates a collection with encrypted fields.\nClientEncryption.encrypt()\n✓\nEncrypts a field using a specified data encryption key and encryption\nalgorithm.\nClientEncryption.encryptExpression()\n✓\nEncrypts a query expression using a specified data encryption key and\nencryption options.\nClientEncryption.decrypt()\n✓\nDecrypts a field using the associated data encryption key and\nencryption algorithm.\nLegacy Opcodes\nNative Methods\n- MongoDB Search Index Methods\n- Atlas Stream Processing Methods\n- Collection\n- Cursor\n- Database\n- Query Plan Cache\n- Bulk Write Operation\n- User Management\n- Role Management\n- Replication\n- Sharding\n- Constructors\n- Connection\n- In-Use Encryption\nMongoDB Search Index Methods\nAtlas Stream Processing Methods\nCollection\nCursor\nDatabase\nQuery Plan Cache\nBulk Write Operation\nUser Management\nRole Management\nReplication\nSharding\nConstructors\nConnection\nIn-Use Encryption\n- MongoDB Search Index Methods\n- Atlas Stream Processing Methods\n- Collection\n- Cursor\n- Database\n- Query Plan Cache\n- Bulk Write Operation\n- User Management\n- Role Management\n- Replication\n- Sharding\n- Constructors\n- Connection\n- In-Use Encryption\nMongoDB Search Index Methods\nAtlas Stream Processing Methods\nCollection\nCursor\nDatabase\nQuery Plan Cache\nBulk Write Operation\nUser Management\nRole Management\nReplication\nSharding\nConstructors\nConnection\nIn-Use Encryption",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:12.348183",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "methods-root",
+  "source_type": "manual",
+  "file_stub": "d2_methods-root"
+}

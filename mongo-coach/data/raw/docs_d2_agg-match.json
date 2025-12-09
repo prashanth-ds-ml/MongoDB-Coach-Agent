@@ -1,0 +1,166 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/match/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "$match (aggregation stage)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Filters documents based on a specified query predicate .\nMatched documents are passed to the next pipeline stage.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "You can use $match for deployments hosted in the following\nenvironments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The syntax for the $match query predicate is identical to the syntax\nused in the query argument of a find() command.",
+      "code_blocks": [
+        "{ $match : { < query predicate > } }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "pipeline-optimization",
+          "heading": "Pipeline Optimization",
+          "heading_level": 3,
+          "content": "- Place the $match as early in the aggregation pipeline as possible. Because $match limits\nthe total number of documents in the aggregation pipeline,\nearlier $match operations minimize the amount of\nprocessing down the pipe.\n- If you place a $match at the very beginning of a\npipeline, the query can take advantage of indexes like any other db.collection.find() or db.collection.findOne() .\nPlace the $match as early in the aggregation pipeline as possible. Because $match limits\nthe total number of documents in the aggregation pipeline,\nearlier $match operations minimize the amount of\nprocessing down the pipe.\nPlace the $match as early in the aggregation pipeline as possible. Because $match limits\nthe total number of documents in the aggregation pipeline,\nearlier $match operations minimize the amount of\nprocessing down the pipe.\nIf you place a $match at the very beginning of a\npipeline, the query can take advantage of indexes like any other db.collection.find() or db.collection.findOne() .\nIf you place a $match at the very beginning of a\npipeline, the query can take advantage of indexes like any other db.collection.find() or db.collection.findOne() .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "expressions-in-query-predicates",
+          "heading": "Expressions in Query Predicates",
+          "heading_level": 3,
+          "content": "To include expressions in a query\npredicate, use the $expr operator.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "0,-null,-false-or-missing-values",
+          "heading": "0, Null, False or Missing Values",
+          "heading_level": 3,
+          "content": "A $match stage filters out a document from pipeline results if one\nof the following conditions applies:\n- The $match query predicate returns a 0 , null , or false value on that document.\n- The $match query predicate uses a field that is missing from\nthat document.\nThe $match query predicate returns a 0 , null , or false value on that document.\nThe $match query predicate uses a field that is missing from\nthat document.\nThe $match query predicate uses a field that is missing from\nthat document.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "restrictions",
+          "heading": "Restrictions",
+          "heading_level": 3,
+          "content": "- You cannot use $where in a $match stage.\n- You cannot use $near or $nearSphere in a $match stage. As an alternative, you can either: Use the $geoNear stage instead of the $match stage. Use the $geoWithin query predicate operator with $center or $centerSphere in the $match stage.\n- Use the $geoNear stage instead of the $match stage.\n- Use the $geoWithin query predicate operator with $center or $centerSphere in the $match stage.\n- To use $text in a $match stage, the $match stage has to be the first stage of the pipeline. Views do not support $text . Note $text provides text query capabilities for self-managed\n(non-Atlas) deployments. For data hosted on MongoDB, MongoDB also\noffers an improved full-text query solution, MongoDB Search .\nYou cannot use $where in a $match stage.\nYou cannot use $near or $nearSphere in a $match stage. As an alternative, you can either: Use the $geoNear stage instead of the $match stage. Use the $geoWithin query predicate operator with $center or $centerSphere in the $match stage.\nYou cannot use $near or $nearSphere in a $match stage. As an alternative, you can either:\n- Use the $geoNear stage instead of the $match stage.\n- Use the $geoWithin query predicate operator with $center or $centerSphere in the $match stage.\nUse the $geoNear stage instead of the $match stage.\nUse the $geoWithin query predicate operator with $center or $centerSphere in the $match stage.\nTo use $text in a $match stage, the $match stage has to be the first stage of the pipeline. Views do not support $text . Note $text provides text query capabilities for self-managed\n(non-Atlas) deployments. For data hosted on MongoDB, MongoDB also\noffers an improved full-text query solution, MongoDB Search .\nTo use $text in a $match stage, the $match stage has to be the first stage of the pipeline.\nViews do not support $text .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "$text provides text query capabilities for self-managed\n(non-Atlas) deployments. For data hosted on MongoDB, MongoDB also\noffers an improved full-text query solution, MongoDB Search .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "filter-data-on-atlas-by-using-mongodb-search",
+          "heading": "Filter Data on Atlas by Using MongoDB Search",
+          "heading_level": 3,
+          "content": "For data stored in MongoDB Atlas ,\nyou can use the MongoDB Search compound Operator operator filter option to match or filter\ndocuments when running $search queries. Running $match after $search is less performant\nthan running $search with the compound Operator operator filter option.\nTo learn more about the filter option, see compound Operator in the Atlas documentation.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "The examples use a collection named articles with the following\ndocuments:",
+      "code_blocks": [
+        "{ \"_id\" : ObjectId ( \"512bc95fe835e68f199c8686\" ) , \"author\" : \"dave\" , \"score\" : 80 , \"views\" : 100 } { \"_id\" : ObjectId ( \"512bc962e835e68f199c8687\" ) , \"author\" : \"dave\" , \"score\" : 85 , \"views\" : 521 } { \"_id\" : ObjectId ( \"55f5a192d4bede9ac365b257\" ) , \"author\" : \"ahn\" , \"score\" : 60 , \"views\" : 1000 } { \"_id\" : ObjectId ( \"55f5a192d4bede9ac365b258\" ) , \"author\" : \"li\" , \"score\" : 55 , \"views\" : 5000 } { \"_id\" : ObjectId ( \"55f5a1d3d4bede9ac365b259\" ) , \"author\" : \"annT\" , \"score\" : 60 , \"views\" : 50 } { \"_id\" : ObjectId ( \"55f5a1d3d4bede9ac365b25a\" ) , \"author\" : \"li\" , \"score\" : 94 , \"views\" : 999 } { \"_id\" : ObjectId ( \"55f5a1d3d4bede9ac365b25b\" ) , \"author\" : \"ty\" , \"score\" : 95 , \"views\" : 1000 }"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "equality-match",
+          "heading": "Equality Match",
+          "heading_level": 3,
+          "content": "The following operation uses $match to perform an equality\nmatch:\nThe $match selects the documents where the author field equals dave , and the aggregation returns the following:",
+          "code_blocks": [
+            "db. articles . aggregate ( [ { $match : { author : \"dave\" } } ] ) ;",
+            "{ \"_id\" : ObjectId ( \"512bc95fe835e68f199c8686\" ) , \"author\" : \"dave\" , \"score\" : 80 , \"views\" : 100 } { \"_id\" : ObjectId ( \"512bc962e835e68f199c8687\" ) , \"author\" : \"dave\" , \"score\" : 85 , \"views\" : 521 }"
+          ]
+        },
+        {
+          "subsection_id": "perform-a-count",
+          "heading": "Perform a Count",
+          "heading_level": 3,
+          "content": "The following example selects documents to process using the $match pipeline operator and then pipes the results\nto the $group pipeline operator to compute a count of\nthe documents:\nIn the aggregation pipeline, $match selects the documents\nwhere either the score is greater than 70 and less than 90 or the views is greater than or equal to 1000 . These documents\nare then piped to the $group to perform a count. The\naggregation returns the following:",
+          "code_blocks": [
+            "db. articles . aggregate ( [ { $match : { $or : [ { score : { $gt : 70 , $lt : 90 } } , { views : { $gte : 1000 } } ] } } , { $group : { _id : null , count : { $sum : 1 } } } ] ) ;",
+            "{ \"_id\" : null , \"count\" : 5 }"
+          ]
+        },
+        {
+          "subsection_id": "match-array-elements",
+          "heading": "Match Array Elements",
+          "heading_level": 3,
+          "content": "To filter documents from a collection or previous\naggregation stage based on elements in an array, use the $elemMatch operator in the query predicate of the $match stage:\nThe C# examples on this page use the sample_mflix database\nfrom the Atlas sample datasets . To learn how to create a\nfree MongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB .NET/C#\nDriver documentation.\nThe following Movie class models the documents in the sample_mflix.movies collection:",
+          "code_blocks": [
+            "db. aggregate ( [ { $documents : [ { student_id : 1 , scores : [ 0.75 , 0.65 , 0.73 ] } , { student_id : 2 , scores : [ 0.9 , 0.88 , 0.98 ] } , { student_id : 3 , scores : [ 0.9 , 0.84 , 0.93 ] } ] } , { $match : { scores : { $elemMatch : { $gte : 0.9 } } } } ] )",
+            "[ { student_id : 2 , scores : [ 0.9 , 0.88 , 0.98 ] } , { student_id : 3 , scores : [ 0.9 , 0.84 , 0.93 ] } ]",
+            "public class Movie { public ObjectId Id { get ; set ; } public int Runtime { get ; set ; } public string Title { get ; set ; } public string Rated { get ; set ; } public List< string > Genres { get ; set ; } public string Plot { get ; set ; } public ImdbData Imdb { get ; set ; } public int Year { get ; set ; } public int Index { get ; set ; } public string [] Comments { get ; set ; } [ BsonElement( \"lastupdated\" ) ] public DateTime LastUpdated { get ; set ; } }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "conventionpack-for-pascal-case",
+          "heading": "ConventionPack for Pascal Case",
+          "heading_level": 3,
+          "content": "The C# classes on this page use Pascal case for their property names, but the\nfield names in the MongoDB collection use camel case. To account for this difference,\nyou can use the following code to register a ConventionPack when your\napplication starts:\nTo use the MongoDB .NET/C# driver to add a $match stage to an aggregation\npipeline, call the Match() method on a PipelineDefinition object.\nThe following example creates a pipeline stage that matches all Movie documents where the Title field is equal to \"The Shawshank Redemption\" :\nThe Node.js examples on this page use the sample_mflix database from the Atlas sample datasets . To learn how to create a free\nMongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB Node.js driver documentation.\nTo use the MongoDB Node.js driver to add a $match stage to an aggregation\npipeline, use the $match operator in a pipeline object.\nThe following example creates a pipeline stage that matches all movie documents where the title field is equal to \"The Shawshank Redemption\" . The\nexample then runs the aggregation pipeline:",
+          "code_blocks": [
+            "var camelCaseConvention = new ConventionPack { new CamelCaseElementNameConvention() }; ConventionRegistry.Register( \"CamelCase\" , camelCaseConvention, type => true );",
+            "var pipeline = new EmptyPipelineDefinition<Movie>() .Match(m => m.Title == \"The Shawshank Redemption\" );",
+            "const pipeline = [ { $match : { title : \"The Shawshank Redemption\" } } ] ; const cursor = collection. aggregate ( pipeline) ; return cursor ;"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "Refer to the Complete Aggregation Pipeline Tutorials for more information\nand use cases on aggregation.\n$lookup\n$merge\nMaster \" Fundamentals of Data Transformation \" for free!\n- Definition\n- Compatibility\n- Syntax\n- Behavior\n- Pipeline Optimization\n- Expressions in Query Predicates\n- 0, Null, False or Missing Values\n- Restrictions\n- Filter Data on Atlas by Using MongoDB Search\n- Examples\n- Learn More\nBehavior\nPipeline Optimization\nExpressions in Query Predicates\n0, Null, False or Missing Values\nRestrictions\nFilter Data on Atlas by Using MongoDB Search\nLearn More\n- Definition\n- Compatibility\n- Syntax\n- Behavior\n- Pipeline Optimization\n- Expressions in Query Predicates\n- 0, Null, False or Missing Values\n- Restrictions\n- Filter Data on Atlas by Using MongoDB Search\n- Examples\n- Learn More\nBehavior\nPipeline Optimization\nExpressions in Query Predicates\n0, Null, False or Missing Values\nRestrictions\nFilter Data on Atlas by Using MongoDB Search\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:24.863396",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "agg-match",
+  "source_type": "manual",
+  "file_stub": "d2_agg-match"
+}

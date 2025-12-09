@@ -1,0 +1,78 @@
+{
+  "url": "https://www.mongodb.com/docs/atlas/atlas-search/",
+  "doc_type": "mongodb_docs_atlas",
+  "method_name": null,
+  "title": "MongoDB Search Overview",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "what-is-mongodb-search-?",
+      "heading": "What is MongoDB Search ?",
+      "heading_level": 2,
+      "content": "MongoDB Search is an embedded full-text search that gives you a seamless,\nscalable experience for building relevance-based app features\nand eliminates the need to run a separate search system\nalongside your database.\nYou can use MongoDB Search for fine-grained text indexing and querying of data on your\ncluster. MongoDB Search provides several kinds of text analyzers ,\na rich query language to create complex search logic,\ncustomizable score-based results ranking, and advanced search features for your\napplications like autocomplete, pagination, and faceting.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "use-cases",
+      "heading": "Use Cases",
+      "heading_level": 2,
+      "content": "MongoDB Search supports diverse use cases including the following:\n- Search-as-you-type: To predict words with increasing accuracy as users\nenter characters in your application's search field, you can use the MongoDB Search autocomplete operator to predict and return results for\npartial words. To learn more, see How to Run Autocomplete and Partial Match MongoDB Search Queries .\n- Faceted Search: To enable users of your application to narrow down\nsearch results through the use of filters, you can use\nthe MongoDB Search facet ( MongoDB Search Operator) collector to build facets that group\nresults by values or ranges in the faceted fields. To learn more, see How to Use Facets with MongoDB Search .\n- Paginated Results: To group pages of results and implement functions like\n\"Next Page\" and \"Previous Page\", you can use the MongoDB Search searchSequenceToken with searchAfter and searchBefore options to traverse pages in-order and jump across pages. To learn\nmore, see How to Paginate the Results .\nSearch-as-you-type: To predict words with increasing accuracy as users\nenter characters in your application's search field, you can use the MongoDB Search autocomplete operator to predict and return results for\npartial words. To learn more, see How to Run Autocomplete and Partial Match MongoDB Search Queries .\nSearch-as-you-type: To predict words with increasing accuracy as users\nenter characters in your application's search field, you can use the MongoDB Search autocomplete operator to predict and return results for\npartial words. To learn more, see How to Run Autocomplete and Partial Match MongoDB Search Queries .\nFaceted Search: To enable users of your application to narrow down\nsearch results through the use of filters, you can use\nthe MongoDB Search facet ( MongoDB Search Operator) collector to build facets that group\nresults by values or ranges in the faceted fields. To learn more, see How to Use Facets with MongoDB Search .\nFaceted Search: To enable users of your application to narrow down\nsearch results through the use of filters, you can use\nthe MongoDB Search facet ( MongoDB Search Operator) collector to build facets that group\nresults by values or ranges in the faceted fields. To learn more, see How to Use Facets with MongoDB Search .\nPaginated Results: To group pages of results and implement functions like\n\"Next Page\" and \"Previous Page\", you can use the MongoDB Search searchSequenceToken with searchAfter and searchBefore options to traverse pages in-order and jump across pages. To learn\nmore, see How to Paginate the Results .\nPaginated Results: To group pages of results and implement functions like\n\"Next Page\" and \"Previous Page\", you can use the MongoDB Search searchSequenceToken with searchAfter and searchBefore options to traverse pages in-order and jump across pages. To learn\nmore, see How to Paginate the Results .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "key-concepts",
+      "heading": "Key Concepts",
+      "heading_level": 2,
+      "content": "The following concepts form the basis of MongoDB Search and are essential to\noptimize your application.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "what-are-search-queries?",
+          "heading": "What are search queries?",
+          "heading_level": 3,
+          "content": "Search queries consult a search index to return a set of results. Search\nqueries are different than traditional database queries, as they are\nintended to meet more general information needs. Where a database query\nmust follow a strict syntax, search queries can be used for simple text\nmatching, but can also look for similar phrases, number or date ranges,\nor use regular expressions or wildcards.\nMongoDB Search queries take the form of an aggregation pipeline stage . MongoDB Search provides $search and $searchMeta stages, which can be used in conjunction with\nother aggregation pipeline stages in your query\npipeline. MongoDB Search provides query operators and collectors that you can use inside these\naggregation pipeline stages.\nTo learn more, see Queries and Indexes .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "what-is-a-search-index?",
+          "heading": "What is a search index?",
+          "heading_level": 3,
+          "content": "In the context of search, an index is a data structure that\ncategorizes data in an easily searchable format. Search indexes enable\nfaster retrieval of documents that contain a given term without having\nto scan the entire collection. While both MongoDB Search indexes and MongoDB Indexes make data retrieval faster, note\nthat they are not the same. Like the index in the back of a book, a\nsearch index is a mapping between terms and the documents that contain\nthose terms. Search indexes also contain other relevant metadata, such\nas the positions of terms in documents.\nYou can create a MongoDB Search index on a single field or on multiple fields by\nusing static mappings . Alternatively,\nyou can enable dynamic mappings to\nautomatically index all the dynamically indexable fields in your\ndocuments. You can create MongoDB Search indexes on polymorphic data and embedded\ndocuments, or for specific use-cases like search-as-you-type or faceted\nsearch.\nTo learn more, see Supported Clients .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "what-are-search-analyzers-and-tokens?",
+          "heading": "What are search analyzers and tokens?",
+          "heading_level": 3,
+          "content": "When creating a search index, data must first be transformed into a\nsequence of tokens or terms . An analyzer facilitates this process\nthrough steps including:\n- Tokenization : Breaking up words in a string into indexable tokens.\nFor example, dividing a sentence by whitespace and punctuation.\n- Normalization : Organizing data so that it is consistently\nrepresented and easier to analyze. For example, transforming text to\nlower case or removing unwanted words called stop words .\n- Stemming : Reducing words to their root form. For example, ignoring\nsuffixes, prefixes, and plural word forms.\nTokenization : Breaking up words in a string into indexable tokens.\nFor example, dividing a sentence by whitespace and punctuation.\nTokenization : Breaking up words in a string into indexable tokens.\nFor example, dividing a sentence by whitespace and punctuation.\nNormalization : Organizing data so that it is consistently\nrepresented and easier to analyze. For example, transforming text to\nlower case or removing unwanted words called stop words .\nNormalization : Organizing data so that it is consistently\nrepresented and easier to analyze. For example, transforming text to\nlower case or removing unwanted words called stop words .\nStemming : Reducing words to their root form. For example, ignoring\nsuffixes, prefixes, and plural word forms.\nStemming : Reducing words to their root form. For example, ignoring\nsuffixes, prefixes, and plural word forms.\nThe specifics of tokenization are language-specific and can require\nmaking additional choices. Which analyzer to use depends on your data\nand application.\nMongoDB Search provides some built-in analyzers . You can\nalso create your own custom analyzer . You can\nspecify alternate analyzers using multi analyzer.\nTo learn more, see Process Data with Analyzers .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "what-is-a-search-score?",
+          "heading": "What is a search score?",
+          "heading_level": 3,
+          "content": "Each document in the query results receives a relevancy score that\nenables query results to be returned in order from the highest relevance\nto the lowest. In the simplest form of scoring, documents score higher\nif the query term appears frequently in a document and lower if the\nquery term appears across many documents in the collection. Scoring can\nalso be customized. Tailoring search to a specific domain often means\ncustomizing the relevance-based default score by boosting, decaying, or\nmodifying it in other ways.\nTo learn more, see Score Documents .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "next-steps",
+      "heading": "Next Steps",
+      "heading_level": 2,
+      "content": "For a hands-on experience creating MongoDB Search indexes and running MongoDB Search queries against sample data, try the MongoDB Search Quick Start .\n- What is MongoDB Search ?\n- Use Cases\n- Key Concepts\n- What are search queries?\n- What is a search index?\n- What are search analyzers and tokens?\n- What is a search score?\n- Next Steps\nWhat is MongoDB Search ?\nUse Cases\nKey Concepts\nWhat are search queries?\nWhat is a search index?\nWhat are search analyzers and tokens?\nWhat is a search score?\nNext Steps\n- What is MongoDB Search ?\n- Use Cases\n- Key Concepts\n- What are search queries?\n- What is a search index?\n- What are search analyzers and tokens?\n- What is a search score?\n- Next Steps\nWhat is MongoDB Search ?\nUse Cases\nKey Concepts\nWhat are search queries?\nWhat is a search index?\nWhat are search analyzers and tokens?\nWhat is a search score?\nNext Steps",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:29.429675",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "atlas-search-overview",
+  "source_type": "atlas",
+  "file_stub": "d2_atlas-search-overview"
+}

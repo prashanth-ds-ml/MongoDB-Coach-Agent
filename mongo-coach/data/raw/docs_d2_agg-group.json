@@ -1,0 +1,254 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/group/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "$group (aggregation stage)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "The $group stage combines multiple documents with the same field, fields, or\nexpression into a single document according to a group key. The\nresult is one document per unique group key.\nA group key is often a field, or group of fields. The group key can\nalso be the result of an expression. Use the _id field in the $group pipeline stage to set the group key. See below for usage examples .\nIn the $group stage output, the _id field is set to the\ngroup key for that document.\nThe output documents can also contain additional fields that are\nset using accumulator expressions .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "$group does not order its output documents.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "You can use $group for deployments hosted in the following\nenvironments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The $group stage has the following prototype form:\n_id\nRequired. The _id expression specifies the group key.\nIf you specify an _id value of null, or any other\nconstant value, the $group stage returns a single\ndocument that aggregates values across all of the input\ndocuments. See the Group by Null example .\nfield\nOptional. Computed using the accumulator operators .\nThe _id and the accumulator operators can accept any valid expression . For more information on\nexpressions, see Expressions .",
+      "code_blocks": [
+        "{ $group : { _id : < expression > , // Group key < field1 > : { < accumulator1 > : < expression1 > } , ... } }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "considerations",
+      "heading": "Considerations",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "performance",
+          "heading": "Performance",
+          "heading_level": 3,
+          "content": "$group is a blocking stage, which causes the pipeline to wait for all\ninput data to be retrieved for the blocking stage before processing the\ndata. A blocking stage may reduce performance because it reduces\nparallel processing for a pipeline with multiple stages. A blocking\nstage may also use substantial amounts of memory for large data sets.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "accumulator-operator",
+          "heading": "Accumulator Operator",
+          "heading_level": 3,
+          "content": "The <accumulator> operator must be one of the following accumulator\noperators:\n$accumulator\nReturns the result of a user-defined accumulator function.\n$addToSet\nReturns an array of unique expression values for each group.\nOrder of the array elements is undefined.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$avg\nReturns an average of numerical values. Ignores non-numeric values.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$bottom\nReturns the bottom element within a group according to the specified\nsort order.\nNew in version 5.2 .\nAvailable in the $group and $setWindowFields stages.\n$bottomN\nReturns an aggregation of the bottom n fields within a group,\naccording to the specified sort order.\nNew in version 5.2 .\nAvailable in the $group and $setWindowFields stages.\n$concatArrays\nReturns a single array that combines the elements of two or more arrays.\nNew in version 8.1 .\n$count\nReturns the number of documents in a group.\nDistinct from the $count pipeline stage.\nNew in version 5.0 : Available in the $group and $setWindowFields stages.\n$first\nReturns the result of an expression for the first document in a group.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$firstN\nReturns an aggregation of the first n elements within a group.\nOnly meaningful when documents are in a defined order.\nDistinct from the $firstN array operator.\nNew in version 5.2 : Available in the $group , expression and $setWindowFields stages.\n$last\nReturns the result of an expression for the last document in a group.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$lastN\nReturns an aggregation of the last n elements within a group.\nOnly meaningful when documents are in a defined order.\nDistinct from the $lastN array operator.\nNew in version 5.2 : Available in the $group , expression and $setWindowFields stages.\n$max\nReturns the highest expression value for each group.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$maxN\nReturns an aggregation of the n maximum valued elements in\na group.\nDistinct from the $maxN array operator.\nNew in version 5.2 .\nAvailable in $group , $setWindowFields and as an expression .\n$median\nReturns an approximation of the median , the 50th percentile , as a scalar value.\nNew in version 7.0 .\nThis operator is available as an accumulator in these stages:\n- $group\n- $setWindowFields\n$group\n$setWindowFields\nIt is also available as an aggregation expression .\n$mergeObjects\nReturns a document created by combining the input documents\nfor each group.\n$min\nReturns the lowest expression value for each group.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$minN\nReturns an aggregation of the n minimum valued elements\nin a group.\nDistinct from the $minN array operator.\nNew in version 5.2 .\nAvailable in $group , $setWindowFields and as an expression .\n$percentile\nReturns an array of scalar values that correspond to specified percentile values.\nNew in version 7.0 .\nThis operator is available as an accumulator in these stages:\n- $group\n- $setWindowFields\n$group\n$setWindowFields\nIt is also available as an aggregation expression .\n$push\nReturns an array of expression values for documents in each\ngroup.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$setUnion\nTakes two or more arrays and returns an array containing the\nelements that appear in any input array.\nNew in version 8.1 .\n$stdDevPop\nReturns the population standard deviation of the input values.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$stdDevSamp\nReturns the sample standard deviation of the input values.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$sum\nReturns a sum of numerical values. Ignores non-numeric values.\nChanged in version 5.0 : Available in the $setWindowFields stage.\n$top\nReturns the top element within a group according to the specified\nsort order.\nNew in version 5.2 .\nAvailable in the $group and $setWindowFields stages.\n$topN\nReturns an aggregation of the top n fields within a group,\naccording to the specified sort order.\nNew in version 5.2 .\nAvailable in the $group and $setWindowFields stages.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "$group-and-memory-restrictions",
+          "heading": "$group and Memory Restrictions",
+          "heading_level": 3,
+          "content": "If the $group stage exceeds 100 megabytes of RAM, MongoDB writes\ndata to temporary files. However, if the allowDiskUse option is set to false , $group returns an error. For more information, refer to Aggregation Pipeline Limits .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "$group-performance-optimizations",
+          "heading": "$group Performance Optimizations",
+          "heading_level": 3,
+          "content": "This section describes optimizations to improve the performance of $group . There are optimizations that you can make manually\nand optimizations MongoDB makes internally.\nIf a pipeline sorts and groups by the same field and the $group stage only uses the $first or $last accumulator operator, consider adding an index on the grouped field which matches the sort order. In some\ncases, the $group stage can use the index to quickly find the first\nor last document of each group.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "example",
+      "heading": "Example",
+      "heading_level": 2,
+      "content": "If a collection named foo contains an index { x: 1, y: 1 } ,\nthe following pipeline can use that index to find the first document\nof each group:\nStarting in version 5.2, MongoDB uses the slot-based execution\nquery engine to execute $group stages\nif either:\n- $group is the first stage in the pipeline.\n- All preceding stages in the pipeline can also be executed by the slot-based execution engine .\n$group is the first stage in the pipeline.\nAll preceding stages in the pipeline can also be executed by the slot-based execution engine .\nFor more information, see $group Optimization .",
+      "code_blocks": [
+        "db. foo . aggregate ( [ { $sort : { x : 1 , y : 1 } } , { $group : { _id : { x : \"$x\" } , y : { $first : \"$y\" } } } ])"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "group-and-count-documents-by-field",
+          "heading": "Group and Count Documents By Field",
+          "heading_level": 3,
+          "content": "In mongosh , create a sample collection named sales with the following documents:\nThe following aggregation operation uses the $group stage\nto group documents in the sales collection by the price field.\nOne group contains the items with a price greater than or equal to 10.\nThe second group contains the number of items with a price less than 10. The pipeline then counts the number of documents in each group.\nThe operation returns the following result:\nThis aggregation operation is equivalent to the following SQL statement:",
+          "code_blocks": [
+            "db. sales . insertMany ( [ { \"_id\" : 1 , \"item\" : \"abc\" , \"price\" : Decimal128 ( \"10\" ) , \"quantity\" : Int32 ( \"2\" ) , \"date\" : ISODate ( \"2014-03-01T08:00:00Z\" ) } , { \"_id\" : 2 , \"item\" : \"jkl\" , \"price\" : Decimal128 ( \"20\" ) , \"quantity\" : Int32 ( \"1\" ) , \"date\" : ISODate ( \"2014-03-01T09:00:00Z\" ) } , { \"_id\" : 3 , \"item\" : \"xyz\" , \"price\" : Decimal128 ( \"5\" ) , \"quantity\" : Int32 ( \"10\" ) , \"date\" : ISODate ( \"2014-03-15T09:00:00Z\" ) } , { \"_id\" : 4 , \"item\" : \"xyz\" , \"price\" : Decimal128 ( \"5\" ) , \"quantity\" : Int32 ( \"20\" ) , \"date\" : ISODate ( \"2014-04-04T11:21:39.736Z\" ) } , { \"_id\" : 5 , \"item\" : \"abc\" , \"price\" : Decimal128 ( \"10\" ) , \"quantity\" : Int32 ( \"10\" ) , \"date\" : ISODate ( \"2014-04-04T21:23:13.331Z\" ) } , { \"_id\" : 6 , \"item\" : \"def\" , \"price\" : Decimal128 ( \"7.5\" ) , \"quantity\" : Int32 ( \"5\" ) , \"date\" : ISODate ( \"2015-06-04T05:08:13Z\" ) } , { \"_id\" : 7 , \"item\" : \"def\" , \"price\" : Decimal128 ( \"7.5\" ) , \"quantity\" : Int32 ( \"10\" ) , \"date\" : ISODate ( \"2015-09-10T08:43:00Z\" ) } , { \"_id\" : 8 , \"item\" : \"abc\" , \"price\" : Decimal128 ( \"10\" ) , \"quantity\" : Int32 ( \"5\" ) , \"date\" : ISODate ( \"2016-02-06T20:20:13Z\" ) } , ])",
+            "db. sales . aggregate ( [ { $group : { _id : { $cond : { if : { $gte : [ \"$price\" , Decimal128 ( \"10\" ) ] } , then : \"Price >= 10\" , else : \"Price < 10\" } } , count : { $sum : 1 } } } ] )",
+            "{ _id : 'Price >= 10' , count : 4 } , { _id : 'Price < 10' , count : 4 }",
+            "SELECT CASE WHEN price >= 10 THEN 'Price >= 10' ELSE 'Price < 10' END AS price_group, COUNT ( * ) AS count FROM sales GROUP BY price_group;"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "- $count\n- $count (aggregation accumulator)\n$count\n$count (aggregation accumulator)",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "retrieve-distinct-values",
+          "heading": "Retrieve Distinct Values",
+          "heading_level": 3,
+          "content": "The following aggregation operation uses the $group stage\nto retrieve the distinct item values from the sales collection:\nThe operation returns the following result:",
+          "code_blocks": [
+            "db. sales . aggregate ( [ { $group : { _id : \"$item\" } } ] )",
+            "{ \"_id\" : \"abc\" } { \"_id\" : \"jkl\" } { \"_id\" : \"def\" } { \"_id\" : \"xyz\" }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "For example, $group operations of the following form can result\nin a DISTINCT_SCAN :\nFor more information on behavior for retrieving distinct values, see\nthe distinct command behavior .\nTo see whether your operation results in a DISTINCT_SCAN , check\nyour operation's explain results .",
+      "code_blocks": [
+        "{ $group : { _id : \"$<field>\" } }"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "group-by-item-having",
+          "heading": "Group by Item Having",
+          "heading_level": 3,
+          "content": "The following aggregation operation groups documents by the item field, calculating the total sale amount per item and returning only\nthe items with total sale amount greater than or equal to 100:\nThe operation returns the following result:\nThis aggregation operation is equivalent to the following SQL statement:",
+          "code_blocks": [
+            "db. sales . aggregate ( [ // First Stage { $group : { _id : \"$item\" , totalSaleAmount : { $sum : { $multiply : [ \"$price\" , \"$quantity\" ] } } } } , // Second Stage { $match : { \"totalSaleAmount\" : { $gte : 100 } } } ] )",
+            "{ \"_id\" : \"abc\" , \"totalSaleAmount\" : Decimal128 ( \"170\" ) } { \"_id\" : \"xyz\" , \"totalSaleAmount\" : Decimal128 ( \"150\" ) } { \"_id\" : \"def\" , \"totalSaleAmount\" : Decimal128 ( \"112.5\" ) }",
+            "SELECT item, Sum ( ( price * quantity )) AS totalSaleAmount FROM sales GROUP BY item HAVING totalSaleAmount >= 100"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$match",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "calculate-count,-sum,-and-average",
+          "heading": "Calculate Count, Sum, and Average",
+          "heading_level": 3,
+          "content": "In mongosh , create a sample collection named sales with the following documents:\nThe following pipeline calculates the total sales amount, average sales\nquantity, and sale count for each day in the year 2014:\nThe operation returns the following results:\nThis aggregation operation is equivalent to the following SQL statement:",
+          "code_blocks": [
+            "db. sales . insertMany ( [ { \"_id\" : 1 , \"item\" : \"abc\" , \"price\" : Decimal128 ( \"10\" ) , \"quantity\" : Int32 ( \"2\" ) , \"date\" : ISODate ( \"2014-03-01T08:00:00Z\" ) } , { \"_id\" : 2 , \"item\" : \"jkl\" , \"price\" : Decimal128 ( \"20\" ) , \"quantity\" : Int32 ( \"1\" ) , \"date\" : ISODate ( \"2014-03-01T09:00:00Z\" ) } , { \"_id\" : 3 , \"item\" : \"xyz\" , \"price\" : Decimal128 ( \"5\" ) , \"quantity\" : Int32 ( \"10\" ) , \"date\" : ISODate ( \"2014-03-15T09:00:00Z\" ) } , { \"_id\" : 4 , \"item\" : \"xyz\" , \"price\" : Decimal128 ( \"5\" ) , \"quantity\" : Int32 ( \"20\" ) , \"date\" : ISODate ( \"2014-04-04T11:21:39.736Z\" ) } , { \"_id\" : 5 , \"item\" : \"abc\" , \"price\" : Decimal128 ( \"10\" ) , \"quantity\" : Int32 ( \"10\" ) , \"date\" : ISODate ( \"2014-04-04T21:23:13.331Z\" ) } , { \"_id\" : 6 , \"item\" : \"def\" , \"price\" : Decimal128 ( \"7.5\" ) , \"quantity\" : Int32 ( \"5\" ) , \"date\" : ISODate ( \"2015-06-04T05:08:13Z\" ) } , { \"_id\" : 7 , \"item\" : \"def\" , \"price\" : Decimal128 ( \"7.5\" ) , \"quantity\" : Int32 ( \"10\" ) , \"date\" : ISODate ( \"2015-09-10T08:43:00Z\" ) } , { \"_id\" : 8 , \"item\" : \"abc\" , \"price\" : Decimal128 ( \"10\" ) , \"quantity\" : Int32 ( \"5\" ) , \"date\" : ISODate ( \"2016-02-06T20:20:13Z\" ) } , ])",
+            "db. sales . aggregate ( [ // First Stage { $match : { \"date\" : { $gte : new ISODate ( \"2014-01-01\" ) , $lt : new ISODate ( \"2015-01-01\" ) } } } , // Second Stage { $group : { _id : { $dateToString : { format : \"%Y-%m-%d\" , date : \"$date\" } } , totalSaleAmount : { $sum : { $multiply : [ \"$price\" , \"$quantity\" ] } } , averageQuantity : { $avg : \"$quantity\" } , count : { $sum : 1 } } } , // Third Stage { $sort : { totalSaleAmount : - 1 } } ])",
+            "{ \"_id\" : \"2014-04-04\" , \"totalSaleAmount\" : Decimal128 ( \"200\" ) , \"averageQuantity\" : 15 , \"count\" : 2 } { \"_id\" : \"2014-03-15\" , \"totalSaleAmount\" : Decimal128 ( \"50\" ) , \"averageQuantity\" : 10 , \"count\" : 1 } { \"_id\" : \"2014-03-01\" , \"totalSaleAmount\" : Decimal128 ( \"40\" ) , \"averageQuantity\" : 1.5 , \"count\" : 2 }",
+            "SELECT date , Sum ( ( price * quantity )) AS totalSaleAmount, Avg ( quantity) AS averageQuantity, Count ( * ) AS Count FROM sales WHERE date >= '01/01/2014' AND date < '01/01/2015' GROUP BY date ORDER BY totalSaleAmount DESC"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "- $match\n- $sort\n- db.collection.countDocuments() which wraps the $group aggregation stage with a $sum expression.\n$match\n$sort\ndb.collection.countDocuments() which wraps the $group aggregation stage with a $sum expression.\nThe following aggregation operation specifies a group _id of null , calculating the total sale amount, average quantity, and count of all documents in the collection.\nThe operation returns the following result:\nThis aggregation operation is equivalent to the following SQL statement:",
+      "code_blocks": [
+        "db. sales . aggregate ( [ { $group : { _id : null , totalSaleAmount : { $sum : { $multiply : [ \"$price\" , \"$quantity\" ] } } , averageQuantity : { $avg : \"$quantity\" } , count : { $sum : 1 } } } ])",
+        "{ \"_id\" : null , \"totalSaleAmount\" : Decimal128 ( \"452.5\" ) , \"averageQuantity\" : 7.875 , \"count\" : 8 }",
+        "SELECT Sum ( price * quantity) AS totalSaleAmount, Avg ( quantity) AS averageQuantity, Count ( * ) AS Count FROM sales"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "- $count\n- db.collection.countDocuments() which wraps the $group aggregation stage with a $sum expression.\n$count\ndb.collection.countDocuments() which wraps the $group aggregation stage with a $sum expression.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "pivot-data",
+          "heading": "Pivot Data",
+          "heading_level": 3,
+          "content": "In mongosh , create a sample collection named books with the following documents:\nThe following aggregation operation pivots the data in the books collection to have titles grouped by authors.\nThe operation returns the following documents:\nThe following aggregation operation groups documents by author :\n$group uses the $$ROOT system variable to group the entire documents by authors. This stage\npasses the following documents to the next stage:\n$addFields adds a field to the output containing\nthe total copies of books for each author.",
+          "code_blocks": [
+            "db. books . insertMany ( [ { \"_id\" : 8751 , \"title\" : \"The Banquet\" , \"author\" : \"Dante\" , \"copies\" : 2 } , { \"_id\" : 8752 , \"title\" : \"Divine Comedy\" , \"author\" : \"Dante\" , \"copies\" : 1 } , { \"_id\" : 8645 , \"title\" : \"Eclogues\" , \"author\" : \"Dante\" , \"copies\" : 2 } , { \"_id\" : 7000 , \"title\" : \"The Odyssey\" , \"author\" : \"Homer\" , \"copies\" : 10 } , { \"_id\" : 7020 , \"title\" : \"Iliad\" , \"author\" : \"Homer\" , \"copies\" : 10 } ])",
+            "db. books . aggregate ( [ { $group : { _id : \"$author\" , books : { $push : \"$title\" } } } ])",
+            "{ \"_id\" : \"Homer\" , \"books\" : [ \"The Odyssey\" , \"Iliad\" ] } { \"_id\" : \"Dante\" , \"books\" : [ \"The Banquet\" , \"Divine Comedy\" , \"Eclogues\" ] }",
+            "db. books . aggregate ( [ // First Stage { $group : { _id : \"$author\" , books : { $push : \"$$ROOT\" } } } , // Second Stage { $addFields : { totalCopies : { $sum : \"$books.copies\" } } } ])",
+            "{ \"_id\" : \"Homer\" , \"books\" : [ { \"_id\" : 7000 , \"title\" : \"The Odyssey\" , \"author\" : \"Homer\" , \"copies\" : 10 } , { \"_id\" : 7020 , \"title\" : \"Iliad\" , \"author\" : \"Homer\" , \"copies\" : 10 } ] } , { \"_id\" : \"Dante\" , \"books\" : [ { \"_id\" : 8751 , \"title\" : \"The Banquet\" , \"author\" : \"Dante\" , \"copies\" : 2 } , { \"_id\" : 8752 , \"title\" : \"Divine Comedy\" , \"author\" : \"Dante\" , \"copies\" : 1 } , { \"_id\" : 8645 , \"title\" : \"Eclogues\" , \"author\" : \"Dante\" , \"copies\" : 2 } ] }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The resulting documents must not exceed the BSON Document Size limit of 16 mebibytes.\nThe operation returns the following documents:\nThe C# examples on this page use the sample_mflix database\nfrom the Atlas sample datasets . To learn how to create a\nfree MongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB .NET/C#\nDriver documentation.\nThe following Movie class models the documents in the sample_mflix.movies collection:",
+      "code_blocks": [
+        "{ \"_id\" : \"Homer\" , \"books\" : [ { \"_id\" : 7000 , \"title\" : \"The Odyssey\" , \"author\" : \"Homer\" , \"copies\" : 10 } , { \"_id\" : 7020 , \"title\" : \"Iliad\" , \"author\" : \"Homer\" , \"copies\" : 10 } ] , \"totalCopies\" : 20 } { \"_id\" : \"Dante\" , \"books\" : [ { \"_id\" : 8751 , \"title\" : \"The Banquet\" , \"author\" : \"Dante\" , \"copies\" : 2 } , { \"_id\" : 8752 , \"title\" : \"Divine Comedy\" , \"author\" : \"Dante\" , \"copies\" : 1 } , { \"_id\" : 8645 , \"title\" : \"Eclogues\" , \"author\" : \"Dante\" , \"copies\" : 2 } ] , \"totalCopies\" : 5 }",
+        "public class Movie { public ObjectId Id { get ; set ; } public int Runtime { get ; set ; } public string Title { get ; set ; } public string Rated { get ; set ; } public List< string > Genres { get ; set ; } public string Plot { get ; set ; } public ImdbData Imdb { get ; set ; } public int Year { get ; set ; } public int Index { get ; set ; } public string [] Comments { get ; set ; } [ BsonElement( \"lastupdated\" ) ] public DateTime LastUpdated { get ; set ; } }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "conventionpack-for-pascal-case",
+          "heading": "ConventionPack for Pascal Case",
+          "heading_level": 3,
+          "content": "The C# classes on this page use Pascal case for their property names, but the\nfield names in the MongoDB collection use camel case. To account for this difference,\nyou can use the following code to register a ConventionPack when your\napplication starts:\nTo use the MongoDB .NET/C# driver to add a $group stage to an aggregation\npipeline, call the Group() method on a PipelineDefinition object.\nThe following example creates a pipeline stage that groups documents by the value of their Rated field. Each group's rating\nis shown in a field named Rating in each output document. Each output\ndocument also contains a field named TotalRuntime , whose value is\nthe total runtime of all movies in the group.\nThe Node.js examples on this page use the sample_mflix database from the Atlas sample datasets . To learn how to create a free\nMongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB Node.js driver documentation.\nTo use the MongoDB Node.js driver to add a $group stage to an aggregation\npipeline, use the $group operator in a pipeline object.\nThe following example creates a pipeline stage that groups documents by the value of their rated field. Each output\ndocument contains a rating field that stores each group's\nrating. Each output document also contains a field named totalRuntime that stores the total runtime of all movies in the\ngroup . The\nexample then runs the aggregation pipeline:",
+          "code_blocks": [
+            "var camelCaseConvention = new ConventionPack { new CamelCaseElementNameConvention() }; ConventionRegistry.Register( \"CamelCase\" , camelCaseConvention, type => true );",
+            "var pipeline = new EmptyPipelineDefinition<Movie>() .Group( id: m => m.Rated, group : g => new { Rating = g.Key, TotalRuntime = g.Sum(m => m.Runtime) } );",
+            "const pipeline = [ { $group : { _id : \"$rated\" , rating : { $first : \"$rated\" } , totalRuntime : { $sum : \"$runtime\" } } } ] ; const cursor = collection. aggregate ( pipeline) ; return cursor ;"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "The Group and Total Data tutorial provides an extensive example\nof the $group operator in a common use case.\nTo learn more about related pipeline stages, see the $addFields guide.\n$graphLookup\n$indexStats\nMaster \" Fundamentals of Data Transformation \" for free!\n- Definition\n- Compatibility\n- Syntax\n- Considerations\n- Examples\n- Learn More\nConsiderations\nLearn More\n- Definition\n- Compatibility\n- Syntax\n- Considerations\n- Examples\n- Learn More\nConsiderations\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:25.599936",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "agg-group",
+  "source_type": "manual",
+  "file_stub": "d2_agg-group"
+}

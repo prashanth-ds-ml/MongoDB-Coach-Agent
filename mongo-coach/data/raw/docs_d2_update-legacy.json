@@ -1,0 +1,532 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.update/",
+  "doc_type": "mongodb_docs_method",
+  "method_name": "db.collection.update",
+  "title": "db.collection.update() (mongosh method)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "deprecated-mongosh-method",
+          "heading": "Deprecated mongosh Method",
+          "heading_level": 3,
+          "content": "This method is deprecated in mongosh . For alternative\nmethods, see Compatibility Changes with Legacy mongo Shell .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Modifies an existing document or documents in a collection. The\nmethod can modify specific fields of an existing document or documents\nor replace an existing document entirely, depending on the update parameter .\nBy default, the db.collection.update() method updates a single document. Include the option multi: true to update all documents that match the query criteria.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "This method is available in deployments hosted in the following environments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "This command is supported in all MongoDB Atlas clusters.\nFor information on Atlas support for all commands, see Unsupported Commands .\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "Changed in version 5.0 .\nThe db.collection.update() method has the following form:",
+      "code_blocks": [
+        "db. collection . update ( < query > , < update > , { upsert : < boolean > , multi : < boolean > , writeConcern : < document > , collation : < document > , arrayFilters : [ < filterdocument1 > , ... ] , hint : <document|string>, let: <document>, maxTimeMS: <int>, bypassDocumentValidation: <boolean> } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "parameters",
+          "heading": "Parameters",
+          "heading_level": 3,
+          "content": "The db.collection.update() method takes the following\nparameters:\nquery\ndocument\nThe selection criteria for the update. The same query\nselectors as in the find() method are available.\nWhen you execute an update() with upsert:\ntrue and the query matches no existing document, MongoDB will refuse\nto insert a new document if the query specifies conditions on the _id field using dot notation .\nupdate\ndocument or pipeline\nThe modifications to apply. Can be one of the following:\nUpdate document\nContains only update operator expressions .\nReplacement document\nContains only <field1>: <value1> pairs.\nAggregation pipeline\nContains only the following aggregation stages:\n- $addFields and its alias $set\n- $project and its alias $unset\n- $replaceRoot and its alias $replaceWith\n$addFields and its alias $set\n$project and its alias $unset\n$replaceRoot and its alias $replaceWith\nFor details and examples, see Oplog Entries .\nupsert\nboolean\nOptional. When true , update() either:\n- Creates a new document if no documents match the query .\nFor more details see upsert behavior .\n- Updates a single document that matches the query .\nCreates a new document if no documents match the query .\nFor more details see upsert behavior .\nCreates a new document if no documents match the query .\nFor more details see upsert behavior .\nUpdates a single document that matches the query .\nIf both upsert and multi are true and no documents match the query, the update operation inserts only a single document.\nTo avoid multiple upserts , ensure that the query field(s) are uniquely indexed . See Upsert with Duplicate Values for an example.\nDefaults to false , which does not insert a new document when no\nmatch is found.\nmulti\nboolean\nOptional. If set to true , updates multiple documents that\nmeet the query criteria. If set to false , updates one\ndocument. The default value is false . For additional\ninformation, see Update Multiple Documents Examples .\nwriteConcern\ndocument\nOptional. A document expressing the write concern . Omit to use the default write concern w: \"majority\" .\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .\nFor an example using writeConcern , see Override Default Write Concern .\ncollation\ndocument\nOptional.\nCollation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nFor an example using collation , see Specify Collation .\narrayFilters\narray\nOptional. An array of filter documents that determine which array\nelements to modify for an update operation on an array field.\nIn the update document , use the $[<identifier>] to define an identifier to update\nonly those array elements that match the corresponding filter\ndocument in the arrayFilters .\nYou cannot have an array filter document for an identifier if\nthe identifier is not included in the update document.\nFor examples, see Specify arrayFilters for Array Update Operations .\nhint\nDocument or string\nOptional. A document or string that specifies the index to use to support the query predicate .\nThe option can take an index specification document or the index\nname string.\nIf you specify an index that does not exist, the operation\nerrors.\nFor an example, see Specify hint for Update Operations .\nlet\ndocument\nOptional.\nSpecifies a document with a list of variables. This allows you to\nimprove command readability by separating the variables from the query\ntext.\nThe document syntax is:\nThe variable is set to the value returned by the expression, and cannot\nbe changed afterwards.\nTo access the value of a variable in the command, use the double\ndollar sign prefix ( $$ ) together with your variable name in the form $$<variable_name> . For example: $$targetTotal .\nTo use a variable to filter results, you must access the variable\nwithin the $expr operator.\nFor a complete example using let and variables, see Use Variables in let .\nmaxTimeMS\ninteger\nOptional. Specifies the time limit in milliseconds for the\nupdate operation to run before timing out.\nbypassDocumentValidation\nboolean\nOptional. Enables insert to bypass schema validation\nduring the operation. This lets you insert documents that do not\nmeet the validation requirements.",
+          "code_blocks": [
+            "{ < variable_name_1 > : < expression_1 > , ... , < variable_name_n > : < expression_n > }"
+          ]
+        },
+        {
+          "subsection_id": "returns",
+          "heading": "Returns",
+          "heading_level": 3,
+          "content": "The method returns a WriteResult document that contains\nthe status of the operation.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "access-control",
+      "heading": "Access Control",
+      "heading_level": 2,
+      "content": "On deployments running with authorization , the\nuser must have access that includes the following privileges:\n- update action on the specified collection(s).\n- find action on the specified collection(s).\n- insert action on the specified collection(s) if the\noperation results in an upsert.\nupdate action on the specified collection(s).\nfind action on the specified collection(s).\ninsert action on the specified collection(s) if the\noperation results in an upsert.\ninsert action on the specified collection(s) if the\noperation results in an upsert.\nThe built-in role readWrite provides the required\nprivileges.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "limitations",
+          "heading": "Limitations",
+          "heading_level": 3,
+          "content": "If you set multi: true , use the update() method only for idempotent operations.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "using-$expr-in-an-update-with-upsert",
+          "heading": "Using $expr in an Update with Upsert",
+          "heading_level": 3,
+          "content": "Attempting to use the $expr operator with the upsert flag set to true will generate an error.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "sharded-collections",
+          "heading": "Sharded Collections",
+          "heading_level": 3,
+          "content": "To use db.collection.update() with multi: false on a\nsharded collection, you must include an exact match on the _id field or target a single shard (such as by including the shard key).\nWhen the db.collection.update() performs update operations\n(and not document replacement operations), db.collection.update() can target multiple shards.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "findAndModify()\nReplace document operations attempt to target a single shard, first by using\nthe query filter. If the operation cannot target a single shard by the query\nfilter, it then attempts to target by the replacement document.\nIn earlier versions, the operation attempts to target using the\nreplacement document.\nFor a db.collection.update() operation that includes upsert: true and is on a sharded collection, you\nmust include the full shard key in the filter :\n- For an update operation.\n- For a replace document operation.\nFor an update operation.\nFor a replace document operation.\nHowever, documents in a sharded collection can be missing the shard key fields . To target a\ndocument that is missing the shard key, you can use the null equality match in conjunction with another filter condition\n(such as on the _id field). For example:\nYou can update a document's shard key value unless the shard key field is the\nimmutable _id field.\nTo modify the existing shard key value with db.collection.update() :\n- You must run on a mongos . Do not issue the operation directly on the shard.\n- You must run either in a transaction or as a retryable write .\n- You must specify multi: false .\n- You must include an equality query filter on the full shard key.\nYou must run on a mongos . Do not issue the operation directly on the shard.\nYou must run either in a transaction or as a retryable write .\nYou must specify multi: false .\nYou must include an equality query filter on the full shard key.",
+      "code_blocks": [
+        "{ _id : < value > , < shardkeyfield > : null } // _id of the document missing shard key"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Since a missing key value is returned as part of a null equality\nmatch, to avoid updating a null-valued key, include additional\nquery conditions (such as on the _id field) as appropriate.\nSee also upsert on a Sharded Collection .\nDocuments in a sharded collection can be missing the shard key fields . To use db.collection.update() to set the document's missing shard key, you must run on a mongos . Do not issue the operation directly on\nthe shard.\nIn addition, the following requirements also apply:\nTo set to null\n- Can specify multi: true .\n- Requires equality filter on the full shard key if upsert:\ntrue .\nCan specify multi: true .\nRequires equality filter on the full shard key if upsert:\ntrue .\nRequires equality filter on the full shard key if upsert:\ntrue .\nTo set to a non- null value\n- Must be performed either inside a transaction or as a retryable write .\n- Must specify multi: false .\n- Requires equality filter on the full shard key if either: upsert: true , or if using a replacement document and the new shard key\nvalue belongs to a different shard.\n- upsert: true , or\n- if using a replacement document and the new shard key\nvalue belongs to a different shard.\nMust be performed either inside a transaction or as a retryable write .\nMust specify multi: false .\nRequires equality filter on the full shard key if either: upsert: true , or if using a replacement document and the new shard key\nvalue belongs to a different shard.\nRequires equality filter on the full shard key if either:\n- upsert: true , or\n- if using a replacement document and the new shard key\nvalue belongs to a different shard.\nupsert: true , or\nif using a replacement document and the new shard key\nvalue belongs to a different shard.\nif using a replacement document and the new shard key\nvalue belongs to a different shard.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Since a missing key value is returned as part of a null equality\nmatch, to avoid updating a null-valued key, include additional\nquery conditions (such as on the _id field) as appropriate.\nSee also:\n- upsert on a Sharded Collection\n- Missing Shard Key Fields\nupsert on a Sharded Collection\nMissing Shard Key Fields",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "transactions",
+          "heading": "Transactions",
+          "heading_level": 3,
+          "content": "db.collection.update() can be used inside distributed transactions .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "In most cases, a distributed transaction incurs a greater\nperformance cost over single document writes, and the\navailability of distributed transactions should not be a\nreplacement for effective schema design. For many scenarios, the denormalized data model (embedded documents and arrays) will continue to be optimal for your\ndata and use cases. That is, for many scenarios, modeling your data\nappropriately will minimize the need for distributed\ntransactions.\nFor additional transactions usage considerations\n(such as runtime limit and oplog size limit), see also Production Considerations .\nYou can create collections and indexes inside a distributed\ntransaction if the\ntransaction is not a cross-shard write transaction.\ndb.collection.update() with upsert: true can be run on an existing\ncollection or a non-existing collection. If run on a non-existing\ncollection, the operation creates the collection.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Create Collections and Indexes in a Transaction\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "oplog-entries",
+          "heading": "Oplog Entries",
+          "heading_level": 3,
+          "content": "If a db.collection.update() operation successfully updates one or\nmore documents, the operation adds an entry on the oplog (operations log). If the operation fails or does not find any documents\nto update, the operation does not add an entry on the oplog.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "The following tabs showcase a variety of common update() operations.\nIn mongosh , create a books collection which\ncontains the following documents. This command first removes all\npreviously existing documents from the books collection:",
+      "code_blocks": [
+        "db. books . remove ( { }) ; db. books . insertMany ( [ { \"_id\" : 1 , \"item\" : \"TBD\" , \"stock\" : 0 , \"info\" : { \"publisher\" : \"1111\" , \"pages\" : 430 } , \"tags\" : [ \"technology\" , \"computer\" ] , \"ratings\" : [ { \"by\" : \"ijk\" , \"rating\" : 4 } , { \"by\" : \"lmn\" , \"rating\" : 5 } ] , \"reorder\" : false } , { \"_id\" : 2 , \"item\" : \"XYZ123\" , \"stock\" : 15 , \"info\" : { \"publisher\" : \"5555\" , \"pages\" : 150 } , \"tags\" : [ ] , \"ratings\" : [ { \"by\" : \"xyz\" , \"rating\" : 5 } ] , \"reorder\" : false } ]) ;"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "use-update-operator-expressions-(-$inc-and-$set-)",
+          "heading": "Use Update Operator Expressions ( $inc and $set )",
+          "heading_level": 3,
+          "content": "If the <update> document contains update operator modifiers, such as those using the $set modifier, then:\n- The <update> document must contain only update operator expressions.\n- The db.collection.update() method updates only the\ncorresponding fields in the document. To update an embedded document or an array as a whole,\nspecify the replacement value for the field. To update particular fields in an embedded document or in\nan array, use dot notation to specify the field.\n- To update an embedded document or an array as a whole,\nspecify the replacement value for the field.\n- To update particular fields in an embedded document or in\nan array, use dot notation to specify the field.\nThe <update> document must contain only update operator expressions.\nThe db.collection.update() method updates only the\ncorresponding fields in the document. To update an embedded document or an array as a whole,\nspecify the replacement value for the field. To update particular fields in an embedded document or in\nan array, use dot notation to specify the field.\nThe db.collection.update() method updates only the\ncorresponding fields in the document.\n- To update an embedded document or an array as a whole,\nspecify the replacement value for the field.\n- To update particular fields in an embedded document or in\nan array, use dot notation to specify the field.\nTo update an embedded document or an array as a whole,\nspecify the replacement value for the field.\nTo update an embedded document or an array as a whole,\nspecify the replacement value for the field.\nTo update particular fields in an embedded document or in\nan array, use dot notation to specify the field.\nTo update particular fields in an embedded document or in\nan array, use dot notation to specify the field.\nIn this operation:\n- The <query> parameter of { _id: 1 } specifies which\ndocument to update,\n- the $inc operator increments the stock field,\nand\n- the $set operator replaces the value of the item field, publisher field in the info embedded document, tags field, and second element in the ratings array.\n- item field,\n- publisher field in the info embedded document,\n- tags field, and\n- second element in the ratings array.\nThe <query> parameter of { _id: 1 } specifies which\ndocument to update,\nThe <query> parameter of { _id: 1 } specifies which\ndocument to update,\nthe $inc operator increments the stock field,\nand\nthe $inc operator increments the stock field,\nand\nthe $set operator replaces the value of the item field, publisher field in the info embedded document, tags field, and second element in the ratings array.\nthe $set operator replaces the value of the\n- item field,\n- publisher field in the info embedded document,\n- tags field, and\n- second element in the ratings array.\nitem field,\npublisher field in the info embedded document,\ntags field, and\nsecond element in the ratings array.\nThe updated document is the following:\nThis operation corresponds to the following SQL statement:\nIf the query parameter matches multiple documents,\nthe operation only updates one matching document. To\nupdate multiple documents, set the multi option\nto true .",
+          "code_blocks": [
+            "db. books . update ( { _id : 1 } , { $inc : { stock : 5 } , $set : { item : \"ABC123\" , \"info.publisher\" : \"2222\" , tags : [ \"software\" ] , \"ratings.1\" : { by : \"xyz\" , rating : 3 } } } )",
+            "{ \"_id\" : 1 , \"item\" : \"ABC123\" , \"stock\" : 5 , \"info\" : { \"publisher\" : \"2222\" , \"pages\" : 430 } , \"tags\" : [ \"software\" ] , \"ratings\" : [ { \"by\" : \"ijk\" , \"rating\" : 4 } , { \"by\" : \"xyz\" , \"rating\" : 3 } ] , \"reorder\" : false }",
+            "UPDATE books SET stock = stock + 5 item = \"ABC123\" publisher = 2222 pages = 430 tags = \"software\" rating_authors = \"ijk,xyz\" rating_values = \"4,3\" WHERE _id = 1"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$set , $inc , update operators dot notation",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "push-elements-to-existing-array-(-$push-)",
+          "heading": "Push Elements to Existing Array ( $push )",
+          "heading_level": 3,
+          "content": "The following operation uses the $push update\noperator to append a new object to the ratings array.\nThe updated document is the following:",
+          "code_blocks": [
+            "db. books . update ( { _id : 2 } , { $push : { ratings : { \"by\" : \"jkl\" , \"rating\" : 2 } } } )",
+            "{ \"_id\" : 2 , \"item\" : \"XYZ123\" , \"stock\" : 15 , \"info\" : { \"publisher\" : \"5555\" , \"pages\" : 150 } , \"tags\" : [ ] , \"ratings\" : [ { \"by\" : \"xyz\" , \"rating\" : 5 } , { \"by\" : \"jkl\" , \"rating\" : 2 } ] , \"reorder\" : false }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$push",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "remove-fields-(-$unset-)",
+          "heading": "Remove Fields ( $unset )",
+          "heading_level": 3,
+          "content": "The following operation uses the $unset operator to remove\nthe tags field from the document with { _id: 1 } .\nThe updated document is the following:\nThere is not a direct SQL equivalent to $unset ,\nhowever $unset is similar to the following SQL\ncommand which removes the tags field from the books table:",
+          "code_blocks": [
+            "db. books . update ( { _id : 1 } , { $unset : { tags : 1 } } )",
+            "{ \"_id\" : 1 , \"item\" : \"TBD\" , \"stock\" : 0 , \"info\" : { \"publisher\" : \"1111\" , \"pages\" : 430 } , \"ratings\" : [ { \"by\" : \"ijk\" , \"rating\" : 4 } , { \"by\" : \"lmn\" , \"rating\" : 5 } ] , \"reorder\" : false }",
+            "ALTER TABLE books DROP COLUMN tags"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$unset , $rename , update operators",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "update-multiple-documents-(-$update-with-multi-)",
+          "heading": "Update Multiple Documents ( $update With multi )",
+          "heading_level": 3,
+          "content": "If multi is set to true , the db.collection.update() method updates all documents\nthat meet the <query> criteria. The multi update\noperation may interleave with other read/write operations.\nThe following operation sets the reorder field to true for all documents where stock is less than or equal to 10 . If the reorder field does not exist in the matching\ndocument(s), the $set operator adds the field\nwith the specified value.\nThe resulting documents in the collection are the following:\nThis operation corresponds to the following SQL statement:\nYou cannot specify multi: true when performing a replacement\nand the update document contains only field:value expressions.",
+          "code_blocks": [
+            "db. books . update ( { stock : { $lte : 10 } } , { $set : { reorder : true } } , { multi : true } )",
+            "[ { \"_id\" : 1 , \"item\" : \"ABC123\" , \"stock\" : 5 , \"info\" : { \"publisher\" : \"2222\" , \"pages\" : 430 } , \"ratings\" : [ { \"by\" : \"ijk\" , \"rating\" : 4 } , { \"by\" : \"xyz\" , \"rating\" : 3 } ] , \"reorder\" : true } { \"_id\" : 2 , \"item\" : \"XYZ123\" , \"stock\" : 10 , \"info\" : { \"publisher\" : \"2255\" , \"pages\" : 150 } , \"tags\" : [ \"baking\" , \"cooking\" ] , \"reorder\" : true } ]",
+            "UPDATE books SET reorder = true WHERE stock <= 10"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$set",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "insert-a-new-document-if-no-match-exists-(-upsert-)",
+          "heading": "Insert a New Document if No Match Exists ( Upsert )",
+          "heading_level": 3,
+          "content": "When you specify the option upsert: true :\n- If document(s) match the query criteria, db.collection.update() performs an update.\n- If no document matches the query criteria, db.collection.update() inserts a single document. Note If multiple, identical upserts are issued at\nroughly the same time, it is possible for update() used with upsert: true to create duplicate documents. See Upsert with Duplicate Values for more information.\nIf document(s) match the query criteria, db.collection.update() performs an update.\nIf no document matches the query criteria, db.collection.update() inserts a single document. Note If multiple, identical upserts are issued at\nroughly the same time, it is possible for update() used with upsert: true to create duplicate documents. See Upsert with Duplicate Values for more information.\nIf no document matches the query criteria, db.collection.update() inserts a single document.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "If multiple, identical upserts are issued at\nroughly the same time, it is possible for update() used with upsert: true to create duplicate documents. See Upsert with Duplicate Values for more information.\nIf you specify upsert: true on a sharded collection, you must\ninclude the full shard key in the filter . For additional db.collection.update() behavior on a sharded collection, see Sharded Collections .\nThe following tabs showcase a variety of uses of the upsert modifier\nwith update() .\nIf no document matches the query criteria and the <update> parameter is a replacement document (i.e., contains only field\nand value pairs), the update inserts a new document with the\nfields and values of the replacement document.\n- If you specify an _id field in either the query parameter\nor replacement document, MongoDB uses that _id field in the\ninserted document.\n- If you do not specify an _id field in either the query\nparameter or replacement document, MongoDB generates adds the _id field with a randomly generated ObjectId value. You cannot specify different _id field values in the\nquery parameter and replacement document. If you do, the\noperation errors.\nIf you specify an _id field in either the query parameter\nor replacement document, MongoDB uses that _id field in the\ninserted document.\nIf you specify an _id field in either the query parameter\nor replacement document, MongoDB uses that _id field in the\ninserted document.\nIf you do not specify an _id field in either the query\nparameter or replacement document, MongoDB generates adds the _id field with a randomly generated ObjectId value. You cannot specify different _id field values in the\nquery parameter and replacement document. If you do, the\noperation errors.\nIf you do not specify an _id field in either the query\nparameter or replacement document, MongoDB generates adds the _id field with a randomly generated ObjectId value.\nYou cannot specify different _id field values in the\nquery parameter and replacement document. If you do, the\noperation errors.\nFor example, the following update sets the upsert option to true :\nIf no document matches the <query> parameter, the update\noperation inserts a document with only the replacement\ndocument. Because no _id field was specified in the\nreplacement document or query document, the operation creates a\nnew unique ObjectId for the new document's _id field.\nYou can see the upsert reflected in the WriteResult of the operation:\nThe operation inserts the following document into the books collection (your ObjectId value will differ):\nIf no document matches the query criteria and the <update> parameter is a document with update operator expressions , then the operation creates a base document\nfrom the equality clauses in the <query> parameter and\napplies the expressions from the <update> parameter.\nComparison operations from\nthe <query> will not be included in the new document. If\nthe new document does not include the _id field, MongoDB\nadds the _id field with an ObjectId value.\nFor example, the following update sets the upsert option to true :\nIf no documents match the query condition, the operation\ninserts the following document (your ObjectId value\nwill differ):",
+      "code_blocks": [
+        "db. books . update ( { item : \"ZZZ135\" } , // Query parameter { $set : { item : \"ZZZ135\" , stock : 5 , tags : [ \"database\" ] // Replacement document } } , { upsert : true } // Options )",
+        "WriteResult ( { \"nMatched\" : 0 , \"nUpserted\" : 1 , \"nModified\" : 0 , \"_id\" : ObjectId ( \"5da78973835b2f1c75347a83\" ) })",
+        "{ \"_id\" : ObjectId ( \"5da78973835b2f1c75347a83\" ) , \"item\" : \"ZZZ135\" , \"stock\" : 5 , \"tags\" : [ \"database\" ] }",
+        "db. books . update ( { item : \"BLP921\" } , // Query parameter { // Update document $set : { reorder : false } , $setOnInsert : { stock : 10 } } , { upsert : true } // Options )",
+        "{ \"_id\" : ObjectId ( \"5da79019835b2f1c75348a0a\" ) , \"item\" : \"BLP921\" , \"reorder\" : false , \"stock\" : 10 }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$setOnInsert\nIf the <update> parameter is an aggregation pipeline , the update creates a base\ndocument from the equality clauses in the <query> parameter, and then applies the pipeline to the document to\ncreate the document to insert. If the new document does not\ninclude the _id field, MongoDB adds the _id field with\nan ObjectId value.\nFor example, the following upsert: true operation specifies an aggregation pipeline that uses\n- the $replaceRoot stage which can provide\nsomewhat similar behavior to a $setOnInsert update operator expression,\n- the $set stage which can provide similar\nbehavior to the $set update operator expression,\n- the aggregation variable NOW , which resolves to\nthe current datetime and can provide similar behavior to the $currentDate update operator expression.\nthe $replaceRoot stage which can provide\nsomewhat similar behavior to a $setOnInsert update operator expression,\nthe $replaceRoot stage which can provide\nsomewhat similar behavior to a $setOnInsert update operator expression,\nthe $set stage which can provide similar\nbehavior to the $set update operator expression,\nthe $set stage which can provide similar\nbehavior to the $set update operator expression,\nthe aggregation variable NOW , which resolves to\nthe current datetime and can provide similar behavior to the $currentDate update operator expression.\nthe aggregation variable NOW , which resolves to\nthe current datetime and can provide similar behavior to the $currentDate update operator expression.\nIf no document matches the <query> parameter, the\noperation inserts the following document into the books collection (your ObjectId value will differ):",
+      "code_blocks": [
+        "db. books . update ( { item : \"MRQ014\" , ratings : [ 2 , 5 , 3 ] } , // Query parameter [ // Aggregation pipeline { $replaceRoot : { newRoot : { $mergeObjects : [ { stock : 0 } , \"$$ROOT\" ] } } } , { $set : { avgRating : { $avg : \"$ratings\" } , tags : [ \"fiction\" , \"murder\" ] , lastModified : \"$$NOW\" } } ] , { upsert : true } // Options )",
+        "{ \"_id\" : ObjectId ( \"5e2921e0b4c550aad59d1ba9\" ) , \"stock\" : 0 , \"item\" : \"MRQ014\" , \"ratings\" : [ 2 , 5 , 3 ] , \"avgRating\" : 3.3333333333333335 , \"tags\" : [ \"fiction\" , \"murder\" ] , \"lastModified\" : ISODate ( \"2020-01-23T04:32:32.951Z\" ) }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "For additional examples of updates using\naggregation pipelines, see Update with Aggregation Pipeline .\nFrom mongosh , insert the following\ndocuments into a books collection:\nThe following operation specifies both the multi option and\nthe upsert option. If matching documents exist, the\noperation updates all matching documents. If no matching\ndocuments exist, the operation inserts a new document.\nThe operation updates all matching documents and results in the\nfollowing:\nIf the collection had no matching document, the operation\nwould result in the insertion of a single document using the\nfields from both the <query> and the <update> specifications. For example, consider the following operation:\nThe operation inserts the following document into the books collection (your ObjectId value will differ):\nWhen you execute an update() with upsert:\ntrue and the query matches no existing document, MongoDB will refuse\nto insert a new document if the query specifies conditions on the _id field using dot notation .\nThis restriction ensures that the order of fields embedded in the _id document is well-defined and not bound to the order specified in\nthe query.\nIf you attempt to insert a document in this way, MongoDB will raise an\nerror. For example, consider the following update operation. Since the\nupdate operation specifies upsert:true and the query specifies\nconditions on the _id field using dot notation, then the update will\nresult in an error when constructing the document to insert.\nThe WriteResult of the operation returns the following\nerror:",
+      "code_blocks": [
+        "db. books . insertMany ( [ { _id : 5 , item : \"RQM909\" , stock : 18 , info : { publisher : \"0000\" , pages : 170 } , reorder : true } , { _id : 6 , item : \"EFG222\" , stock : 15 , info : { publisher : \"1111\" , pages : 72 } , reorder : true } ] )",
+        "db. books . update ( { stock : { $gte : 10 } } , // Query parameter { // Update document $set : { reorder : false , tags : [ \"literature\" , \"translated\" ] } } , { upsert : true , multi : true } // Options )",
+        "{ \"_id\" : 5 , \"item\" : \"RQM909\" , \"stock\" : 18 , \"info\" : { \"publisher\" : \"0000\" , \"pages\" : 170 } , \"reorder\" : false , \"tags\" : [ \"literature\" , \"translated\" ] } { \"_id\" : 6 , \"item\" : \"EFG222\" , \"stock\" : 15 , \"info\" : { \"publisher\" : \"1111\" , \"pages\" : 72 } , \"reorder\" : false , \"tags\" : [ \"literature\" , \"translated\" ] }",
+        "db. books . update ( { \"info.publisher\" : \"Self-Published\" } , // Query parameter { // Update document $set : { reorder : false , tags : [ \"literature\" , \"hardcover\" ] , stock : 25 } } , { upsert : true , multi : true } // Options )",
+        "{ \"_id\" : ObjectId ( \"5db337934f670d584b6ca8e0\" ) , \"info\" : { \"publisher\" : \"Self-Published\" } , \"reorder\" : false , \"stock\" : 25 , \"tags\" : [ \"literature\" , \"hardcover\" ] }",
+        "db. collection . update ( { \"_id.name\" : \"Robert Frost\" , \"_id.uid\" : 0 } , // Query parameter { $set : { \"categories\" : [ \"poet\" , \"playwright\" ] // Replacement document } } , { upsert : true } // Options )",
+        "WriteResult ( { \"nMatched\" : 0 , \"nUpserted\" : 0 , \"nModified\" : 0 , \"writeError\" : { \"code\" : 111 , \"errmsg\" : \"field at '_id' must be exactly specified, field at sub-path '_id.name'found\" } })"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "WriteResult()\nUpserts can create duplicate documents, unless there is a unique index to prevent duplicates.\nConsider an example where no document with the name Andy exists\nand multiple clients issue the following command at roughly the same\ntime:\nIf all update() operations finish the query phase before any\nclient successfully inserts data, and there is no unique index on\nthe name field, each update() operation may result in an\ninsert, creating multiple documents with name: Andy .\nA unique index on the name field ensures that only one document\nis created. With a unique index in place, the multiple update() operations now exhibit the following behavior:\n- Exactly one update() operation will successfully insert a new\ndocument.\n- Other update() operations either update the newly-inserted\ndocument or fail due to a unique key collision. In order for other update() operations to update the\nnewly-inserted document, all of the following conditions must\nbe met: The target collection has a unique index that would cause a\nduplicate key error. The update operation is not updateMany or multi is false . The update match condition is either: A single equality predicate. For example { \"fieldA\" : \"valueA\" } A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" } The fields in the equality predicate match the fields in the\nunique index key pattern. The update operation does not modify any fields in the\nunique index key pattern.\n- The target collection has a unique index that would cause a\nduplicate key error.\n- The update operation is not updateMany or multi is false .\n- The update match condition is either: A single equality predicate. For example { \"fieldA\" : \"valueA\" } A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\n- A single equality predicate. For example { \"fieldA\" : \"valueA\" }\n- A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\n- The fields in the equality predicate match the fields in the\nunique index key pattern.\n- The update operation does not modify any fields in the\nunique index key pattern.\nExactly one update() operation will successfully insert a new\ndocument.\nExactly one update() operation will successfully insert a new\ndocument.\nOther update() operations either update the newly-inserted\ndocument or fail due to a unique key collision. In order for other update() operations to update the\nnewly-inserted document, all of the following conditions must\nbe met: The target collection has a unique index that would cause a\nduplicate key error. The update operation is not updateMany or multi is false . The update match condition is either: A single equality predicate. For example { \"fieldA\" : \"valueA\" } A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" } The fields in the equality predicate match the fields in the\nunique index key pattern. The update operation does not modify any fields in the\nunique index key pattern.\nOther update() operations either update the newly-inserted\ndocument or fail due to a unique key collision.\nIn order for other update() operations to update the\nnewly-inserted document, all of the following conditions must\nbe met:\n- The target collection has a unique index that would cause a\nduplicate key error.\n- The update operation is not updateMany or multi is false .\n- The update match condition is either: A single equality predicate. For example { \"fieldA\" : \"valueA\" } A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\n- A single equality predicate. For example { \"fieldA\" : \"valueA\" }\n- A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\n- The fields in the equality predicate match the fields in the\nunique index key pattern.\n- The update operation does not modify any fields in the\nunique index key pattern.\nThe target collection has a unique index that would cause a\nduplicate key error.\nThe target collection has a unique index that would cause a\nduplicate key error.\nThe update operation is not updateMany or multi is false .\nThe update match condition is either: A single equality predicate. For example { \"fieldA\" : \"valueA\" } A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\nThe update match condition is either:\n- A single equality predicate. For example { \"fieldA\" : \"valueA\" }\n- A logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\nA single equality predicate. For example { \"fieldA\" : \"valueA\" }\nA logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\nA logical AND of equality predicates. For example { \"fieldA\" :\n\"valueA\", \"fieldB\" : \"valueB\" }\nThe fields in the equality predicate match the fields in the\nunique index key pattern.\nThe fields in the equality predicate match the fields in the\nunique index key pattern.\nThe update operation does not modify any fields in the\nunique index key pattern.\nThe update operation does not modify any fields in the\nunique index key pattern.\nThe following table shows examples of upsert operations that,\nwhen a key collision occurs, either result in an update or fail.\nThe score field of the matched document is incremented by\n1.\nThe operation fails because it modifies the field in the\nunique index key pattern ( name ).\nThe operation fails because the equality predicate fields\n( name , email ) do not match the index key field\n( name ).",
+      "code_blocks": [
+        "db. people . update ( { name : \"Andy\" } , { $inc : { score : 1 } } , { upsert : true , multi : true } )",
+        "{ name : 1 }",
+        "db. people . updateOne ( { name : \"Andy\" } , { $inc : { score : 1 } } , { upsert : true } )",
+        "{ name : 1 }",
+        "db. people . updateOne ( { name : { $ne : \"Joe\" } } , { $set : { name : \"Andy\" } } , { upsert : true } )",
+        "{ name : 1 }",
+        "db. people . updateOne ( { name : \"Andy\" , email : \"andy@xyz.com\" } , { $set : { active : false } } , { upsert : true } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "$setOnInsert",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "update-with-aggregation-pipeline",
+          "heading": "Update with Aggregation Pipeline",
+          "heading_level": 3,
+          "content": "The db.collection.update() method can accept an aggregation pipeline [ <stage1>, <stage2>, ... ] that specifies the modifications to\nperform. The pipeline can consist of the following stages:\n- $addFields and its alias $set\n- $project and its alias $unset\n- $replaceRoot and its alias $replaceWith\n$addFields and its alias $set\n$project and its alias $unset\n$replaceRoot and its alias $replaceWith\nUsing the aggregation pipeline allows for a more expressive update\nstatement, such as expressing conditional updates based on current\nfield values or updating one field using the value of another field(s).\nCreate a students collection with the following documents:\nAssume that instead of separate commentsSemester1 and commentsSemester2 fields, you want to gather these into a new comments field. The following\nupdate operation uses an aggregation pipeline to:\n- add the new comments field and set the lastUpdate field.\n- remove the commentsSemester1 and commentsSemester2 fields for all\ndocuments in the collection.\nadd the new comments field and set the lastUpdate field.\nremove the commentsSemester1 and commentsSemester2 fields for all\ndocuments in the collection.\nremove the commentsSemester1 and commentsSemester2 fields for all\ndocuments in the collection.",
+          "code_blocks": [
+            "db. students . insertMany ( [ { \"_id\" : 1 , \"student\" : \"Skye\" , \"points\" : 75 , \"commentsSemester1\" : \"great at math\" , \"commentsSemester2\" : \"loses temper\" , \"lastUpdate\" : ISODate ( \"2019-01-01T00:00:00Z\" ) } , { \"_id\" : 2 , \"students\" : \"Elizabeth\" , \"points\" : 60 , \"commentsSemester1\" : \"well behaved\" , \"commentsSemester2\" : \"needs improvement\" , \"lastUpdate\" : ISODate ( \"2019-01-01T00:00:00Z\" ) } ] )",
+            "db. members . update ( { } , [ { $set : { comments : [ \"$commentsSemester1\" , \"$commentsSemester2\" ] , lastUpdate : \"$$NOW\" } } , { $unset : [ \"commentsSemester1\" , \"commentsSemester2\" ] } ] , { multi : true } )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The $set and $unset used in the pipeline refers to the\naggregation stages $set and $unset respectively, and not the update operators $set and $unset .\nThe $set stage:\n- creates a new array field comments whose elements are the current\ncontent of the commentsSemester1 and commentsSemester2 fields and\n- sets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\ncreates a new array field comments whose elements are the current\ncontent of the commentsSemester1 and commentsSemester2 fields and\ncreates a new array field comments whose elements are the current\ncontent of the commentsSemester1 and commentsSemester2 fields and\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nAfter the command, the collection contains the following documents:",
+      "code_blocks": [
+        "{ \"_id\" : 1 , \"student\" : \"Skye\" , \"status\" : \"Modified\" , \"points\" : 75 , \"lastUpdate\" : ISODate ( \"2020-01-23T05:11:45.784Z\" ) , \"comments\" : [ \"great at math\" , \"loses temper\" ] } { \"_id\" : 2 , \"student\" : \"Elizabeth\" , \"status\" : \"Modified\" , \"points\" : 60 , \"lastUpdate\" : ISODate ( \"2020-01-23T05:11:45.784Z\" ) , \"comments\" : [ \"well behaved\" , \"needs improvement\" ] }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Updates with Aggregation Pipeline\nCreate a students3 collection with the following documents:\nUsing an aggregation pipeline, you can update the documents with the\ncalculated grade average and letter grade.",
+      "code_blocks": [
+        "db. students3 . insertMany ( [ { \"_id\" : 1 , \"tests\" : [ 95 , 92 , 90 ] , \"lastUpdate\" : ISODate ( \"2019-01-01T00:00:00Z\" ) } , { \"_id\" : 2 , \"tests\" : [ 94 , 88 , 90 ] , \"lastUpdate\" : ISODate ( \"2019-01-01T00:00:00Z\" ) } , { \"_id\" : 3 , \"tests\" : [ 70 , 75 , 82 ] , \"lastUpdate\" : ISODate ( \"2019-01-01T00:00:00Z\" ) } ] )",
+        "db. students3 . update ( { } , [ { $set : { average : { $trunc : [ { $avg : \"$tests\" } , 0 ] } , lastUpdate : \"$$NOW\" } } , { $set : { grade : { $switch : { branches : [ { case : { $gte : [ \"$average\" , 90 ] } , then : \"A\" } , { case : { $gte : [ \"$average\" , 80 ] } , then : \"B\" } , { case : { $gte : [ \"$average\" , 70 ] } , then : \"C\" } , { case : { $gte : [ \"$average\" , 60 ] } , then : \"D\" } ] , default : \"F\" } } } } ] , { multi : true } )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The $set used in the pipeline refers to the aggregation stage $set , and not the update operators $set .\nThe $set stage:\n- calculates a new field average based on the average of the tests field. See $avg for more information on the $avg aggregation operator and $trunc for more\ninformation on the $trunc truncate aggregation operator.\n- sets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\ncalculates a new field average based on the average of the tests field. See $avg for more information on the $avg aggregation operator and $trunc for more\ninformation on the $trunc truncate aggregation operator.\ncalculates a new field average based on the average of the tests field. See $avg for more information on the $avg aggregation operator and $trunc for more\ninformation on the $trunc truncate aggregation operator.\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nsets the field lastUpdate to the value of the aggregation\nvariable NOW . The aggregation variable NOW resolves to the current datetime value and remains\nthe same throughout the pipeline. To access aggregation\nvariables, prefix the variable with double dollar signs $$ and enclose in quotes.\nAfter the command, the collection contains the following documents:",
+      "code_blocks": [
+        "{ \"_id\" : 1 , \"tests\" : [ 95 , 92 , 90 ] , \"lastUpdate\" : ISODate ( \"2020-01-24T17:29:35.340Z\" ) , \"average\" : 92 , \"grade\" : \"A\" } { \"_id\" : 2 , \"tests\" : [ 94 , 88 , 90 ] , \"lastUpdate\" : ISODate ( \"2020-01-24T17:29:35.340Z\" ) , \"average\" : 90 , \"grade\" : \"A\" } { \"_id\" : 3 , \"tests\" : [ 70 , 75 , 82 ] , \"lastUpdate\" : ISODate ( \"2020-01-24T17:29:35.340Z\" ) , \"average\" : 75 , \"grade\" : \"C\" }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Updates with Aggregation Pipeline",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "specify-arrayfilters-for-array-update-operations",
+          "heading": "Specify arrayFilters for Array Update Operations",
+          "heading_level": 3,
+          "content": "In the update document, use the $[<identifier>] filtered\npositional operator to define an identifier, which you then reference\nin the array filter documents. You cannot have an array filter\ndocument for an identifier if the identifier is not included in the\nupdate document.\nThe <identifier> must begin with a lowercase letter and\ncontain only alphanumeric characters.\nYou can include the same identifier multiple times in the update\ndocument; however, for each distinct identifier ( $[identifier] )\nin the update document, you must specify exactly one corresponding array filter document. That is, you cannot specify\nmultiple array filter documents for the same identifier. For\nexample, if the update statement includes the identifier x (possibly multiple times), you cannot specify the following for arrayFilters that includes 2 separate filter documents for x :\nHowever, you can specify compound conditions on the same identifier\nin a single filter document, such as in the following examples:\narrayFilters is not available for updates that use an\naggregation pipeline.\nTo update all array elements which match a specified criteria, use the arrayFilters parameter.\nIn mongosh , create a students collection with the following documents:\nTo update all elements that are greater than or equal to 100 in the grades array, use the filtered positional operator $[<identifier>] with the arrayFilters option:\nAfter the operation, the collection contains the following documents:\nYou can also use the arrayFilters parameter to update specific document fields within an array of\ndocuments.\nIn mongosh , create a students2 collection with the following documents:\nTo modify the value of the mean field for all elements in the grades array where the grade is greater than or equal to 85 ,\nuse the filtered positional operator $[<identifier>] with\nthe arrayFilters :\nAfter the operation, the collection has the following documents:",
+          "code_blocks": [
+            "// INVALID [ { \"x.a\" : { $gt : 85 } } , { \"x.b\" : { $gt : 80 } } ]",
+            "// Example 1 [ { $or : [ { \"x.a\" : { $gt : 85 }} , { \"x.b\" : { $gt : 80 }}] } ] // Example 2 [ { $and : [ { \"x.a\" : { $gt : 85 }} , { \"x.b\" : { $gt : 80 }}] } ] // Example 3 [ { \"x.a\" : { $gt : 85 } , \"x.b\" : { $gt : 80 } } ]",
+            "db. students . insertMany ( [ { \"_id\" : 1 , \"grades\" : [ 95 , 92 , 90 ] } , { \"_id\" : 2 , \"grades\" : [ 98 , 100 , 102 ] } , { \"_id\" : 3 , \"grades\" : [ 95 , 110 , 100 ] } ] )",
+            "db. students . update ( { grades : { $gte : 100 } } , { $set : { \"grades.$[element]\" : 100 } } , { multi : true , arrayFilters : [ { \"element\" : { $gte : 100 } } ] } )",
+            "{ \"_id\" : 1 , \"grades\" : [ 95 , 92 , 90 ] } { \"_id\" : 2 , \"grades\" : [ 98 , 100 , 100 ] } { \"_id\" : 3 , \"grades\" : [ 95 , 100 , 100 ] }",
+            "db. students2 . insertMany ( [ { \"_id\" : 1 , \"grades\" : [ { \"grade\" : 80 , \"mean\" : 75 , \"std\" : 6 } , { \"grade\" : 85 , \"mean\" : 90 , \"std\" : 4 } , { \"grade\" : 85 , \"mean\" : 85 , \"std\" : 6 } ] } , { \"_id\" : 2 , \"grades\" : [ { \"grade\" : 90 , \"mean\" : 75 , \"std\" : 6 } , { \"grade\" : 87 , \"mean\" : 90 , \"std\" : 3 } , { \"grade\" : 85 , \"mean\" : 85 , \"std\" : 4 } ] } ] )",
+            "db. students2 . update ( { } , { $set : { \"grades.$[elem].mean\" : 100 } } , { multi : true , arrayFilters : [ { \"elem.grade\" : { $gte : 85 } } ] } )",
+            "{ \"_id\" : 1 , \"grades\" : [ { \"grade\" : 80 , \"mean\" : 75 , \"std\" : 6 } , { \"grade\" : 85 , \"mean\" : 100 , \"std\" : 4 } , { \"grade\" : 85 , \"mean\" : 100 , \"std\" : 6 } ] } { \"_id\" : 2 , \"grades\" : [ { \"grade\" : 90 , \"mean\" : 100 , \"std\" : 6 } , { \"grade\" : 87 , \"mean\" : 100 , \"std\" : 3 } , { \"grade\" : 85 , \"mean\" : 100 , \"std\" : 4 } ] }"
+          ]
+        },
+        {
+          "subsection_id": "specify-hint-for-update-operations",
+          "heading": "Specify hint for Update Operations",
+          "heading_level": 3,
+          "content": "In mongosh , create a newStudents collection with the following documents:\nCreate the following index on the collection:\nThe following update operation explicitly hints to\nuse the index {grade: 1 } :",
+          "code_blocks": [
+            "db. newStudents . insertMany ( [ { \"_id\" : 1 , \"student\" : \"Richard\" , \"grade\" : \"F\" , \"points\" : 0 , \"comments1\" : null , \"comments2\" : null } , { \"_id\" : 2 , \"student\" : \"Jane\" , \"grade\" : \"A\" , \"points\" : 60 , \"comments1\" : \"well behaved\" , \"comments2\" : \"fantastic student\" } , { \"_id\" : 3 , \"student\" : \"Ronan\" , \"grade\" : \"F\" , \"points\" : 0 , \"comments1\" : null , \"comments2\" : null } , { \"_id\" : 4 , \"student\" : \"Noah\" , \"grade\" : \"D\" , \"points\" : 20 , \"comments1\" : \"needs improvement\" , \"comments2\" : null } , { \"_id\" : 5 , \"student\" : \"Adam\" , \"grade\" : \"F\" , \"points\" : 0 , \"comments1\" : null , \"comments2\" : null } , { \"_id\" : 6 , \"student\" : \"Henry\" , \"grade\" : \"A\" , \"points\" : 86 , \"comments1\" : \"fantastic student\" , \"comments2\" : \"well behaved\" } ] )",
+            "db. newStudents . createIndex ( { grade : 1 } )",
+            "db. newStudents . update ( { points : { $lte : 20 } , grade : \"F\" } , // Query parameter { $set : { comments1 : \"failed class\" } } , // Update document { multi : true , hint : { grade : 1 } } // Options )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "If you specify an index that does not exist, the operation errors.\nThe update command returns the following:\nTo see the index used, run explain on the operation:\nThe db.collection.explain().update() does not modify the documents.",
+      "code_blocks": [
+        "WriteResult ( { \"nMatched\" : 3 , \"nUpserted\" : 0 , \"nModified\" : 3 })",
+        "db. newStudents . explain ( ). update ( { \"points\" : { $lte : 20 } , \"grade\" : \"F\" } , { $set : { \"comments1\" : \"failed class\" } } , { multi : true , hint : { grade : 1 } } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "use-variables-in-let",
+          "heading": "Use Variables in let",
+          "heading_level": 3,
+          "content": "New in version 5.0 .\nTo define variables that you can access elsewhere in the command, use\nthe let option.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "To filter results using a variable, you must access the variable\nwithin the $expr operator.\nCreate a collection cakeFlavors :\nThe following example defines targetFlavor and newFlavor variables in let and uses the variables to change the cake flavor\nfrom cherry to orange:",
+      "code_blocks": [
+        "db. cakeFlavors . insertMany ( [ { _id : 1 , flavor : \"chocolate\" } , { _id : 2 , flavor : \"strawberry\" } , { _id : 3 , flavor : \"cherry\" } ] )",
+        "db. cakeFlavors . update ( { $expr : { $eq : [ \"$flavor\" , \"$$targetFlavor\" ] } } , [ { $set : { flavor : \"$$newFlavor\" } } ] , { let : { targetFlavor : \"cherry\" , newFlavor : \"orange\" } } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "override-default-write-concern",
+          "heading": "Override Default Write Concern",
+          "heading_level": 3,
+          "content": "The following operation to a replica set specifies a write concern of w: 2 with a wtimeout of 5000\nmilliseconds. This operation either returns after the write propagates\nto both the primary and one secondary, or times out after 5 seconds.",
+          "code_blocks": [
+            "db. books . update ( { stock : { $lte : 10 } } , { $set : { reorder : true } } , { multi : true , writeConcern : { w : 2 , j : true , wtimeout : 5000 } } )"
+          ]
+        },
+        {
+          "subsection_id": "write-concern-errors-in-sharded-clusters",
+          "heading": "Write Concern Errors in Sharded Clusters",
+          "heading_level": 3,
+          "content": "Changed in version 8.1.2 .\nWhen db.collection.update() executes on mongos in a sharded cluster, a writeConcernError is\nalways reported in the response, even when one or more other errors occur.\nIn previous releases, other errors sometimes caused db.collection.update() to not report write concern errors.\nFor example, if a document fails validation, triggering a DocumentValidationFailed error,\nand a write concern error also occurs, both the DocumentValidationFailed error and the writeConcernError are returned in the top-level field of the response.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "specify-collation",
+          "heading": "Specify Collation",
+          "heading_level": 3,
+          "content": "Specifies the collation to use for the operation.\nCollation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nThe collation option has the following syntax:\nWhen specifying collation, the locale field is mandatory; all\nother collation fields are optional. For descriptions of the fields,\nsee Collation Document .\nIf the collation is unspecified but the collection has a\ndefault collation (see db.createCollection() ), the\noperation uses the collation specified for the collection.\nIf no collation is specified for the collection or for the\noperations, MongoDB uses the simple binary comparison used in prior\nversions for string comparisons.\nYou cannot specify multiple collations for an operation. For\nexample, you cannot specify different collations per field, or if\nperforming a find with a sort, you cannot use one collation for the\nfind and another for the sort.\nIn mongosh , create a collection named myColl with the following documents:\nThe following operation includes the collation option and sets multi to true to update all matching documents:\nThe write result of the operation returns the following document, indicating that all three documents in the\ncollection were updated:\nAfter the operation, the collection contains the following documents:",
+          "code_blocks": [
+            "collation: { locale: <string>, caseLevel: <boolean>, caseFirst: <string>, strength: <int>, numericOrdering: <boolean>, alternate: <string>, maxVariable: <string>, backwards: <boolean> }",
+            "db. myColl . insertMany ( [ { _id : 1 , category : \"café\" , status : \"A\" } , { _id : 2 , category : \"cafe\" , status : \"a\" } , { _id : 3 , category : \"cafE\" , status : \"a\" } ] )",
+            "db. myColl . update ( { category : \"cafe\" } , { $set : { status : \"Updated\" } } , { collation : { locale : \"fr\" , strength : 1 } , multi : true } )",
+            "WriteResult({ \"nMatched\" : 3, \"nUpserted\" : 0, \"nModified\" : 3 })",
+            "{ \"_id\" : 1 , \"category\" : \"café\" , \"status\" : \"Updated\" } { \"_id\" : 2 , \"category\" : \"cafe\" , \"status\" : \"Updated\" } { \"_id\" : 3 , \"category\" : \"cafE\" , \"status\" : \"Updated\" }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "writeresult",
+      "heading": "WriteResult",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "successful-results",
+          "heading": "Successful Results",
+          "heading_level": 3,
+          "content": "The db.collection.update() method returns a WriteResult() object that contains the status of the operation.\nUpon success, the WriteResult() object contains the number of\ndocuments that matched the query condition, the number of documents\ninserted by the update, and the number of documents modified:",
+          "code_blocks": [
+            "WriteResult ( { \"nMatched\" : 1 , \"nUpserted\" : 0 , \"nModified\" : 1 })"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "see:",
+          "heading": "See:",
+          "heading_level": 3,
+          "content": "- WriteResult.nMatched\n- WriteResult.nUpserted\n- WriteResult.nModified\nWriteResult.nMatched\nWriteResult.nUpserted\nWriteResult.nModified",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "write-concern-errors",
+          "heading": "Write Concern Errors",
+          "heading_level": 3,
+          "content": "If the db.collection.update() method encounters write\nconcern errors, the results include the WriteResult.writeConcernError field:\nThe following table explains the possible values of WriteResult.writeConcernError.provenance :\nclientSupplied\nThe write concern was specified in the application.\ncustomDefault\nThe write concern originated from a custom defined\ndefault value. See setDefaultRWConcern .\ngetLastErrorDefaults\nThe write concern originated from the replica set's settings.getLastErrorDefaults field.\nimplicitDefault\nThe write concern originated from the server in absence\nof all other write concern specifications.",
+          "code_blocks": [
+            "WriteResult ( { \"nMatched\" : 1 , \"nUpserted\" : 0 , \"nModified\" : 1 , \"writeConcernError\" : { \"code\" : 64 , \"errmsg\" : \"waiting for replication timed out\" , \"errInfo\" : { \"wtimeout\" : true , \"writeConcern\" : { \"w\" : \"majority\" , \"wtimeout\" : 100 , \"provenance\" : \"getLastErrorDefaults\" } } })"
+          ]
+        },
+        {
+          "subsection_id": "errors-unrelated-to-write-concern",
+          "heading": "Errors Unrelated to Write Concern",
+          "heading_level": 3,
+          "content": "If the db.collection.update() method encounters a non-write\nconcern error, the results include the WriteResult.writeError field:\ndb.collection.unhideIndex\ndb.collection.updateMany\n- Definition\n- Compatibility\n- Syntax\n- Access Control\n- Behavior\n- Examples\n- WriteResult\nAccess Control\nBehavior\nWriteResult\n- Definition\n- Compatibility\n- Syntax\n- Access Control\n- Behavior\n- Examples\n- WriteResult\nAccess Control\nBehavior\nWriteResult",
+          "code_blocks": [
+            "WriteResult ( { \"nMatched\" : 0 , \"nUpserted\" : 0 , \"nModified\" : 0 , \"writeError\" : { \"code\" : 7 , \"errmsg\" : \"could not contact primary for replica set shard-a\" } })"
+          ]
+        }
+      ]
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:19.092428",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "update-legacy",
+  "source_type": "manual",
+  "file_stub": "d2_update-legacy"
+}

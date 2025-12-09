@@ -1,0 +1,102 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/indexes/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Indexes",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "use-cases",
+      "heading": "Use Cases",
+      "heading_level": 2,
+      "content": "If your application is repeatedly running queries on the same fields,\nyou can create an index on those fields to improve performance. For\nexample, consider the following scenarios:\nA human resources department often needs to look up employees by\nemployee ID. You can create an index on the employee ID field to\nimprove query performance.\nSingle Field Index\nA salesperson often needs to look up client information by\nlocation. Location is stored in an embedded object with fields\nlike state , city , and zipcode . You can create an\nindex on the location object to improve performance for\nqueries on that object.\nWhen you create an index on an embedded document, only queries that\nspecify the entire embedded document use the index. Queries on a\nspecific field within the document do not use the index.\nSingle Field Index on an embedded\ndocument\nA grocery store manager often needs to look up inventory items by\nname and quantity to determine which items are low stock. You can\ncreate a single index on both the item and quantity fields to improve query performance.\nCompound Index",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "get-started",
+      "heading": "Get Started",
+      "heading_level": 2,
+      "content": "You can create and manage indexes in MongoDB Atlas , with a driver\nmethod, or with the MongoDB Shell. MongoDB Atlas is the fully\nmanaged service for MongoDB deployments in the cloud.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "create-and-manage-indexes-in-mongodb-atlas",
+          "heading": "Create and Manage Indexes in MongoDB Atlas",
+          "heading_level": 3,
+          "content": "For deployments hosted in MongoDB Atlas, you can create\nand manage indexes with the MongoDB Atlas UI or the Atlas CLI. MongoDB Atlas\nalso includes a Performance Advisor that recommends indexes to improve\nslow queries, ranks suggested indexes by impact, and recommends which\nindexes to drop.\nTo learn how to create and manage indexes the MongoDB Atlas UI or the Atlas\nCLI, see Create, View, Drop, and Hide Indexes .\nTo learn more about the MongoDB Atlas Performance Advisor, see Monitor and Improve Slow Queries .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "create-and-manage-indexes-with-a-driver-method-or-the-mongodb-shell",
+          "heading": "Create and Manage Indexes with a Driver Method or the MongoDB Shell",
+          "heading_level": 3,
+          "content": "You can create and manage indexes with a driver method or the MongoDB\nShell. To learn more, see the following resources:\n- Create an Index\n- Create a Compound Index\n- Create an Index on an Array Field\n- Create an Index to Support Geospatial Queries\nCreate an Index\nCreate a Compound Index\nCreate an Index on an Array Field\nCreate an Index to Support Geospatial Queries",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "details",
+      "heading": "Details",
+      "heading_level": 2,
+      "content": "Indexes are special data structures that store a small portion of the\ncollection's data set in an easy-to-traverse form. MongoDB indexes use a B-tree data structure.\nThe index stores the value of a specific field or set of fields, ordered\nby the value of the field. The ordering of the index entries supports\nefficient equality matches and range-based query operations. In\naddition, MongoDB can return sorted results using the ordering in the\nindex.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "restrictions",
+          "heading": "Restrictions",
+          "heading_level": 3,
+          "content": "Certain restrictions apply to indexes, such as the length of the index\nkeys or the number of indexes per collection. For details, see Index Limitations .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "default-index",
+          "heading": "Default Index",
+          "heading_level": 3,
+          "content": "MongoDB creates a unique index on the _id field during the creation of a\ncollection. The _id index prevents clients from inserting two\ndocuments with the same value for the _id field. You cannot drop\nthis index.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "In sharded clusters , if you do not use\nthe _id field as the shard key , then your application must ensure the uniqueness of the values in the _id field.\nYou can do this by using a field with an auto-generated ObjectId .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "index-names",
+          "heading": "Index Names",
+          "heading_level": 3,
+          "content": "The default name for an index is the concatenation of the indexed keys\nand each key's direction in the index ( 1 or -1 ) using underscores\nas a separator. For example, an index created on { item : 1, quantity:\n-1 } has the name item_1_quantity_-1 .\nYou cannot rename an index once created. Instead, you must drop and recreate the index with a new name.\nTo learn how to specify the name for an index, see Specify an Index Name .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "index-build-performance",
+          "heading": "Index Build Performance",
+          "heading_level": 3,
+          "content": "Applications may encounter reduced performance during index builds,\nincluding limited read/write access to the collection. For more\ninformation on the index build process, see Index Builds on Populated Collections ,\nincluding the Index Builds in Replicated Environments section.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "- MongoDB provides a number of different index types to support specific\ntypes of data and queries. To learn more, see Index Types .\n- To learn what properties and behaviors you can specify in your index,\nsee Index Properties .\n- To understand considerations you may need to make when you create an\nindex, see Indexing Strategies .\n- To learn about the performance impact of indexes, see Operational Factors and Data Models .\n- To learn about query settings and indexes, see setQuerySettings .\nMongoDB provides a number of different index types to support specific\ntypes of data and queries. To learn more, see Index Types .\nMongoDB provides a number of different index types to support specific\ntypes of data and queries. To learn more, see Index Types .\nTo learn what properties and behaviors you can specify in your index,\nsee Index Properties .\nTo learn what properties and behaviors you can specify in your index,\nsee Index Properties .\nTo understand considerations you may need to make when you create an\nindex, see Indexing Strategies .\nTo understand considerations you may need to make when you create an\nindex, see Indexing Strategies .\nTo learn about the performance impact of indexes, see Operational Factors and Data Models .\nTo learn about query settings and indexes, see setQuerySettings .\nTailable Cursors\nCreate\nMaster \" Indexing Design Fundamentals \" for free!\n- Use Cases\n- Get Started\n- Details\n- Learn More\nUse Cases\nGet Started\nDetails\nLearn More\n- Use Cases\n- Get Started\n- Details\n- Learn More\nUse Cases\nGet Started\nDetails\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:29.902858",
+  "exam_code": "associate_developer_python",
+  "domain_id": 3,
+  "domain_name": "Indexes",
+  "seed_id": "indexes-overview",
+  "source_type": "manual",
+  "file_stub": "d3_indexes-overview"
+}

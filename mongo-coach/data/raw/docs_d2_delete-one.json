@@ -1,0 +1,190 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.deleteOne/",
+  "doc_type": "mongodb_docs_method",
+  "method_name": "db.collection.deleteOne",
+  "title": "db.collection.deleteOne() (mongosh method)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Removes a single document from a collection.\n- A boolean acknowledged as true if the operation ran with write concern or false if write concern was disabled\n- deletedCount containing the number of deleted documents\nA boolean acknowledged as true if the operation ran with write concern or false if write concern was disabled\ndeletedCount containing the number of deleted documents",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "This method is available in deployments hosted in the following environments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "This command is supported in all MongoDB Atlas clusters.\nFor information on Atlas support for all commands, see Unsupported Commands .\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The deleteOne() method has the following form:\nThe deleteOne() method takes the following\nparameters:\nfilter\ndocument\nSpecifies deletion criteria using a query predicate .\nSpecify an empty document { } to delete the first document returned in\nthe collection.\nwriteConcern\ndocument\nOptional. A document expressing the write concern . Omit to use the default write concern.\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .\ncollation\ndocument\nOptional.\nSpecifies the collation to use for the operation.\nCollation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nThe collation option has the following syntax:\nWhen specifying collation, the locale field is mandatory; all\nother collation fields are optional. For descriptions of the fields,\nsee Collation Document .\nIf the collation is unspecified but the collection has a\ndefault collation (see db.createCollection() ), the\noperation uses the collation specified for the collection.\nIf no collation is specified for the collection or for the\noperations, MongoDB uses the simple binary comparison used in prior\nversions for string comparisons.\nYou cannot specify multiple collations for an operation. For\nexample, you cannot specify different collations per field, or if\nperforming a find with a sort, you cannot use one collation for the\nfind and another for the sort.\nhint\ndocument\nOptional. A document or string that specifies the index to use to support the query predicate .\nThe option can take an index specification document or the\nindex name string.\nIf you specify an index that does not exist, the operation\nerrors.\nFor an example, see Specify hint for Delete Operations .\nmaxTimeMS\ninteger\nOptional. Specifies the time limit in milliseconds for the\ndelete operation to run before timing out.\nlet\nDocument\nOptional.\nSpecifies a document with a list of variables. This allows you to\nimprove command readability by separating the variables from the query\ntext.\nThe document syntax is:\nThe variable is set to the value returned by the expression, and cannot\nbe changed afterwards.\nTo access the value of a variable in the command, use the double\ndollar sign prefix ( $$ ) together with your variable name in the form $$<variable_name> . For example: $$targetTotal .\nTo use a variable to filter results, you must access the variable\nwithin the $expr operator.\nFor a complete example using let and variables,\nsee Update with let Variables .",
+      "code_blocks": [
+        "db. collection . deleteOne ( < filter > , { writeConcern : < document > , collation : < document > , hint : <document|string>, maxTimeMS: <int>, let: <document> } )",
+        "collation: { locale: <string>, caseLevel: <boolean>, caseFirst: <string>, strength: <int>, numericOrdering: <boolean>, alternate: <string>, maxVariable: <string>, backwards: <boolean> }",
+        "{ < variable_name_1 > : < expression_1 > , ... , < variable_name_n > : < expression_n > }"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "deletion-order",
+          "heading": "Deletion Order",
+          "heading_level": 3,
+          "content": "db.collection.deleteOne() deletes the first document that matches\nthe filter. Use a field that is part of a unique index such as _id for precise deletions.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "sharded-collections",
+          "heading": "Sharded Collections",
+          "heading_level": 3,
+          "content": "To use db.collection.deleteOne() on a sharded collection:\n- If you only target one shard, you can use a partial shard key in the query\nspecification.\n- You do not need to provide the shard key or _id field in the query\nspecification, because deleteOne() inherently uses a limit of 1.\nIf you only target one shard, you can use a partial shard key in the query\nspecification.\nIf you only target one shard, you can use a partial shard key in the query\nspecification.\nYou do not need to provide the shard key or _id field in the query\nspecification, because deleteOne() inherently uses a limit of 1.\nYou do not need to provide the shard key or _id field in the query\nspecification, because deleteOne() inherently uses a limit of 1.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "transactions",
+          "heading": "Transactions",
+          "heading_level": 3,
+          "content": "db.collection.deleteOne() can be used inside distributed transactions .\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "In most cases, a distributed transaction incurs a greater\nperformance cost over single document writes, and the\navailability of distributed transactions should not be a\nreplacement for effective schema design. For many scenarios, the denormalized data model (embedded documents and arrays) will continue to be optimal for your\ndata and use cases. That is, for many scenarios, modeling your data\nappropriately will minimize the need for distributed\ntransactions.\nFor additional transactions usage considerations\n(such as runtime limit and oplog size limit), see also Production Considerations .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "oplog-entries",
+          "heading": "Oplog Entries",
+          "heading_level": 3,
+          "content": "If a db.collection.deleteOne() operation successfully deletes a\ndocument, the operation adds an entry on the oplog (operations\nlog). If the operation fails or does not find a document to delete, the\noperation does not add an entry on the oplog.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "delete-a-single-document",
+          "heading": "Delete a Single Document",
+          "heading_level": 3,
+          "content": "The orders collection has documents with the following structure:\nThe following operation deletes the order with _id:\nObjectId(\"563237a41a4d68582c2509da\") :\nThe operation returns:\nThe following operation deletes the first document with expiryts greater\nthan ISODate(\"2015-11-01T12:40:15Z\")\nThe operation returns:",
+          "code_blocks": [
+            "db. orders . insertOne ( { _id : ObjectId ( \"563237a41a4d68582c2509da\" ) , stock : \"Brent Crude Futures\" , qty : 250 , type : \"buy-limit\" , limit : 48.90 , creationts : ISODate ( \"2015-11-01T12:30:15Z\" ) , expiryts : ISODate ( \"2015-11-01T12:35:15Z\" ) , client : \"Crude Traders Inc.\" } )",
+            "try { db. orders . deleteOne ( { _id : ObjectId ( \"563237a41a4d68582c2509da\" ) } ) ; } catch ( e) { print ( e) ; }",
+            "{ acknowledged : true , deletedCount : 1 }",
+            "try { db. orders . deleteOne ( { expiryts : { $lt : ISODate ( \"2015-11-01T12:40:15Z\" ) } } ) ; } catch ( e) { print ( e) ; }",
+            "{ acknowledged : true , deletedCount : 1 }"
+          ]
+        },
+        {
+          "subsection_id": "deleteone()-with-a-timeout-and-query-variables",
+          "heading": "deleteOne() with a Timeout and Query Variables",
+          "heading_level": 3,
+          "content": "The following operation deletes the document that matches the type buy-limit , limit is less that the variable priceThreshold ,\nand sets a time limit of 3 seconds:\nThe operation returns:",
+          "code_blocks": [
+            "try { db. orders . deleteOne ( { type : \"buy-limit\" } , { $expr : { $eq : [ \"$limit\" , \"$$priceThreshold\" ] } } , { let : { priceThreshold : 49.00 } , maxTimeMS : 3000 } ) ; } catch ( e) { print ( e) ; }",
+            "{ acknowledged : true , deletedCount : 1 }"
+          ]
+        },
+        {
+          "subsection_id": "deleteone()-with-write-concern",
+          "heading": "deleteOne() with Write Concern",
+          "heading_level": 3,
+          "content": "Given a three member replica set, the following operation specifies a w of majority , wtimeout of 100 :\nIf the acknowledgment takes longer than the wtimeout limit, the following\nexception is thrown:",
+          "code_blocks": [
+            "try { db. orders . deleteOne ( { _id : ObjectId ( \"563237a41a4d68582c2509da\" ) } , { w : \"majority\" , wtimeout : 100 } ) ; } catch ( e) { print ( e) ; }",
+            "WriteConcernError ( { code : 64 , errmsg : \"waiting for replication timed out\" , errInfo : { wtimeout : true , writeConcern : { w : \"majority\" , wtimeout : 100 , provenance : \"getLastErrorDefaults\" } } })"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "WriteResult.writeConcernError",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "specify-collation",
+          "heading": "Specify Collation",
+          "heading_level": 3,
+          "content": "Collation allows users to specify\nlanguage-specific rules for string comparison, such as rules for\nlettercase and accent marks.\nA restaurants collection has the following documents:\nThe following operation includes the collation option:\nThe delete filter specifies a collation with strength: 1 , which\nmeans the collation ignores differences between case and letter\nvariants. As a result, even though there is not a document that has an\nexact match with the specified case and letter variants in the filter,\nthe operation still matches and deletes a document.",
+          "code_blocks": [
+            "db. restaurants . insertMany ( [ { _id : 1 , category : \"café\" , status : \"Open\" } , { _id : 2 , category : \"cafe\" , status : \"open\" } , { _id : 3 , category : \"cafE\" , status : \"open\" } ] )",
+            "db. restaurants . deleteOne ( { category : \"cafe\" , status : \"Open\" } , { collation : { locale : \"fr\" , strength : 1 } } )"
+          ]
+        },
+        {
+          "subsection_id": "specify-hint-for-delete-operations",
+          "heading": "Specify hint for Delete Operations",
+          "heading_level": 3,
+          "content": "In mongosh , create a students collection\nwith the following documents:\nCreate the following index on the collection:\nThe following delete operation explicitly hints to use the index { grade: 1 } :",
+          "code_blocks": [
+            "db. members . insertMany ( [ { _id : 1 , student : \"Richard\" , grade : \"F\" , points : 0 } , { _id : 2 , student : \"Jane\" , grade : \"A\" , points : 60 } , { _id : 3 , student : \"Adam\" , grade : \"F\" , points : 0 } , { _id : 4 , student : \"Ronan\" , grade : \"D\" , points : 20 } , { _id : 5 , student : \"Noah\" , grade : \"F\" , points : 0 } , { _id : 6 , student : \"Henry\" , grade : \"A\" , points : 86 } ] )",
+            "db. members . createIndex ( { grade : 1 } )",
+            "db. members . deleteOne ( { points : { $lte : 20 } , grade : \"F\" } , { hint : { grade : 1 } } )"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "If you specify an index that does not exist, the operation errors.\nThe delete command returns the following:\nTo view the indexes used, you can use the $indexStats pipeline:\nThe accesses.ops field in the $indexStats output\nindicates the number of operations that used the index.",
+      "code_blocks": [
+        "{ acknowledged : true , deletedCount : 1 }",
+        "db. members . aggregate ( [ { $indexStats : { } } , { $sort : { name : 1 } } ] )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "To delete multiple documents, see db.collection.deleteMany()\ndb.collection.deleteMany\ndb.collection.distinct\n- Definition\n- Compatibility\n- Syntax\n- Behavior\n- Examples\nBehavior\n- Definition\n- Compatibility\n- Syntax\n- Behavior\n- Examples\nBehavior",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:21.215384",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "delete-one",
+  "source_type": "manual",
+  "file_stub": "d2_delete-one"
+}

@@ -1,0 +1,384 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/tutorial/query-documents/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Query Documents",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "The driver provides com.mongodb.client.model.Filters helper methods to facilitate the creation of filter\ndocuments. The examples on this page use these methods to\ncreate the filter documents.\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations by using the MongoCollection.find() method in the MongoDB Kotlin Coroutine Driver .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "The driver provides com.mongodb.client.model.Filters helper methods to facilitate the creation of filter\ndocuments. The examples on this page use these methods to\ncreate the filter documents.\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations using the motor.motor_asyncio.AsyncIOMotorCollection.find method in the Motor driver.\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations using the Collection.find() method in\nthe MongoDB Node.js Driver .\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations using the MongoDB\\\\Collection::find() method in the MongoDB PHP Library .\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations using the pymongo.collection.Collection.find method in the PyMongo Python driver.\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations using the Mongo::Collection#find() method in the MongoDB Ruby Driver .\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nThis page provides examples of query operations using the collection.find() method\nin the MongoDB Scala Driver .\nThe examples on this page use the inventory collection. Connect to a\ntest database in your MongoDB instance then create the inventory collection:\nFor instructions on inserting documents in MongoDB Compass, see Insert Documents .",
+      "code_blocks": [
+        "db. inventory . insertMany ( [ { item : \"journal\" , qty : 25 , size : { h : 14 , w : 21 , uom : \"cm\" } , status : \"A\" } , { item : \"notebook\" , qty : 50 , size : { h : 8.5 , w : 11 , uom : \"in\" } , status : \"A\" } , { item : \"paper\" , qty : 100 , size : { h : 8.5 , w : 11 , uom : \"in\" } , status : \"D\" } , { item : \"planner\" , qty : 75 , size : { h : 22.85 , w : 30 , uom : \"cm\" } , status : \"D\" } , { item : \"postcard\" , qty : 45 , size : { h : 10 , w : 15.25 , uom : \"cm\" } , status : \"A\" } ]) ;",
+        "[ { \"item\" : \"journal\" , \"qty\" : 25 , \"size\" : { \"h\" : 14 , \"w\" : 21 , \"uom\" : \"cm\" } , \"status\" : \"A\" } , { \"item\" : \"notebook\" , \"qty\" : 50 , \"size\" : { \"h\" : 8.5 , \"w\" : 11 , \"uom\" : \"in\" } , \"status\" : \"A\" } , { \"item\" : \"paper\" , \"qty\" : 100 , \"size\" : { \"h\" : 8.5 , \"w\" : 11 , \"uom\" : \"in\" } , \"status\" : \"D\" } , { \"item\" : \"planner\" , \"qty\" : 75 , \"size\" : { \"h\" : 22.85 , \"w\" : 30 , \"uom\" : \"cm\" } , \"status\" : \"D\" } , { \"item\" : \"postcard\" , \"qty\" : 45 , \"size\" : { \"h\" : 10 , \"w\" : 15.25 , \"uom\" : \"cm\" } , \"status\" : \"A\" } ]",
+        "mongoc_collection_t *collection; mongoc_bulk_operation_t *bulk; bson_t *doc; bool r; bson_error_t error; bson_t reply; collection = mongoc_database_get_collection (db, \"inventory\" ) ; bulk = mongoc_collection_create_bulk_operation_with_opts (collection, NULL ) ; doc = BCON_NEW ( \"item\" , BCON_UTF8 ( \"journal\" ) , \"qty\" , BCON_INT64 ( 25 ) , \"size\" , \"{\" , \"h\" , BCON_DOUBLE ( 14 ) , \"w\" , BCON_DOUBLE ( 21 ) , \"uom\" , BCON_UTF8 ( \"cm\" ) , \"}\" , \"status\" , BCON_UTF8 ( \"A\" ) ) ; r = mongoc_bulk_operation_insert_with_opts (bulk, doc, NULL , &error) ; bson_destroy (doc) ; if (!r) { MONGOC_ERROR ( \"%s \\n \" , error.message) ; goto done; } doc = BCON_NEW ( \"item\" , BCON_UTF8 ( \"notebook\" ) , \"qty\" , BCON_INT64 ( 50 ) , \"size\" , \"{\" , \"h\" , BCON_DOUBLE ( 8.5 ) , \"w\" , BCON_DOUBLE ( 11 ) , \"uom\" , BCON_UTF8 ( \"in\" ) , \"}\" , \"status\" , BCON_UTF8 ( \"A\" ) ) ; r = mongoc_bulk_operation_insert_with_opts (bulk, doc, NULL , &error) ; bson_destroy (doc) ; if (!r) { MONGOC_ERROR ( \"%s \\n \" , error.message) ; goto done; } doc = BCON_NEW ( \"item\" , BCON_UTF8 ( \"paper\" ) , \"qty\" , BCON_INT64 ( 100 ) , \"size\" , \"{\" , \"h\" , BCON_DOUBLE ( 8.5 ) , \"w\" , BCON_DOUBLE ( 11 ) , \"uom\" , BCON_UTF8 ( \"in\" ) , \"}\" , \"status\" , BCON_UTF8 ( \"D\" ) ) ; r = mongoc_bulk_operation_insert_with_opts (bulk, doc, NULL , &error) ; bson_destroy (doc) ; if (!r) { MONGOC_ERROR ( \"%s \\n \" , error.message) ; goto done; } doc = BCON_NEW ( \"item\" , BCON_UTF8 ( \"planner\" ) , \"qty\" , BCON_INT64 ( 75 ) , \"size\" , \"{\" , \"h\" , BCON_DOUBLE ( 22.85 ) , \"w\" , BCON_DOUBLE ( 30 ) , \"uom\" , BCON_UTF8 ( \"cm\" ) , \"}\" , \"status\" , BCON_UTF8 ( \"D\" ) ) ; r = mongoc_bulk_operation_insert_with_opts (bulk, doc, NULL , &error) ; bson_destroy (doc) ; if (!r) { MONGOC_ERROR ( \"%s \\n \" , error.message) ; goto done; } doc = BCON_NEW ( \"item\" , BCON_UTF8 ( \"postcard\" ) , \"qty\" , BCON_INT64 ( 45 ) , \"size\" , \"{\" , \"h\" , BCON_DOUBLE ( 10 ) , \"w\" , BCON_DOUBLE ( 15.25 ) , \"uom\" , BCON_UTF8 ( \"cm\" ) , \"}\" , \"status\" , BCON_UTF8 ( \"A\" ) ) ; r = mongoc_bulk_operation_insert_with_opts (bulk, doc, NULL , &error) ; bson_destroy (doc) ; if (!r) { MONGOC_ERROR ( \"%s \\n \" , error.message) ; goto done; } /* \"reply\" is initialized on success or error */ r = ( bool ) mongoc_bulk_operation_execute (bulk, &reply, &error) ; if (!r) { MONGOC_ERROR ( \"%s \\n \" , error.message) ; }",
+        "var documents = new BsonDocument[] { new BsonDocument { { \"item\" , \"journal\" }, { \"qty\" , 25 }, { \"size\" , new BsonDocument { { \"h\" , 14 }, { \"w\" , 21 }, { \"uom\" , \"cm\" } } }, { \"status\" , \"A\" } }, new BsonDocument { { \"item\" , \"notebook\" }, { \"qty\" , 50 }, { \"size\" , new BsonDocument { { \"h\" , 8.5 }, { \"w\" , 11 }, { \"uom\" , \"in\" } } }, { \"status\" , \"A\" } }, new BsonDocument { { \"item\" , \"paper\" }, { \"qty\" , 100 }, { \"size\" , new BsonDocument { { \"h\" , 8.5 }, { \"w\" , 11 }, { \"uom\" , \"in\" } } }, { \"status\" , \"D\" } }, new BsonDocument { { \"item\" , \"planner\" }, { \"qty\" , 75 }, { \"size\" , new BsonDocument { { \"h\" , 22.85 }, { \"w\" , 30 }, { \"uom\" , \"cm\" } } }, { \"status\" , \"D\" } }, new BsonDocument { { \"item\" , \"postcard\" }, { \"qty\" , 45 }, { \"size\" , new BsonDocument { { \"h\" , 10 }, { \"w\" , 15.25 }, { \"uom\" , \"cm\" } } }, { \"status\" , \"A\" } }, }; collection.InsertMany(documents);",
+        "docs := []any{ bson.D{ { \"item\" , \"journal\" }, { \"qty\" , 25 }, { \"size\" , bson.D{ { \"h\" , 14 }, { \"w\" , 21 }, { \"uom\" , \"cm\" }, }}, { \"status\" , \"A\" }, }, bson.D{ { \"item\" , \"notebook\" }, { \"qty\" , 50 }, { \"size\" , bson.D{ { \"h\" , 8.5 }, { \"w\" , 11 }, { \"uom\" , \"in\" }, }}, { \"status\" , \"A\" }, }, bson.D{ { \"item\" , \"paper\" }, { \"qty\" , 100 }, { \"size\" , bson.D{ { \"h\" , 8.5 }, { \"w\" , 11 }, { \"uom\" , \"in\" }, }}, { \"status\" , \"D\" }, }, bson.D{ { \"item\" , \"planner\" }, { \"qty\" , 75 }, { \"size\" , bson.D{ { \"h\" , 22.85 }, { \"w\" , 30 }, { \"uom\" , \"cm\" }, }}, { \"status\" , \"D\" }, }, bson.D{ { \"item\" , \"postcard\" }, { \"qty\" , 45 }, { \"size\" , bson.D{ { \"h\" , 10 }, { \"w\" , 15.25 }, { \"uom\" , \"cm\" }, }}, { \"status\" , \"A\" }, }, } result, err := coll.InsertMany(context.TODO(), docs)",
+        "Publisher<Success> insertManyPublisher = collection.insertMany(asList( Document.parse( \"{ item: 'journal', qty: 25, size: { h: 14, w: 21, uom: 'cm' }, status: 'A' }\" ), Document.parse( \"{ item: 'notebook', qty: 50, size: { h: 8.5, w: 11, uom: 'in' }, status: 'A' }\" ), Document.parse( \"{ item: 'paper', qty: 100, size: { h: 8.5, w: 11, uom: 'in' }, status: 'D' }\" ), Document.parse( \"{ item: 'planner', qty: 75, size: { h: 22.85, w: 30, uom: 'cm' }, status: 'D' }\" ), Document.parse( \"{ item: 'postcard', qty: 45, size: { h: 10, w: 15.25, uom: 'cm' }, status: 'A' }\" ) ));",
+        "collection.insertMany(asList( Document.parse( \"{ item: 'journal', qty: 25, size: { h: 14, w: 21, uom: 'cm' }, status: 'A' }\" ), Document.parse( \"{ item: 'notebook', qty: 50, size: { h: 8.5, w: 11, uom: 'in' }, status: 'A' }\" ), Document.parse( \"{ item: 'paper', qty: 100, size: { h: 8.5, w: 11, uom: 'in' }, status: 'D' }\" ), Document.parse( \"{ item: 'planner', qty: 75, size: { h: 22.85, w: 30, uom: 'cm' }, status: 'D' }\" ), Document.parse( \"{ item: 'postcard', qty: 45, size: { h: 10, w: 15.25, uom: 'cm' }, status: 'A' }\" ) ));",
+        "collection.insertMany( listOf( Document( \"item\" , \"journal\" ) .append( \"qty\" , 25 ) .append( \"size\" , Document( \"h\" , 14 ) .append( \"w\" , 21 ) .append( \"uom\" , \"cm\" ) ) .append( \"status\" , \"A\" ), Document( \"item\" , \"notebook\" ) .append( \"qty\" , 50 ) .append( \"size\" , Document( \"h\" , 8.5 ) .append( \"w\" , 11 ) .append( \"uom\" , \"in\" ) ) .append( \"status\" , \"A\" ), Document( \"item\" , \"paper\" ) .append( \"qty\" , 100 ) .append( \"size\" , Document( \"h\" , 8.5 ) .append( \"w\" , 11 ) .append( \"uom\" , \"in\" ) ) .append( \"status\" , \"D\" ), Document( \"item\" , \"planner\" ) .append( \"qty\" , 75 ) .append( \"size\" , Document( \"h\" , 22.85 ) .append( \"w\" , 30 ) .append( \"uom\" , \"cm\" ) ) .append( \"status\" , \"D\" ), Document( \"item\" , \"postcard\" ) .append( \"qty\" , 45 ) .append( \"size\" , Document( \"h\" , 10 ) .append( \"w\" , 15.25 ) .append( \"uom\" , \"cm\" ) ) .append( \"status\" , \"A\" ), ) )",
+        "await db.inventory.insert_many( [ { \"item\" : \"journal\" , \"qty\" : 25 , \"size\" : { \"h\" : 14 , \"w\" : 21 , \"uom\" : \"cm\" }, \"status\" : \"A\" , }, { \"item\" : \"notebook\" , \"qty\" : 50 , \"size\" : { \"h\" : 8.5 , \"w\" : 11 , \"uom\" : \"in\" }, \"status\" : \"A\" , }, { \"item\" : \"paper\" , \"qty\" : 100 , \"size\" : { \"h\" : 8.5 , \"w\" : 11 , \"uom\" : \"in\" }, \"status\" : \"D\" , }, { \"item\" : \"planner\" , \"qty\" : 75 , \"size\" : { \"h\" : 22.85 , \"w\" : 30 , \"uom\" : \"cm\" }, \"status\" : \"D\" , }, { \"item\" : \"postcard\" , \"qty\" : 45 , \"size\" : { \"h\" : 10 , \"w\" : 15.25 , \"uom\" : \"cm\" }, \"status\" : \"A\" , }, ] )",
+        "await db. collection ( 'inventory' ). insertMany ( [ { item : 'journal' , qty : 25 , size : { h : 14 , w : 21 , uom : 'cm' } , status : 'A' } , { item : 'notebook' , qty : 50 , size : { h : 8.5 , w : 11 , uom : 'in' } , status : 'A' } , { item : 'paper' , qty : 100 , size : { h : 8.5 , w : 11 , uom : 'in' } , status : 'D' } , { item : 'planner' , qty : 75 , size : { h : 22.85 , w : 30 , uom : 'cm' } , status : 'D' } , { item : 'postcard' , qty : 45 , size : { h : 10 , w : 15.25 , uom : 'cm' } , status : 'A' } ]) ;",
+        "$insertManyResult = $db ->inventory-> insertMany ([ [ 'item' => 'journal' , 'qty' => 25 , 'size' => [ 'h' => 14 , 'w' => 21 , 'uom' => 'cm' ], 'status' => 'A' , ], [ 'item' => 'notebook' , 'qty' => 50 , 'size' => [ 'h' => 8.5 , 'w' => 11 , 'uom' => 'in' ], 'status' => 'A' , ], [ 'item' => 'paper' , 'qty' => 100 , 'size' => [ 'h' => 8.5 , 'w' => 11 , 'uom' => 'in' ], 'status' => 'D' , ], [ 'item' => 'planner' , 'qty' => 75 , 'size' => [ 'h' => 22.85 , 'w' => 30 , 'uom' => 'cm' ], 'status' => 'D' , ], [ 'item' => 'postcard' , 'qty' => 45 , 'size' => [ 'h' => 10 , 'w' => 15.25 , 'uom' => 'cm' ], 'status' => 'A' , ], ]) ;",
+        "db.inventory.insert_many( [ { \"item\" : \"journal\" , \"qty\" : 25 , \"size\" : { \"h\" : 14 , \"w\" : 21 , \"uom\" : \"cm\" }, \"status\" : \"A\" , }, { \"item\" : \"notebook\" , \"qty\" : 50 , \"size\" : { \"h\" : 8.5 , \"w\" : 11 , \"uom\" : \"in\" }, \"status\" : \"A\" , }, { \"item\" : \"paper\" , \"qty\" : 100 , \"size\" : { \"h\" : 8.5 , \"w\" : 11 , \"uom\" : \"in\" }, \"status\" : \"D\" , }, { \"item\" : \"planner\" , \"qty\" : 75 , \"size\" : { \"h\" : 22.85 , \"w\" : 30 , \"uom\" : \"cm\" }, \"status\" : \"D\" , }, { \"item\" : \"postcard\" , \"qty\" : 45 , \"size\" : { \"h\" : 10 , \"w\" : 15.25 , \"uom\" : \"cm\" }, \"status\" : \"A\" , }, ] )",
+        "client [ : inventory ].insert_many ( [ { item: 'journal' , qty: 25 , size: { h: 14 , w: 21 , uom: 'cm' } , status: 'A' } , { item: 'notebook' , qty: 50 , size: { h: 8.5 , w: 11 , uom: 'in' } , status: 'A' } , { item: 'paper' , qty: 100 , size: { h: 8.5 , w: 11 , uom: 'in' } , status: 'D' } , { item: 'planner' , qty: 75 , size: { h: 22.85 , w: 30 , uom: 'cm' } , status: 'D' } , { item: 'postcard' , qty: 45 , size: { h: 10 , w: 15.25 , uom: 'cm' } , status: 'A' } ])",
+        "collection.insertMany( Seq ( Document ( \"\"\"{ item: \"journal\", qty: 25, size: { h: 14, w: 21, uom: \"cm\" }, status: \"A\" }\"\"\" ), Document ( \"\"\"{ item: \"notebook\", qty: 50, size: { h: 8.5, w: 11, uom: \"in\" }, status: \"A\" }\"\"\" ), Document ( \"\"\"{ item: \"paper\", qty: 100, size: { h: 8.5, w: 11, uom: \"in\" }, status: \"D\" }\"\"\" ), Document ( \"\"\"{ item: \"planner\", qty: 75, size: { h: 22.85, w: 30, uom: \"cm\" }, status: \"D\" }\"\"\" ), Document ( \"\"\"{ item: \"postcard\", qty: 45, size: { h: 10, w: 15.25, uom: \"cm\" }, status: \"A\" }\"\"\" ) )).execute()"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "select-all-documents-in-a-collection",
+      "heading": "Select All Documents in a Collection",
+      "heading_level": 2,
+      "content": "To select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the query bar . The query filter parameter determines\nthe select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nTo select all documents in the collection, pass an empty\ndocument as the query filter parameter to the find method. The\nquery filter parameter determines the select criteria:\nBe sure to also clean up any open resources by calling the\nfollowing methods, as appropriate:\n- bson_destroy\n- mongoc_bulk_operation_destroy\n- mongoc_collection_destroy\n- mongoc_cursor_destroy ,\nbson_destroy\nmongoc_bulk_operation_destroy\nmongoc_collection_destroy\nmongoc_cursor_destroy ,\nThis operation uses a query predicate of {} , which corresponds to\nthe following SQL statement:\nFor more information on the syntax of the method, see find() .\nFor more information on the MongoDB Compass query bar, see Query Bar .\nFor more information on the syntax of the method, see mongoc_collection_find_with_opts .\nFor more information on the syntax of the method, see Find() .\nFor more information on the syntax of the method, see com.mongodb.reactivestreams.client.MongoCollection.find .\nFor more information on the syntax of the method, see com.mongodb.client.MongoCollection.find .\nFor more information on the syntax of the method, see MongoCollection.find() .\nTo see supported options for the find() method, see find() .\nFor more information on the syntax of the method, see find() .\nFor more information on the syntax of the method, see find .\nFor more information on the syntax of the method, see find() .\nFor more information on the syntax of the method, see collection.find() .",
+      "code_blocks": [
+        "db. inventory . find ( { } )",
+        "mongoc_collection_t *collection; bson_t *filter; mongoc_cursor_t *cursor; collection = mongoc_database_get_collection (db, \"inventory\" ) ; filter = BCON_NEW ( NULL ) ; cursor = mongoc_collection_find_with_opts (collection, filter, NULL , NULL ) ;",
+        "var filter = Builders<BsonDocument>.Filter.Empty; var result = collection.Find(filter).ToList();",
+        "cursor, err := coll.Find( context.TODO(), bson.D{}, )",
+        "FindPublisher<Document> findPublisher = collection.find( new Document ());",
+        "FindIterable<Document> findIterable = collection.find( new Document ());",
+        "val flowInsertMany = collection .find(empty())",
+        "cursor = db.inventory.find({})",
+        "const cursor = db. collection ( 'inventory' ). find ( { }) ;",
+        "$cursor = $db ->inventory-> find ([]) ;",
+        "cursor = db.inventory.find({})",
+        "client [ : inventory ].find ( { })",
+        "var findObservable = collection.find( Document ())",
+        "SELECT * FROM inventory"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "specify-equality-condition",
+      "heading": "Specify Equality Condition",
+      "heading_level": 2,
+      "content": "To specify equality conditions, use <field>:<value> expressions in the query filter document :\nTo specify equality conditions, construct a filter using the Eq method:\nTo specify equality conditions, use the com.mongodb.client.model.Filters.eq method to create the query filter document :\nTo specify equality conditions, use the com.mongodb.client.model.Filters.eq_ method to create the query filter document :\nTo specify equality conditions, use the Filters.eq() method to create the query filter document :\nTo specify equality conditions, use <field>:<value> expressions in the query filter document :\nTo specify equality conditions, use <field> => <value> expressions in the query filter document :\nTo specify equality conditions, use <field>:<value> expressions in the query filter document :\nTo specify equality conditions, use <field> => <value> expressions in the query filter document :\nTo specify equality conditions, use the com.mongodb.client.model.Filters.eq_ method to create the query filter document :\nThe following example selects from the inventory collection all\ndocuments where the status equals \"D\" :\nCopy the following filter into the Compass query bar and click Find :\nThis operation uses a query predicate of { status: \"D\" } , which\ncorresponds to the following SQL statement:",
+      "code_blocks": [
+        "{ < field1 > : < value1 > , ... }",
+        "{ < field1 > : < value1 > , ... }",
+        "{ <field1>: <value1>, ... }",
+        "Builders<BsonDocument>.Filter.Eq(<field>, < value >);",
+        "and(eq(<field1>, <value1>), eq(<field2>, <value2>) ...)",
+        "and(eq(<field1>, <value1>), eq(<field2>, <value2>) ...)",
+        "and(eq(<field1>, <value1>), eq(<field2>, <value2>) ...)",
+        "{ <field1>: <value1>, ... }",
+        "{ < field1 > : < value1 > , ... }",
+        "[ <field1> => <value1>, ... ]",
+        "{ <field1>: <value1>, ... }",
+        "{ < field1 > = > < value1 > , ... }",
+        "and(equal(<field1>, <value1>), equal(<field2>, <value2>) ...)",
+        "db. inventory . find ( { status : \"D\" } )",
+        "{ status : \"D\" }",
+        "mongoc_collection_t *collection; bson_t *filter; mongoc_cursor_t *cursor; collection = mongoc_database_get_collection (db, \"inventory\" ) ; filter = BCON_NEW ( \"status\" , BCON_UTF8 ( \"D\" ) ) ; cursor = mongoc_collection_find_with_opts (collection, filter, NULL , NULL ) ;",
+        "var filter = Builders<BsonDocument>.Filter.Eq( \"status\" , \"D\" ); var result = collection.Find(filter).ToList();",
+        "cursor, err := coll.Find( context.TODO(), bson.D{{ \"status\" , \"D\" }}, )",
+        "findPublisher = collection.find(eq( \"status\" , \"D\" ));",
+        "findIterable = collection.find(eq( \"status\" , \"D\" ));",
+        "val findFlow = collection .find(eq( \"status\" , \"D\" ))",
+        "cursor = db.inventory.find({ \"status\" : \"D\" })",
+        "const cursor = db. collection ( 'inventory' ). find ( { status : 'D' }) ;",
+        "$cursor = $db ->inventory-> find ([ 'status' => 'D' ]) ;",
+        "cursor = db.inventory.find({ \"status\" : \"D\" })",
+        "client [ : inventory ].find ( status: 'D' )",
+        "findObservable = collection.find(equal( \"status\" , \"D\" ))",
+        "SELECT * FROM inventory WHERE status = \"D\""
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The MongoDB Compass query bar autocompletes the current query\nbased on the keys in your collection's documents, including\nkeys in embedded sub-documents.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "specify-conditions-using-query-operators",
+      "heading": "Specify Conditions Using Query Operators",
+      "heading_level": 2,
+      "content": "A query filter document can\nuse the query operators to specify\nconditions in the following form:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nIn addition to the equality filter, MongoDB provides\nvarious query operators to specify\nfilter conditions. Use the FilterDefinitionBuilder methods to create a filter document. For example:\nIn addition to the equality filter, MongoDB provides\nvarious query operators to specify\nfilter conditions. Use the bson package to create query\noperators for filter documents. For example:\nIn addition to the equality condition, MongoDB provides\nvarious query operators to specify\nfilter conditions. Use the com.mongodb.client.model.Filters helper methods to\nfacilitate the creation of filter documents. For example:\nIn addition to the equality condition, MongoDB provides\nvarious query operators to specify\nfilter conditions. Use the com.mongodb.client.model.Filters helper methods to\nfacilitate the creation of filter documents. For example:\nIn addition to the equality condition, MongoDB provides\nvarious query operators to specify\nfilter conditions. Use the com.mongodb.client.model.Filters helper methods to\nfacilitate the creation of filter documents. For example:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nA query filter document can\nuse the query operators to specify\nconditions in the following form:\nIn addition to the equality condition, MongoDB provides\nvarious query operators to specify\nfilter conditions. Use the com.mongodb.client.model.Filters_ helper methods to\nfacilitate the creation of filter documents. For example:\nThe following example retrieves all documents from the inventory collection where status equals either \"A\" or \"D\" :\nCopy the following filter into the Compass query bar and click Find :",
+      "code_blocks": [
+        "{ < field1 > : { < operator1 > : < value1 > } , ... }",
+        "{ < field1 > : { < operator1 > : < value1 > } , ... }",
+        "{ <field1>: { <operator1>: <value1> }, ... }",
+        "var builder = Builders<BsonDocument>.Filter; builder.And(builder.Eq(<field1>, <value1>), builder.Lt(<field2>, <value2>));",
+        "filter := bson.D{ { \"$and\" , bson.A{ bson.D{{ \"field1\" , bson.D{{ \"$eq\" , value1}}}}, bson.D{{ \"field2\" , bson.D{{ \"$lt\" , value2}}}}, }}, }",
+        "and(gte(<field1>, <value1>), lt(<field2>, <value2>), eq(<field3>, <value3>))",
+        "and(gte(<field1>, <value1>), lt(<field2>, <value2>), eq(<field3>, <value3>))",
+        "and(gte(<field1>, <value1>), lt(<field2>, <value2>), eq(<field3>, <value3>))",
+        "{ <field1>: { <operator1>: <value1> }, ... }",
+        "{ < field1 > : { < operator1 > : < value1 > } , ... }",
+        "[ <field1> => [ <operator1> => <value1> ], ... ]",
+        "{ <field1>: { <operator1>: <value1> }, ... }",
+        "{ < field1 > = > { < operator1 > = > < value1 > } , ... }",
+        "and(gte(<field1>, <value1>), lt(<field2>, <value2>), equal(<field3>, <value3>))",
+        "db. inventory . find ( { status : { $in : [ \"A\" , \"D\" ] } } )",
+        "{ status : { $in : [ \"A\" , \"D\" ] } }",
+        "mongoc_collection_t *collection; bson_t *filter; mongoc_cursor_t *cursor; collection = mongoc_database_get_collection (db, \"inventory\" ) ; filter = BCON_NEW ( \"status\" , \"{\" , \"$in\" , \"[\" , BCON_UTF8 ( \"A\" ) , BCON_UTF8 ( \"D\" ) , \"]\" , \"}\" ) ; cursor = mongoc_collection_find_with_opts (collection, filter, NULL , NULL ) ;",
+        "var filter = Builders<BsonDocument>.Filter.In( \"status\" , new [] { \"A\" , \"D\" }); var result = collection.Find(filter).ToList();",
+        "cursor, err := coll.Find( context.TODO(), bson.D{{ \"status\" , bson.D{{ \"$in\" , bson.A{ \"A\" , \"D\" }}}}})",
+        "findPublisher = collection.find(in( \"status\" , \"A\" , \"D\" ));",
+        "findIterable = collection.find(in( \"status\" , \"A\" , \"D\" ));",
+        "val findFlow = collection .find(` in `( \"status\" , \"A\" , \"D\" ))",
+        "cursor = db.inventory.find({ \"status\" : { \"$in\" : [ \"A\" , \"D\" ]}})",
+        "const cursor = db. collection ( 'inventory' ). find ( { status : { $in : [ 'A' , 'D' ] } }) ;",
+        "$cursor = $db ->inventory-> find ([ 'status' => [ '$in' => [ 'A' , 'D' ]]]) ;",
+        "cursor = db.inventory.find({ \"status\" : { \"$in\" : [ \"A\" , \"D\" ]}})",
+        "client [ : inventory ].find ( status: { '$in' = > [ 'A' , 'D' ]})",
+        "findObservable = collection.find(in( \"status\" , \"A\" , \"D\" ))"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Although you can express this query using the $or operator,\nuse the $in operator rather than the $or operator when performing equality checks on the same field.\nThe operation uses a query predicate of { status: { $in: [ \"A\", \"D\" ] } } , which corresponds to the\nfollowing SQL statement:\nFor the complete list of MongoDB query operators, see Query Predicates .",
+      "code_blocks": [
+        "SELECT * FROM inventory WHERE status in ( \"A\" , \"D\" )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "specify-and-conditions",
+      "heading": "Specify AND Conditions",
+      "heading_level": 2,
+      "content": "A compound query can specify conditions for more than one field in the\ncollection's documents. Implicitly, a logical AND conjunction\nconnects the clauses of a compound query so that the query selects the\ndocuments in the collection that match all the conditions.\nThe following example retrieves all documents in the inventory collection where the status equals \"A\" and qty is less\nthan ( $lt ) 30 :\nCopy the following filter into the Compass query bar and click Find :\nThe operation uses a query predicate of { status: \"A\", qty: { $lt: 30 } } , which corresponds to the\nfollowing SQL statement:\nSee comparison operators for other\nMongoDB comparison operators.",
+      "code_blocks": [
+        "db. inventory . find ( { status : \"A\" , qty : { $lt : 30 } } )",
+        "{ status : \"A\" , qty : { $lt : 30 } }",
+        "mongoc_collection_t *collection; bson_t *filter; mongoc_cursor_t *cursor; collection = mongoc_database_get_collection (db, \"inventory\" ) ; filter = BCON_NEW ( \"status\" , BCON_UTF8 ( \"A\" ) , \"qty\" , \"{\" , \"$lt\" , BCON_INT64 ( 30 ) , \"}\" ) ; cursor = mongoc_collection_find_with_opts (collection, filter, NULL , NULL ) ;",
+        "var builder = Builders<BsonDocument>.Filter; var filter = builder.And(builder.Eq( \"status\" , \"A\" ), builder.Lt( \"qty\" , 30 )); var result = collection.Find(filter).ToList();",
+        "cursor, err := coll.Find( context.TODO(), bson.D{ { \"status\" , \"A\" }, { \"qty\" , bson.D{{ \"$lt\" , 30 }}}, })",
+        "findPublisher = collection.find(and(eq( \"status\" , \"A\" ), lt( \"qty\" , 30 )));",
+        "findIterable = collection.find(and(eq( \"status\" , \"A\" ), lt( \"qty\" , 30 )));",
+        "val findFlow = collection .find(and(eq( \"status\" , \"A\" ), lt( \"qty\" , 30 )))",
+        "cursor = db.inventory.find({ \"status\" : \"A\" , \"qty\" : { \"$lt\" : 30 }})",
+        "const cursor = db. collection ( 'inventory' ). find ( { status : 'A' , qty : { $lt : 30 } }) ;",
+        "$cursor = $db ->inventory-> find ([ 'status' => 'A' , 'qty' => [ '$lt' => 30 ], ]) ;",
+        "cursor = db.inventory.find({ \"status\" : \"A\" , \"qty\" : { \"$lt\" : 30 }})",
+        "client [ : inventory ].find ( status: 'A' , qty: { '$lt' = > 30 })",
+        "findObservable = collection.find(and(equal( \"status\" , \"A\" ), lt( \"qty\" , 30 )))",
+        "SELECT * FROM inventory WHERE status = \"A\" AND qty < 30"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "specify-or-conditions",
+      "heading": "Specify OR Conditions",
+      "heading_level": 2,
+      "content": "Using the $or operator, you can specify a compound query\nthat joins each clause with a logical OR conjunction so that the\nquery selects the documents in the collection that match at least one\ncondition.\nThe following example retrieves all documents in the collection where\nthe status equals \"A\" or qty is less than\n( $lt ) 30 :\nCopy the following filter into the Compass query bar and click Find :\nThe operation uses a query predicate of { $or: [ { status: 'A' }, { qty: { $lt: 30 } } ] } , which\ncorresponds to the following SQL statement:",
+      "code_blocks": [
+        "db. inventory . find ( { $or : [ { status : \"A\" } , { qty : { $lt : 30 } } ] } )",
+        "{ $or : [ { status : \"A\" } , { qty : { $lt : 30 } } ] }",
+        "mongoc_collection_t *collection; bson_t *filter; mongoc_cursor_t *cursor; collection = mongoc_database_get_collection (db, \"inventory\" ) ; filter = BCON_NEW ( \"$or\" , \"[\" , \"{\" , \"status\" , BCON_UTF8 ( \"A\" ) , \"}\" , \"{\" , \"qty\" , \"{\" , \"$lt\" , BCON_INT64 ( 30 ) , \"}\" , \"}\" , \"]\" ) ; cursor = mongoc_collection_find_with_opts (collection, filter, NULL , NULL ) ;",
+        "var builder = Builders<BsonDocument>.Filter; var filter = builder.Or(builder.Eq( \"status\" , \"A\" ), builder.Lt( \"qty\" , 30 )); var result = collection.Find(filter).ToList();",
+        "cursor, err := coll.Find( context.TODO(), bson.D{ { \"$or\" , bson.A{ bson.D{{ \"status\" , \"A\" }}, bson.D{{ \"qty\" , bson.D{{ \"$lt\" , 30 }}}}, }, }, })",
+        "findPublisher = collection.find(or(eq( \"status\" , \"A\" ), lt( \"qty\" , 30 )));",
+        "findIterable = collection.find(or(eq( \"status\" , \"A\" ), lt( \"qty\" , 30 )));",
+        "val findFlow = collection .find(or(eq( \"status\" , \"A\" ), lt( \"qty\" , 30 )))",
+        "cursor = db.inventory.find({ \"$or\" : [{ \"status\" : \"A\" }, { \"qty\" : { \"$lt\" : 30 }}]})",
+        "const cursor = db. collection ( 'inventory' ). find ( { $or : [ { status : 'A' } , { qty : { $lt : 30 } }] }) ;",
+        "$cursor = $db ->inventory-> find ([ '$or' => [ [ 'status' => 'A' ], [ 'qty' => [ '$lt' => 30 ]], ], ]) ;",
+        "cursor = db.inventory.find({ \"$or\" : [{ \"status\" : \"A\" }, { \"qty\" : { \"$lt\" : 30 }}]})",
+        "client [ : inventory ].find ( '$or' = > [ { status: 'A' } , { qty: { '$lt' = > 30 } } ])",
+        "findObservable = collection.find(or(equal( \"status\" , \"A\" ), lt( \"qty\" , 30 )))",
+        "SELECT * FROM inventory WHERE status = \"A\" OR qty < 30"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Queries that use comparison operators are subject to Type Bracketing .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "specify-and-as-well-as-or-conditions",
+      "heading": "Specify AND as well as OR Conditions",
+      "heading_level": 2,
+      "content": "In the following example, the compound query document selects all\ndocuments in the collection where the status equals \"A\" and either qty is less than ( $lt ) 30 or item starts with the character p :\nCopy the following filter into the Compass query bar and click Find :\nThe operation uses a query predicate of:\nwhich corresponds to the following SQL statement:",
+      "code_blocks": [
+        "db. inventory . find ( { status : \"A\" , $or : [ { qty : { $lt : 30 } } , { item : /^p/ } ] } )",
+        "{ status : \"A\" , $or : [ { qty : { $lt : 30 } } , { item : /^p/ } ] }",
+        "mongoc_collection_t *collection; bson_t *filter; mongoc_cursor_t *cursor; collection = mongoc_database_get_collection (db, \"inventory\" ) ; filter = BCON_NEW ( \"status\" , BCON_UTF8 ( \"A\" ) , \"$or\" , \"[\" , \"{\" , \"qty\" , \"{\" , \"$lt\" , BCON_INT64 ( 30 ) , \"}\" , \"}\" , \"{\" , \"item\" , BCON_REGEX ( \"^p\" , \"\" ) , \"}\" , \"]\" ) ; cursor = mongoc_collection_find_with_opts (collection, filter, NULL , NULL ) ;",
+        "var builder = Builders<BsonDocument>.Filter; var filter = builder.And( builder.Eq( \"status\" , \"A\" ), builder.Or(builder.Lt( \"qty\" , 30 ), builder.Regex( \"item\" , new BsonRegularExpression( \"^p\" )))); var result = collection.Find(filter).ToList();",
+        "cursor, err := coll.Find( context.TODO(), bson.D{ { \"status\" , \"A\" }, { \"$or\" , bson.A{ bson.D{{ \"qty\" , bson.D{{ \"$lt\" , 30 }}}}, bson.D{{ \"item\" , bson.Regex{Pattern: \"^p\" , Options: \"\" }}}, }}, })",
+        "findPublisher = collection.find( and(eq( \"status\" , \"A\" ), or(lt( \"qty\" , 30 ), regex( \"item\" , \"^p\" ))) );",
+        "findIterable = collection.find( and(eq( \"status\" , \"A\" ), or(lt( \"qty\" , 30 ), regex( \"item\" , \"^p\" ))) );",
+        "val findFlow = collection .find( and(eq( \"status\" , \"A\" ), or(lt( \"qty\" , 30 ), regex( \"item\" , \"^p\" ))) )",
+        "cursor = db.inventory.find( { \"status\" : \"A\" , \"$or\" : [{ \"qty\" : { \"$lt\" : 30 }}, { \"item\" : { \"$regex\" : \"^p\" }}]} )",
+        "const cursor = db. collection ( 'inventory' ). find ( { status : 'A' , $or : [ { qty : { $lt : 30 } } , { item : { $regex : '^p' } }] }) ;",
+        "$cursor = $db ->inventory-> find ([ 'status' => 'A' , '$or' => [ [ 'qty' => [ '$lt' => 30 ]], // Alternatively : [ 'item' => new \\MongoDB\\BSON\\ Regex ( '^p' ) ] [ 'item' => [ '$regex' => '^p' ]], ], ]) ;",
+        "cursor = db.inventory.find( { \"status\" : \"A\" , \"$or\" : [{ \"qty\" : { \"$lt\" : 30 }}, { \"item\" : { \"$regex\" : \"^p\" }}]} )",
+        "client [ : inventory ].find ( status: 'A' , '$or' = > [ { qty: { '$lt' = > 30 } } , { item: { '$regex' = > BSON : : Regexp : : Raw .new ( '^p' ) } } ])",
+        "findObservable = collection.find(and( equal( \"status\" , \"A\" ), or(lt( \"qty\" , 30 ), regex( \"item\" , \"^p\" ))) )",
+        "{ status : 'A' , $or : [ { qty : { $lt : 30 } } , { item : { $regex : '^p' } } ] }",
+        "SELECT * FROM inventory WHERE status = \"A\" AND ( qty < 30 OR item LIKE \"p%\" )"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "MongoDB supports regular expressions $regex queries to\nperform string pattern matches.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "query-documents-with-mongodb-atlas",
+      "heading": "Query Documents with MongoDB Atlas",
+      "heading_level": 2,
+      "content": "The example in this section uses the sample movies dataset . To learn how to load the sample dataset\ninto your MongoDB Atlas deployment, see Load Sample Data .\nTo project fields to return from a query in MongoDB Atlas, follow these\nsteps:",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "in-the-mongodb-atlas-ui,-go-to-the-clusters-page-for-your-project.",
+          "heading": "In the MongoDB Atlas UI, go to the Clusters page for your project.",
+          "heading_level": 3,
+          "content": "- If it's not already displayed, select the organization that\ncontains your desired project from the Organizations menu in the\nnavigation bar.\n- If it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\n- In the sidebar, click Clusters under\nthe Database heading. The Clusters page displays.\nIf it's not already displayed, select the organization that\ncontains your desired project from the Organizations menu in the\nnavigation bar.\nIf it's not already displayed, select the organization that\ncontains your desired project from the Organizations menu in the\nnavigation bar.\nIf it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\nIf it's not already displayed, select your project\nfrom the Projects menu in the navigation bar.\nIn the sidebar, click Clusters under\nthe Database heading. The Clusters page displays.\nIn the sidebar, click Clusters under\nthe Database heading.\nThe Clusters page displays.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "navigate-to-the-collection",
+          "heading": "Navigate to the collection",
+          "heading_level": 3,
+          "content": "- For the cluster that contains the sample data,\nclick Browse Collections .\n- In the left navigation pane, select the sample_mflix database.\n- Select the movies collection.\nFor the cluster that contains the sample data,\nclick Browse Collections .\nFor the cluster that contains the sample data,\nclick Browse Collections .\nIn the left navigation pane, select the sample_mflix database.\nSelect the movies collection.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "specify-the-filter-field",
+          "heading": "Specify the Filter field",
+          "heading_level": 3,
+          "content": "Specify the query filter document in the Filter field. A query filter document uses query operators to specify\nsearch conditions.\nCopy the following query filter document into the Filter search bar:",
+          "code_blocks": [
+            "{ year : 1924 }"
+          ]
+        },
+        {
+          "subsection_id": "click-apply",
+          "heading": "Click Apply",
+          "heading_level": 3,
+          "content": "This query filter returns all documents\nin the sample_mflix.movies collection where the year field matches 1924 .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "additional-query-tutorials",
+      "heading": "Additional Query Tutorials",
+      "heading_level": 2,
+      "content": "For additional query examples, see:\n- Query on Embedded/Nested Documents\n- Query an Array\n- Query an Array of Embedded Documents\n- Project Fields to Return from Query\n- Query for Null or Missing Fields\nQuery on Embedded/Nested Documents\nQuery an Array\nQuery an Array of Embedded Documents\nProject Fields to Return from Query\nQuery for Null or Missing Fields",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "cursor",
+          "heading": "Cursor",
+          "heading_level": 3,
+          "content": "The db.collection.find() method\nreturns a cursor to the matching\ndocuments.\nThe MongoDB Compass Find operation opens a cursor to the matching\ndocuments of the collection based on the find query.\nFor more information on sampling in MongoDB Compass, see the Compass FAQ .\nThe mongoc_collection_find_with_opts method returns a cursor to the\nmatching documents.\nThe MongoCollection.Find() method returns a cursor to\nthe matching documents. See the MongoDB C# driver\ndocumentation for iterating over a cursor .\nThe Collection.Find function returns a Cursor to the\nmatching documents. See the Cursor documentation for more information.\ncom.mongodb.reactivestreams.client.MongoCollection.find returns an instance of the com.mongodb.reactivestreams.client.FindPublisher interface.\nThe com.mongodb.client.MongoCollection.find method returns an\ninstance of the com.mongodb.client.FindIterable interface.\nThe MongoCollection.find() method returns an\ninstance of the FindFlow class.\nThe Collection.find() method\nreturns a cursor .\nThe MongoDB\\\\Collection::find() method returns a cursor to\nthe matching documents. See the MongoDB PHP Library\ndocumentation for iterating over a cursor .\nThe pymongo.collection.Collection.find method\nreturns a cursor to the\nmatching documents. See the PyMongo documentation for iterating over a cursor .\nThe Mongo::Collection#find() method returns a CollectionView ,\nwhich is an Enumerable . A Cursor is\ncreated when the View is enumerated; for example, by calling #to_a() or #each() . You can also get an Enumerator by calling #to_enum() on the View . See the Ruby driver API documentation\nfor iterating over a cursor .\nThe collection.find() method returns the find Observable .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "concurrent-updates-while-using-a-cursor",
+          "heading": "Concurrent Updates While Using a Cursor",
+          "heading_level": 3,
+          "content": "As a cursor returns documents, other operations may run in the\nbackground and affect the results, depending on the read concern level.\nFor details, see Read Isolation, Consistency, and Recency .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "read-isolation",
+          "heading": "Read Isolation",
+          "heading_level": 3,
+          "content": "For reads to Replica sets and replica set shards , read concern allows clients to choose a\nlevel of isolation for their reads. For more information, see Read Concern .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "query-result-format",
+          "heading": "Query Result Format",
+          "heading_level": 3,
+          "content": "When you run a find operation with a MongoDB driver or mongosh , the\ncommand returns a cursor that manages query results. The query\nresults are not returned as an array of documents.\nTo learn how to iterate through documents in a cursor, refer to your driver's documentation . If you are using mongosh , see Iterate a Cursor in mongosh .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "additional-methods-and-options",
+      "heading": "Additional Methods and Options",
+      "heading_level": 2,
+      "content": "The following can also read documents from a collection:\n- The db.collection.findOne() method\n- The $match pipeline stage in an aggregation pipeline . The $match pipeline stage provides access to MongoDB\nqueries\nThe db.collection.findOne() method\nThe $match pipeline stage in an aggregation pipeline . The $match pipeline stage provides access to MongoDB\nqueries\nThe $match pipeline stage in an aggregation pipeline . The $match pipeline stage provides access to MongoDB\nqueries",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The db.collection.findOne() method performs the same\noperation as the db.collection.find() method with a limit of 1.\nIn addition to filter , MongoDB Compass also allows you to pass the\nfollowing options to the query bar:\nProject\nSpecify which fields to return in the resulting data.\nSort\nSpecify the sort order of the returned documents.\nSkip\nSpecify the first n-number of document to skip before returning the result set.\nLimit\nSpecify the maximum number of documents to return.\nThe following method can also read documents from a collection:\n- mongoc_find_and_modify_opts_t\nmongoc_find_and_modify_opts_t\nThe following can also read documents from a collection:\n- MongoCollection.FindOne()\n- In aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB C# driver's LINQ documentation .\nMongoCollection.FindOne()\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB C# driver's LINQ documentation .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB C# driver's LINQ documentation .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The MongoCollection.FindOne() method performs the same operation as the MongoCollection.Find() method with a limit of 1.\nThe following can also read documents from a collection:\n- Collection.FindOne\n- In aggregation pipeline ,\nthe $match pipeline stage provides access to\nMongoDB queries. See Collection.Aggregate .\nCollection.FindOne\nIn aggregation pipeline ,\nthe $match pipeline stage provides access to\nMongoDB queries. See Collection.Aggregate .\nIn aggregation pipeline ,\nthe $match pipeline stage provides access to\nMongoDB queries. See Collection.Aggregate .\nThe following can also read documents from a collection:\n- In the aggregation pipeline ,\nthe $match pipeline stage provides access to\nMongoDB queries. See the Java Synchronous Driver Aggregation\nExamples .\nIn the aggregation pipeline ,\nthe $match pipeline stage provides access to\nMongoDB queries. See the Java Synchronous Driver Aggregation\nExamples .\nIn the aggregation pipeline ,\nthe $match pipeline stage provides access to\nMongoDB queries. See the Java Synchronous Driver Aggregation\nExamples .\nThe following methods can also read documents from a collection:\n- In an aggregation pipeline ,\nthe $match pipeline stage allows you to perform\nMongoDB queries. See the Kotlin Coroutine Driver\nFind Operation Examples to learn more.\nIn an aggregation pipeline ,\nthe $match pipeline stage allows you to perform\nMongoDB queries. See the Kotlin Coroutine Driver\nFind Operation Examples to learn more.\nIn an aggregation pipeline ,\nthe $match pipeline stage allows you to perform\nMongoDB queries. See the Kotlin Coroutine Driver\nFind Operation Examples to learn more.\nThe following can also read documents from a collection:\n- Collection.findOne()\n- In aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Node.js Driver's aggregation tutorial .\nCollection.findOne()\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Node.js Driver's aggregation tutorial .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Node.js Driver's aggregation tutorial .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The Collection.findOne() method performs the same operation as the Collection.find() method\nwith a limit of 1.\nThe following can also read documents from a collection:\n- MongoDB\\\\Collection::findOne()\n- In aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB PHP Library's aggregation example .\nMongoDB\\\\Collection::findOne()\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB PHP Library's aggregation example .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB PHP Library's aggregation example .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The MongoDB\\\\Collection::findOne() method performs the same operation as the MongoDB\\\\Collection::find() method with a limit of 1.\nThe following can also read documents from a collection:\n- pymongo.collection.Collection.find_one\n- In an aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the PyMongo Aggregation Examples .\npymongo.collection.Collection.find_one\nIn an aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the PyMongo Aggregation Examples .\nIn an aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the PyMongo Aggregation Examples .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The pymongo.collection.Collection.find_one method performs the same operation as the\nthe pymongo.collection.Collection.find method\nwith a limit of 1.\nThe following can also read documents from a collection:\n- In aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Ruby driver's aggregation examples .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Ruby driver's aggregation examples .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Ruby driver's aggregation examples .\nThe following can also read documents from a collection:\n- In aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Scala driver's aggregate method .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Scala driver's aggregate method .\nIn aggregation pipeline , the $match pipeline stage provides access to MongoDB\nqueries. See the MongoDB Scala driver's aggregate method .\nMethods\nEmbedded Documents\nMaster \" Query Optimization \" for free!\n- Select All Documents in a Collection\n- Specify Equality Condition\n- Specify Conditions Using Query Operators\n- Specify AND Conditions\n- Specify OR Conditions\n- Specify AND as well as OR Conditions\n- Query Documents with MongoDB Atlas\n- Additional Query Tutorials\n- Behavior\n- Additional Methods and Options\nSelect All Documents in a Collection\nSpecify Equality Condition\nSpecify Conditions Using Query Operators\nSpecify AND Conditions\nSpecify OR Conditions\nSpecify AND as well as OR Conditions\nQuery Documents with MongoDB Atlas\nAdditional Query Tutorials\nBehavior\nAdditional Methods and Options\n- Select All Documents in a Collection\n- Specify Equality Condition\n- Specify Conditions Using Query Operators\n- Specify AND Conditions\n- Specify OR Conditions\n- Specify AND as well as OR Conditions\n- Query Documents with MongoDB Atlas\n- Additional Query Tutorials\n- Behavior\n- Additional Methods and Options\nSelect All Documents in a Collection\nSpecify Equality Condition\nSpecify Conditions Using Query Operators\nSpecify AND Conditions\nSpecify OR Conditions\nSpecify AND as well as OR Conditions\nQuery Documents with MongoDB Atlas\nAdditional Query Tutorials\nBehavior\nAdditional Methods and Options",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:11.312637",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "query-docs",
+  "source_type": "manual",
+  "file_stub": "d2_query-docs"
+}

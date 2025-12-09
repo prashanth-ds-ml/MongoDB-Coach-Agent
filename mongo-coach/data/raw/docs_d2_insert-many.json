@@ -1,0 +1,217 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/method/db.collection.insertMany/",
+  "doc_type": "mongodb_docs_method",
+  "method_name": "db.collection.insertMany",
+  "title": "db.collection.insertMany() (mongosh method)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Inserts multiple documents into a collection.\nA document containing:\n- An acknowledged boolean, set to true if the operation\nran with write concern or false if write concern\nwas disabled\n- An insertedIds array, containing _id values for each\nsuccessfully inserted document\nAn acknowledged boolean, set to true if the operation\nran with write concern or false if write concern\nwas disabled\nAn acknowledged boolean, set to true if the operation\nran with write concern or false if write concern\nwas disabled\nAn insertedIds array, containing _id values for each\nsuccessfully inserted document\nAn insertedIds array, containing _id values for each\nsuccessfully inserted document",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "This method is available in deployments hosted in the following environments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "This command is supported in all MongoDB Atlas clusters.\nFor information on Atlas support for all commands, see Unsupported Commands .\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The insertMany() method has the following\nsyntax:",
+      "code_blocks": [
+        "db. collection . insertMany ( [ <document 1> , <document 2>, ... ], { writeConcern: <document>, ordered: <boolean> } )"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "parameters",
+          "heading": "Parameters",
+          "heading_level": 3,
+          "content": "document\nAn array of documents to insert into the collection.\nwriteConcern\ndocument\nOptional. A document expressing the write concern . Omit to use the default write concern.\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .\nordered\nboolean\nOptional. A boolean specifying whether the mongod instance should perform\nan ordered or unordered insert. Defaults to true .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "behaviors",
+      "heading": "Behaviors",
+      "heading_level": 2,
+      "content": "Given an array of documents, insertMany() inserts each document in\nthe array into the collection. There is no limit to the number of\ndocuments you can specify in the array.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "execution-of-operations",
+          "heading": "Execution of Operations",
+          "heading_level": 3,
+          "content": "By default, documents are inserted in the order they are provided.\n- If ordered is set to true and an insert fails, the server does\nnot continue inserting records.\n- If ordered is set to false and an insert fails, the server\ncontinues inserting records. Documents may be reordered by mongod to increase performance. Applications should not\ndepend on ordering of inserts if using an unordered insertMany() .\nIf ordered is set to true and an insert fails, the server does\nnot continue inserting records.\nIf ordered is set to true and an insert fails, the server does\nnot continue inserting records.\nIf ordered is set to false and an insert fails, the server\ncontinues inserting records. Documents may be reordered by mongod to increase performance. Applications should not\ndepend on ordering of inserts if using an unordered insertMany() .\nIf ordered is set to false and an insert fails, the server\ncontinues inserting records. Documents may be reordered by mongod to increase performance. Applications should not\ndepend on ordering of inserts if using an unordered insertMany() .\nExecuting an ordered list of operations on a\nsharded collection will generally be slower than executing an unordered list\nsince with an ordered list, each operation must wait for the previous\noperation to finish.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "batching",
+          "heading": "Batching",
+          "heading_level": 3,
+          "content": "The driver batches documents specified in the insertMany() array\naccording to the maxWriteBatchSize , which is 100,000 and cannot be modified. For example, if the insertMany() operation contains 250,000 documents, the driver\ncreates three batches: two with 100,000 documents and one with 50,000\ndocuments.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The driver only performs batching when using the high-level API. If\nyou use db.runCommand() directly (for example, when writing\na driver), MongoDB throws an error when attempting to execute a write\nbatch that exceeds the maxWriteBatchSize limit.\nIf the error report for a single batch grows too large, MongoDB\ntruncates all remaining error messages. If there are at least two error\nmessages with size greater than 1MB , those messages are truncated.\nThe sizes and grouping mechanics are internal performance details and\nare subject to change in future versions.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "collection-creation",
+          "heading": "Collection Creation",
+          "heading_level": 3,
+          "content": "If the collection does not exist, then insertMany() creates the collection on successful write.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "_id-field",
+          "heading": "_id Field",
+          "heading_level": 3,
+          "content": "If the document does not specify an _id field, then mongod adds the _id field and assign a unique ObjectId() for the document. Most\ndrivers create an ObjectId and insert the _id field, but the mongod will create and populate the _id if the driver or\napplication does not.\nIf the document contains an _id field, the _id value must be\nunique within the collection to avoid duplicate key error.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "explainability",
+          "heading": "Explainability",
+          "heading_level": 3,
+          "content": "insertMany() is not compatible with db.collection.explain() .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "error-handling",
+          "heading": "Error Handling",
+          "heading_level": 3,
+          "content": "Inserts throw a BulkWriteError exception.\nExcluding write concern errors, ordered\noperations stop after an error, while unordered operations continue to\nprocess any remaining write operations in the queue.\nWrite concern errors are displayed in the writeConcernErrors field, while\nall other errors are displayed in the writeErrors field. If an error is\nencountered, the number of successful write operations are displayed instead\nof a list of inserted _ids. Ordered operations display the single error\nencountered while unordered operations display each error in an array.\nIf your collection uses schema validation and has validationAction set to error , inserting an invalid document with db.collection.insertMany() throws a writeError . Documents that precede the invalid document\nin the documents array are written to the collection. The value of\nthe ordered field determines if the remaining valid documents are\ninserted.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "transactions",
+          "heading": "Transactions",
+          "heading_level": 3,
+          "content": "db.collection.insertMany() can be used inside distributed transactions .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "In most cases, a distributed transaction incurs a greater\nperformance cost over single document writes, and the\navailability of distributed transactions should not be a\nreplacement for effective schema design. For many scenarios, the denormalized data model (embedded documents and arrays) will continue to be optimal for your\ndata and use cases. That is, for many scenarios, modeling your data\nappropriately will minimize the need for distributed\ntransactions.\nFor additional transactions usage considerations\n(such as runtime limit and oplog size limit), see also Production Considerations .\nYou can create collections and indexes inside a distributed\ntransaction if the\ntransaction is not a cross-shard write transaction.\nIf you specify an insert on a non-existing collection\nin a transaction, MongoDB creates the collection implicitly.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "Create Collections and Indexes in a Transaction\nDo not explicitly set the write concern for the operation if run in\na transaction. To use write concern with transactions, see Transactions and Write Concern .",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "performance-consideration-for-random-data",
+          "heading": "Performance Consideration for Random Data",
+          "heading_level": 3,
+          "content": "If an operation inserts a large amount of random data (for example,\nhashed indexes) on an indexed field, insert performance may decrease.\nBulk inserts of random data create random index entries, which increase\nthe size of the index. If the index reaches the size that requires each\nrandom insert to access a different index entry, the inserts result in a\nhigh rate of WiredTiger cache eviction and replacement. When this\nhappens, the index is no longer fully in cache and is updated on disk,\nwhich decreases performance.\nTo improve the performance of bulk inserts of random data on indexed\nfields, you can either:\n- Drop the index, then recreate it after you insert the random data.\n- Insert the data into an empty unindexed collection.\nDrop the index, then recreate it after you insert the random data.\nInsert the data into an empty unindexed collection.\nCreating the index after the bulk insert sorts the data in memory and\nperforms an ordered insert on all indexes.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "oplog-entries",
+          "heading": "Oplog Entries",
+          "heading_level": 3,
+          "content": "MongoDB consolidates operations that insert multiple documents, such as db.collection.insertMany() and multiple insertOne commands within\na db.collection.bulkWrite() operation, into a single entry in the oplog .\nIf the operation fails, the operation does not add an entry on the oplog.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "The following examples insert documents into the products collection.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "insert-several-document-without-specifying-an-_id-field",
+          "heading": "Insert Several Document without Specifying an _id Field",
+          "heading_level": 3,
+          "content": "The following example uses db.collection.insertMany() to insert\ndocuments that do not contain the _id field:\nThe operation returns the following document:\nBecause the documents did not include _id , mongod creates and adds the _id field for each document and\nassigns it a unique ObjectId() value.\nThe ObjectId values are specific to the machine and time when the\noperation is run. As such, your values may differ from those in the\nexample.",
+          "code_blocks": [
+            "try { db. products . insertMany ( [ { item : \"card\" , qty : 15 } , { item : \"envelope\" , qty : 20 } , { item : \"stamps\" , qty : 30 } ] ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"insertedIds\" : [ ObjectId ( \"562a94d381cb9f1cd6eb0e1a\" ) , ObjectId ( \"562a94d381cb9f1cd6eb0e1b\" ) , ObjectId ( \"562a94d381cb9f1cd6eb0e1c\" ) ] }"
+          ]
+        },
+        {
+          "subsection_id": "insert-several-document-specifying-an-_id-field",
+          "heading": "Insert Several Document Specifying an _id Field",
+          "heading_level": 3,
+          "content": "The following example/operation uses insertMany() to\ninsert documents that include the _id field. The value of _id must be\nunique within the collection to avoid a duplicate key error.\nThe operation returns the following document:\nInserting a duplicate value for any key that is part of a unique index , such as _id , throws an exception. The following attempts to insert\na document with a _id value that already exists:\nSince _id: 13 already exists, the following exception is thrown:\nNote that one document was inserted: The first document of _id: 13 will\ninsert successfully, but the second insert will fail. This will also stop\nadditional documents left in the queue from being inserted.\nWith ordered to false , the insert operation would continue with any\nremaining documents.",
+          "code_blocks": [
+            "try { db. products . insertMany ( [ { _id : 10 , item : \"large box\" , qty : 20 } , { _id : 11 , item : \"small box\" , qty : 55 } , { _id : 12 , item : \"medium box\" , qty : 30 } ] ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"insertedIds\" : [ 10 , 11 , 12 ] }",
+            "try { db. products . insertMany ( [ { _id : 13 , item : \"envelopes\" , qty : 60 } , { _id : 13 , item : \"stamps\" , qty : 110 } , { _id : 14 , item : \"packing tape\" , qty : 38 } ] ) ; } catch ( e) { print ( e) ; }",
+            "BulkWriteError ( { \"writeErrors\" : [ { \"index\" : 0 , \"code\" : 11000 , \"errmsg\" : \"E11000 duplicate key error collection: inventory.products index: _id_ dup key: { : 13.0 }\" , \"op\" : { \"_id\" : 13 , \"item\" : \"stamps\" , \"qty\" : 110 } } ] , \"writeConcernErrors\" : [ ] , \"nInserted\" : 1 , \"nUpserted\" : 0 , \"nMatched\" : 0 , \"nModified\" : 0 , \"nRemoved\" : 0 , \"upserted\" : [ ] })"
+          ]
+        },
+        {
+          "subsection_id": "unordered-inserts",
+          "heading": "Unordered Inserts",
+          "heading_level": 3,
+          "content": "The following attempts to insert multiple documents with _id field and ordered: false . The array of documents contains two documents with\nduplicate _id fields.\nThe operation throws the following exception:\nWhile the document with item: \"medium box\" and item: \"tape\" failed to insert due to duplicate _id values, nInserted shows that the remaining 5 documents were inserted.",
+          "code_blocks": [
+            "try { db. products . insertMany ( [ { _id : 10 , item : \"large box\" , qty : 20 } , { _id : 11 , item : \"small box\" , qty : 55 } , { _id : 11 , item : \"medium box\" , qty : 30 } , { _id : 12 , item : \"envelope\" , qty : 100 } , { _id : 13 , item : \"stamps\" , qty : 125 } , { _id : 13 , item : \"tape\" , qty : 20 } , { _id : 14 , item : \"bubble wrap\" , qty : 30 } ] , { ordered : false } ) ; } catch ( e) { print ( e) ; }",
+            "BulkWriteError ( { \"writeErrors\" : [ { \"index\" : 2 , \"code\" : 11000 , \"errmsg\" : \"E11000 duplicate key error collection: inventory.products index: _id_ dup key: { : 11.0 }\" , \"op\" : { \"_id\" : 11 , \"item\" : \"medium box\" , \"qty\" : 30 } } , { \"index\" : 5 , \"code\" : 11000 , \"errmsg\" : \"E11000 duplicate key error collection: inventory.products index: _id_ dup key: { : 13.0 }\" , \"op\" : { \"_id\" : 13 , \"item\" : \"tape\" , \"qty\" : 20 } } ] , \"writeConcernErrors\" : [ ] , \"nInserted\" : 5 , \"nUpserted\" : 0 , \"nMatched\" : 0 , \"nModified\" : 0 , \"nRemoved\" : 0 , \"upserted\" : [ ] })"
+          ]
+        },
+        {
+          "subsection_id": "using-write-concern",
+          "heading": "Using Write Concern",
+          "heading_level": 3,
+          "content": "Given a three member replica set, the following operation specifies a w of majority and wtimeout of 100 :\nIf the primary and at least one secondary acknowledge each write operation\nwithin 100 milliseconds, it returns:\nIf the total time required for all required nodes in the replica set to\nacknowledge the write operation is greater than wtimeout ,\nthe following writeConcernError is displayed when the wtimeout period\nhas passed.\nThis operation returns:",
+          "code_blocks": [
+            "try { db. products . insertMany ( [ { _id : 10 , item : \"large box\" , qty : 20 } , { _id : 11 , item : \"small box\" , qty : 55 } , { _id : 12 , item : \"medium box\" , qty : 30 } ] , { w : \"majority\" , wtimeout : 100 } ) ; } catch ( e) { print ( e) ; }",
+            "{ \"acknowledged\" : true , \"insertedIds\" : [ ObjectId ( \"562a94d381cb9f1cd6eb0e1a\" ) , ObjectId ( \"562a94d381cb9f1cd6eb0e1b\" ) , ObjectId ( \"562a94d381cb9f1cd6eb0e1c\" ) ] }",
+            "WriteConcernError ( { \"code\" : 64 , \"errmsg\" : \"waiting for replication timed out\" , \"errInfo\" : { \"wtimeout\" : true , \"writeConcern\" : { \"w\" : \"majority\" , \"wtimeout\" : 100 , \"provenance\" : \"getLastErrorDefaults\" } } })"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "WriteResult.writeConcernError\ndb.collection.insert\ndb.collection.insertOne\n- Definition\n- Compatibility\n- Syntax\n- Behaviors\n- Examples\n- Definition\n- Compatibility\n- Syntax\n- Behaviors\n- Examples",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:15.821120",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "insert-many",
+  "source_type": "manual",
+  "file_stub": "d2_insert-many"
+}

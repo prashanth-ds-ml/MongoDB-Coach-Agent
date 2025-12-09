@@ -1,0 +1,171 @@
+{
+  "url": "https://www.mongodb.com/docs/languages/python/pymongo-driver/current/connect/mongoclient/",
+  "doc_type": "mongodb_docs_driver_python",
+  "method_name": null,
+  "title": "Create a MongoClient",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "overview",
+      "heading": "Overview",
+      "heading_level": 2,
+      "content": "To connect to a MongoDB deployment, you need two things:\n- A connection URI , also known as a connection string , which tells PyMongo\nwhich MongoDB deployment to connect to.\n- A MongoClient object, which creates the connection to the MongoDB deployment\nand lets you perform operations on it.\nA connection URI , also known as a connection string , which tells PyMongo\nwhich MongoDB deployment to connect to.\nA connection URI , also known as a connection string , which tells PyMongo\nwhich MongoDB deployment to connect to.\nA MongoClient object, which creates the connection to the MongoDB deployment\nand lets you perform operations on it.\nA MongoClient object, which creates the connection to the MongoDB deployment\nand lets you perform operations on it.\nYou can also use either of these components to customize the way PyMongo behaves\nwhile connected to MongoDB.\nThis guide shows you how to create a connection string and use a MongoClient object\nto connect to MongoDB.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "connection-uri",
+      "heading": "Connection URI",
+      "heading_level": 2,
+      "content": "A standard connection string includes the following components:\nmongodb://\nRequired. A prefix that identifies this as a string in the\nstandard connection format.\nusername:password\nOptional. Authentication credentials. If you include these, the client\nauthenticates the user against the database specified in authSource .\nFor more information about the authSource connection option, see Authentication Mechanisms .\nhost[:port]\nRequired. The host and optional port number where MongoDB is running. If you don't\ninclude the port number, the driver uses the default port, 27017 .\n/defaultauthdb\nOptional. The authentication database to use if the\nconnection string includes username:password@ authentication credentials but not the authSource option. If you don't include\nthis component, the client authenticates the user against the admin database.\n?<options>\nOptional. A query string that specifies connection-specific\noptions as <name>=<value> pairs. See Specify Connection Options for a full description of\nthese options.\nFor more information about creating a connection string, see Connection Strings in the\nMongoDB Server documentation.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "mongoclient",
+      "heading": "MongoClient",
+      "heading_level": 2,
+      "content": "To create a connection to MongoDB, pass a connection URI as a string to the MongoClient constructor. In the\nfollowing example, the driver uses a sample connection URI to connect to a MongoDB\ninstance on port 27017 of localhost :\nIf you are working with an asynchronous application, use the AsyncMongoClient class.\nThe following example shows how to create an AsyncMongoClient object:\nThe following table describes the positional parameters that the MongoClient() constructor accepts. All parameters are optional.\nhost\nThe hostname, IP address, or Unix domain socket path of the MongoDB deployment.\nIf your application connects to a replica set or sharded cluster, you can specify\nmultiple hostnames or IP addresses in a Python list.\nIf you pass a literal IPv6 address, you must enclose the address in square brackets\n( [ ] ). For example, pass the value [::1] to connect to localhost.\nPyMongo doesn't support multihomed and round-robin DNS addresses.\nData type: Union[str, Sequence[str]] | Default value: \"localhost\"\nport\nThe port number MongoDB Server is running on.\nYou can include the port number in the host argument\ninstead of using this parameter.\nData type: int | Default value: 27017\ndocument_class\nThe default class that the client uses to decode BSON documents returned by queries.\nThis parameter accepts the following types:\n- bson.raw_bson.RawBSONDocument . To learn more about the RawBSONDocument class,\nsee Work with Raw BSON Data .\n- A subclass of the collections.abc.Mapping type, such as OrderedDict .\nDepending on the strictness of your type-checking rules, you might also need to\nspecify types for the key and value, as shown in the following example: client = MongoClient(document_class=OrderedDict[ str , int ])\n- A subclass of the TypedDict type. To pass a TypedDict subclass for this\nparameter, you must also include the class in a type hint for your MongoClient object, as shown in the following example: client: MongoClient[MyTypedDict] = MongoClient() The TypedDict class\nis in the typing module, which\nis available only in Python 3.8 and later. To use the TypedDict class in\nearlier versions of Python, install the typing_extensions package.\nbson.raw_bson.RawBSONDocument . To learn more about the RawBSONDocument class,\nsee Work with Raw BSON Data .\nbson.raw_bson.RawBSONDocument . To learn more about the RawBSONDocument class,\nsee Work with Raw BSON Data .\nA subclass of the collections.abc.Mapping type, such as OrderedDict .\nDepending on the strictness of your type-checking rules, you might also need to\nspecify types for the key and value, as shown in the following example: client = MongoClient(document_class=OrderedDict[ str , int ])\nA subclass of the collections.abc.Mapping type, such as OrderedDict .\nDepending on the strictness of your type-checking rules, you might also need to\nspecify types for the key and value, as shown in the following example:\nA subclass of the TypedDict type. To pass a TypedDict subclass for this\nparameter, you must also include the class in a type hint for your MongoClient object, as shown in the following example: client: MongoClient[MyTypedDict] = MongoClient() The TypedDict class\nis in the typing module, which\nis available only in Python 3.8 and later. To use the TypedDict class in\nearlier versions of Python, install the typing_extensions package.\nA subclass of the TypedDict type. To pass a TypedDict subclass for this\nparameter, you must also include the class in a type hint for your MongoClient object, as shown in the following example:\nThe TypedDict class\nis in the typing module, which\nis available only in Python 3.8 and later. To use the TypedDict class in\nearlier versions of Python, install the typing_extensions package.\nData type: Type[_DocumentType] Default: dict\ntz_aware\nIf this parameter is True , the client treats datetime values as aware.\nOtherwise, it treats them as naive.\nFor more information about aware and naive datetime values, see datetime in the Python\ndocumentation.\nData type: bool\nconnect\nIf this parameter is True , the client begins connecting to MongoDB\nin the background immediately after you create it. If this parameter is False ,\nthe client connects to MongoDB when it performs the first database operation.\nIf your application is running in a function-as-a-service (FaaS) environment, the default value is False . Otherwise, the default value is True .\nData type: bool\ntype_registry\nAn instance of the TypeRegistry class to enable encoding and decoding of\ncustom types. For more information about encoding and decoding custom types,\nsee the Custom Types section.\nData type: TypeRegistry\nYou can also pass keyword arguments to the MongoClient() constructor to specify\noptional parameters. For a complete list of keyword arguments, see the MongoClient class in the API documentation.",
+      "code_blocks": [
+        "from pymongo import MongoClient uri = \"mongodb://localhost:27017/\" client = MongoClient(uri)",
+        "from pymongo import AsyncMongoClient uri = \"mongodb://localhost:27017/\" client = AsyncMongoClient(uri)",
+        "client = MongoClient(document_class=OrderedDict[ str , int ])",
+        "client: MongoClient[MyTypedDict] = MongoClient()"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "concurrent-execution",
+      "heading": "Concurrent Execution",
+      "heading_level": 2,
+      "content": "The following sections describe PyMongo's support for concurrent execution\nmechanisms.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "multithreading",
+          "heading": "Multithreading",
+          "heading_level": 3,
+          "content": "PyMongo is thread-safe and provides built-in connection pooling\nfor threaded applications.\nBecause each MongoClient object represents a pool of connections to the\ndatabase, most applications require only a single instance of MongoClient , even across multiple requests.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "multiple-forks",
+          "heading": "Multiple Forks",
+          "heading_level": 3,
+          "content": "PyMongo supports calling the fork() method to create a new process.\nHowever, if you fork a process, you must create a new MongoClient instance in the\nchild process.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "don't-pass-a-mongoclient-to-a-child-process",
+          "heading": "Don't Pass a MongoClient to a Child Process",
+          "heading_level": 3,
+          "content": "If you use the fork() method to create a new process, don't pass an instance\nof the MongoClient class from the parent process to the child process. This creates\na high probability of deadlock among MongoClient instances in the child process.\nPyMongo tries to issue a warning if this deadlock might occur.\nFor more information about deadlock in forked processes, see Forking a Process Causes a Deadlock .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "multiprocessing",
+          "heading": "Multiprocessing",
+          "heading_level": 3,
+          "content": "PyMongo supports the Python multiprocessing module.\nHowever, on Unix systems, the multiprocessing module spawns processes by using\nthe fork() method. This carries the same risks described in Multiple Forks\nTo use multiprocessing with PyMongo, write code similar to the following example:",
+          "code_blocks": [
+            "# Each process creates its own instance of MongoClient. def func () : db = pymongo.MongoClient().mydb # Do something with db. proc = multiprocessing.Process(target=func) proc.start()"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "Do not copy an instance of the MongoClient class from the parent process to a child\nprocess.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "type-hints",
+      "heading": "Type Hints",
+      "heading_level": 2,
+      "content": "If your application uses Python 3.5 or later, you can add type hints ,\nas described in PEP 484 , to your code.\nType hints denote the data types of variables, parameters, and function return\nvalues, and the structure of documents.\nSome IDEs can use type hints to check your code for type errors and suggest\nappropriate options for code completion.\nTo use type hints in your PyMongo application, you must add a type annotation to your MongoClient object, as shown in the following example. Select the Synchronous or Asynchronous tab to see the corresponding code:\nFor more accurate type information, you can include the generic document type Dict[str, Any] in your type annotation. This data type matches all documents in MongoDB.\nThe following example shows how to include this data type in your type annotation.\nSelect the Synchronous or Asynchronous tab to see the corresponding\ncode:\nIf all the documents that you are working with correspond to a single custom type, you\ncan specify the custom type as a type hint for your MongoClient object. This\nprovides more accurate type information than the generic Dict[str, Any] type.\nThe following example shows how to specify the Movie type as a type hint for a MongoClient object. Select the Synchronous or Asynchronous tab\nto see the corresponding code:",
+      "code_blocks": [
+        "from pymongo import MongoClient client: MongoClient = MongoClient()",
+        "from pymongo import AsyncMongoClient client: AsyncMongoClient = AsyncMongoClient()",
+        "from pymongo import MongoClient from typing import Any , Dict client: MongoClient[ Dict [ str , Any ]] = MongoClient()",
+        "from pymongo import AsyncMongoClient from typing import Any , Dict client: AsyncMongoClient[ Dict [ str , Any ]] = AsyncMongoClient()",
+        "from typing import TypedDict class Movie ( TypedDict ) : name: str year: int client: MongoClient[Movie] = MongoClient()",
+        "from typing import TypedDict class Movie ( TypedDict ) : name: str year: int client: AsyncMongoClient[Movie] = AsyncMongoClient()"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "closing-a-mongoclient",
+      "heading": "Closing a MongoClient",
+      "heading_level": 2,
+      "content": "During garbage collection, PyMongo automatically cleans up application-side\nresources used by a MongoClient instance. However, PyMongo does not guarantee the closure\nof server-side resources such as open cursors or sessions. You can ensure that PyMongo\ncloses these resources by calling the close() method on your MongoClient instance\nwhen you are done using it, as shown in the following example:\nYou can also instantiate the client in a with statement, as\nshown in the following example. The client automatically closes when the block terminates.",
+      "code_blocks": [
+        "client.close()",
+        "with MongoClient( \"mongodb://localhost:27017/\" ) as client: db = client.get_database( \"mydatabase\" ) # Perform further client operations here"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "troubleshooting",
+      "heading": "Troubleshooting",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "mongoclient-fails-configurationerror",
+          "heading": "MongoClient Fails ConfigurationError",
+          "heading_level": 3,
+          "content": "Providing invalid keyword argument names causes the driver to raise this error.\nEnsure that the keyword arguments that you specify exist and are\nspelled correctly.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "forking-a-process-causes-a-deadlock",
+          "heading": "Forking a Process Causes a Deadlock",
+          "heading_level": 3,
+          "content": "A MongoClient instance spawns multiple threads to run background tasks, such as\nmonitoring connected servers. These threads share state that is protected by instances\nof the threading.Lock class, which are themselves not fork-safe .\nPyMongo is subject to the same limitations as any other multithreaded\ncode that uses the threading.Lock class, or any mutexes.\nOne of these limitations is that the locks become useless after calling the fork() method. When fork() executes, the driver copies all the parent process's locks to\nthe child process in the same state as they were in the parent. If they are\nlocked in the parent process, they are also locked in the child process. The child process\ncreated by fork() has only one thread, so any locks created by\nother threads in the parent process are never released in the child process.\nThe next time the child process attempts to acquire one of these locks, deadlock occurs.\nStarting in PyMongo version 4.3, after you call the os.fork() method, the\ndriver uses the os.register_at_fork() method to reset its locks and other shared state\nin the child process. Although this reduces the likelihood of a deadlock,\nPyMongo depends\non libraries that aren't fork-safe in multithreaded applications, including OpenSSL and getaddrinfo(3). Therefore, a deadlock can still occur.\nThe Linux manual page for fork(2) also imposes the following restriction:\nAfter a fork() in a multithreaded program, the child can\nsafely call only async-signal-safe functions (see signal-safety(7) )\nuntil such time as it calls execve(2) .\nBecause PyMongo relies on functions that are not async-signal-safe, it can cause deadlocks or crashes when running in a child\nprocess.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "For an example of a deadlock in a child process, see PYTHON-3406 in Jira.\nFor more information about the problems caused by Python locks in\nmultithreaded contexts with fork() , see Issue 6721 in the Python Issue Tracker.\nIf you don't add a type annotation for your MongoClient object,\nyour type checker might show an error similar to the following:\nThe solution is to annotate the MongoClient object as client: MongoClient or client: MongoClient[Dict[str, Any]] .\nIf you specify MongoClient as a type hint but don't include data types for\nthe document, keys, and values, your type checker might show an error similar to\nthe following:\nThe solution is to add the following type hint to your MongoClient object:",
+      "code_blocks": [
+        "from pymongo import MongoClient client = MongoClient() # error: Need type annotation for \"client\"",
+        "error: Dict entry 0 has incompatible type \"str\" : \"int\" ; expected \"Mapping[str, Any]\" : \"int\"",
+        "client: MongoClient[ Dict [ str , Any ]]"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "api-documentation",
+      "heading": "API Documentation",
+      "heading_level": 2,
+      "content": "To learn more about creating a MongoClient object in PyMongo,\nsee the following API documentation:\n- MongoClient\n- AsyncMongoClient\nMongoClient\nAsyncMongoClient\nConnect\nChoose a Connection Target\n- Overview\n- Connection URI\n- MongoClient\n- Concurrent Execution\n- Multithreading\n- Multiple Forks\n- Multiprocessing\n- Type Hints\n- Closing a MongoClient\n- Troubleshooting\n- MongoClient Fails ConfigurationError\n- Forking a Process Causes a Deadlock\n- API Documentation\nOverview\nConnection URI\nMongoClient\nConcurrent Execution\nMultithreading\nMultiple Forks\nMultiprocessing\nType Hints\nClosing a MongoClient\nTroubleshooting\nMongoClient Fails ConfigurationError\nForking a Process Causes a Deadlock\nAPI Documentation\n- Overview\n- Connection URI\n- MongoClient\n- Concurrent Execution\n- Multithreading\n- Multiple Forks\n- Multiprocessing\n- Type Hints\n- Closing a MongoClient\n- Troubleshooting\n- MongoClient Fails ConfigurationError\n- Forking a Process Causes a Deadlock\n- API Documentation\nOverview\nConnection URI\nMongoClient\nConcurrent Execution\nMultithreading\nMultiple Forks\nMultiprocessing\nType Hints\nClosing a MongoClient\nTroubleshooting\nMongoClient Fails ConfigurationError\nForking a Process Causes a Deadlock\nAPI Documentation",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:41.460998",
+  "exam_code": "associate_developer_python",
+  "domain_id": 6,
+  "domain_name": "Drivers – Python",
+  "seed_id": "pymongo-mongoclient",
+  "source_type": "driver",
+  "file_stub": "d6_pymongo-mongoclient"
+}

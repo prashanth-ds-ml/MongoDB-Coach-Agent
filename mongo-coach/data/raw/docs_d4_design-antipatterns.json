@@ -1,0 +1,41 @@
+{
+  "url": "https://www.mongodb.com/docs/v8.0/data-modeling/design-antipatterns/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "Schema Design Anti-Patterns",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "get-started",
+      "heading": "Get Started",
+      "heading_level": 2,
+      "content": "To learn more about schema design anti-patterns, see the following pages:\nAvoid Unbounded Arrays\nA document stores an unbounded array that can grow to be too large. The large\narray can exceed the document size limit and cause a decrease in index\nperformance.\nReduce Number of Collections\nYou create a large number of collections in your database. Having too many\ncollections can decrease storage engine performance.\nRemove Unnecessary Indexes\nYour collection contains unnecessary indexes. Unnecessary\nindexes consume additional disk space and can degrade write performance.\nReduce Bloated Documents\nYour collection has excessively large documents. The large documents\ncan degrade the performance of your most common queries.\nReduce $lookup Operations\nYou are running too many $lookup operations on your data. This increases\nquery complexity and reduces query performance.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "details",
+      "heading": "Details",
+      "heading_level": 2,
+      "content": "The MongoDB Atlas Performance Advisor (available for\nM10 clusters or higher) and MongoDB Compass Performance Insights identify schema design anti-patterns in your\ndatabase. It is important to understand the Atlas anti-pattern warnings in order to\nproperly correct the issues and prevent the use of anti-patterns.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "learn-more",
+      "heading": "Learn More",
+      "heading_level": 2,
+      "content": "For recommended schema design patterns, see the following: Schema Design Patterns and Apply Design Patterns .\nArchive Data\nAvoid Unbounded Arrays\n- Get Started\n- Details\n- Learn More\nGet Started\nDetails\nLearn More\n- Get Started\n- Details\n- Learn More\nGet Started\nDetails\nLearn More",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:34.426898",
+  "exam_code": "associate_developer_python",
+  "domain_id": 4,
+  "domain_name": "Data Modeling",
+  "seed_id": "design-antipatterns",
+  "source_type": "manual",
+  "file_stub": "d4_design-antipatterns"
+}

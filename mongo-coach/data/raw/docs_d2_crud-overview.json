@@ -1,0 +1,57 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/crud/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "MongoDB CRUD Operations",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "create-operations",
+      "heading": "Create Operations",
+      "heading_level": 2,
+      "content": "Create or insert operations add new documents to a collection . If the\ncollection does not currently exist, insert operations will create the\ncollection.\nMongoDB provides the following methods to insert documents into a\ncollection:\n- db.collection.insertOne()\n- db.collection.insertMany()\ndb.collection.insertOne()\ndb.collection.insertMany()\nIn MongoDB, insert operations target a single collection . All\nwrite operations in MongoDB are atomic on the level of a single document .\nFor examples, see Insert Documents .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "read-operations",
+      "heading": "Read Operations",
+      "heading_level": 2,
+      "content": "Read operations retrieve documents from a collection ; i.e. query a collection for\ndocuments. MongoDB provides the following methods to read documents from\na collection:\n- db.collection.find()\ndb.collection.find()\nYou can specify query filters or criteria that identify the documents to return.\nFor examples, see:\n- Query Documents\n- Query on Embedded/Nested Documents\n- Query an Array\n- Query an Array of Embedded Documents\nQuery Documents\nQuery on Embedded/Nested Documents\nQuery an Array\nQuery an Array of Embedded Documents",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "update-operations",
+      "heading": "Update Operations",
+      "heading_level": 2,
+      "content": "Update operations modify existing documents in a collection . MongoDB\nprovides the following methods to update documents of a collection:\n- db.collection.updateOne()\n- db.collection.updateMany()\n- db.collection.replaceOne()\ndb.collection.updateOne()\ndb.collection.updateMany()\ndb.collection.replaceOne()\nIn MongoDB, update operations target a single collection. All write\noperations in MongoDB are atomic on the level of a single document.\nYou can specify criteria, or filters, that identify the documents to\nupdate. These filters use the same\nsyntax as read operations.\nFor examples, see Update Documents .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "delete-operations",
+      "heading": "Delete Operations",
+      "heading_level": 2,
+      "content": "Delete operations remove documents from a collection. MongoDB provides\nthe following methods to delete documents of a collection:\n- db.collection.deleteOne()\n- db.collection.deleteMany()\ndb.collection.deleteOne()\ndb.collection.deleteMany()\nIn MongoDB, delete operations target a single collection . All\nwrite operations in MongoDB are atomic on the level of a single document.\nYou can specify criteria, or filters, that identify the documents to\nremove. These filters use the same\nsyntax as read operations.\nFor examples, see Delete Documents .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "bulk-write",
+      "heading": "Bulk Write",
+      "heading_level": 2,
+      "content": "MongoDB provides the ability to perform write operations in bulk. For\ndetails, see Bulk Write Operations .\nNon-Root User Permissions\nInsert\nMaster \" CRUD Operations \" for free!\n- Create Operations\n- Read Operations\n- Update Operations\n- Delete Operations\n- Bulk Write\nCreate Operations\nRead Operations\nUpdate Operations\nDelete Operations\nBulk Write\n- Create Operations\n- Read Operations\n- Update Operations\n- Delete Operations\n- Bulk Write\nCreate Operations\nRead Operations\nUpdate Operations\nDelete Operations\nBulk Write",
+      "code_blocks": [],
+      "subsections": []
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:10.500691",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "crud-overview",
+  "source_type": "manual",
+  "file_stub": "d2_crud-overview"
+}

@@ -1,0 +1,317 @@
+{
+  "url": "https://www.mongodb.com/docs/manual/reference/operator/aggregation/lookup/",
+  "doc_type": "mongodb_docs_article",
+  "method_name": null,
+  "title": "$lookup (aggregation stage)",
+  "version": null,
+  "breadcrumbs": [],
+  "sections": [
+    {
+      "section_id": "definition",
+      "heading": "Definition",
+      "heading_level": 2,
+      "content": "Changed in version 8.0 .\nPerforms a left outer join to a collection in the same database to\nfilter in documents from the foreign collection for processing. The $lookup stage adds a new array field to each input\ndocument. The new array field contains the matching documents from\nthe foreign collection. The $lookup stage passes these\nreshaped documents to the next stage.\nStarting in MongoDB 5.1, you can use $lookup with sharded\ncollections.\nTo combine elements from two different collections, use the $unionWith pipeline stage.",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "important",
+      "heading": "Important",
+      "heading_level": 2,
+      "content": "Excessive use of $lookup may slow down query performance. To\nreduce reliance on $lookup , consider an embedded data\nmodel to store related data in a single\ncollection.\nFor details on $lookup performance, see Performance Considerations .",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "compatibility",
+      "heading": "Compatibility",
+      "heading_level": 2,
+      "content": "You can use $lookup for deployments hosted in the following\nenvironments:\n- MongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\nMongoDB Atlas : The fully\nmanaged service for MongoDB deployments in the cloud\n- MongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\n- MongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Enterprise : The\nsubscription-based, self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB\nMongoDB Community : The\nsource-available, free-to-use, and self-managed version of MongoDB",
+      "code_blocks": [],
+      "subsections": []
+    },
+    {
+      "section_id": "syntax",
+      "heading": "Syntax",
+      "heading_level": 2,
+      "content": "The $lookup stage syntax:\nThe $lookup accepts a document with these fields:\nfrom\nRequired\nSpecifies the foreign collection in the same database to join\nto the local collection.\nIt is possible in some edge cases to subsitute from with pipeline with $documents as the first stage. For an example, see Use a $documents Stage in a $lookup Stage .\nStarting in MongoDB 5.1, the from collection can be sharded.\nlocalField\nOptional if pipeline is specified\nSpecifies the field from the documents input to the $lookup stage. $lookup performs an\nequality match on the localField to the foreignField from the documents of the from collection. If an input document does not contain the localField , the $lookup treats the\nfield as having a value of null for matching purposes.\nforeignField\nOptional if pipeline is specified\nSpecifies the foreign documents' foreignField to perform an\nequality match with the local documents' localField .\nIf a foreign document does not contain a foreignField value,\nthe $lookup uses a null value for the match.\nlet\nOptional\nSpecifies variables to use in the pipeline stages. Use the variable expressions to\naccess the fields from the local collection's documents that are\ninput to the pipeline .\nTo reference variables in pipeline stages, use the \"$$<variable>\" syntax.\nThe let variables can be accessed by the\nstages in the pipeline , including\nadditional $lookup stages nested in the pipeline .\n- A $match stage requires the use of an $expr operator to access the variables. The $expr operator allows the use of aggregation expressions inside of the $match syntax. The $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations: Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot. Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value. Multikey indexes are not used.\n- Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\n- Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\n- Multikey indexes are not used.\n- Other (non- $match ) stages in the pipeline do not require an $expr operator to access the variables.\nA $match stage requires the use of an $expr operator to access the variables. The $expr operator allows the use of aggregation expressions inside of the $match syntax. The $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations: Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot. Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value. Multikey indexes are not used.\nA $match stage requires the use of an $expr operator to access the variables. The $expr operator allows the use of aggregation expressions inside of the $match syntax.\nThe $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations:\n- Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\n- Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\n- Multikey indexes are not used.\nIndexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\nIndexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant.\nFor example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\nIndexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\nIndexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\nMultikey indexes are not used.\nOther (non- $match ) stages in the pipeline do not require an $expr operator to access the variables.\npipeline\nOptional if localField and foreignField are specified\nSpecifies the pipeline to run on the foreign collection. The pipeline returns documents from the foreign collection. To\nreturn all documents, specify an empty pipeline: [] .\nThe pipeline cannot include the $out or $merge stages. Starting in v6.0, the pipeline can contain the MongoDB Search $search stage as the first stage inside the\npipeline. To learn more, see MongoDB Search Support .\nThe pipeline cannot access fields from input documents.\nInstead, define variables for the document fields using the let option and\nthen reference the variables in the pipeline stages.\nTo reference variables in pipeline stages, use the \"$$<variable>\" syntax.\nThe let variables can be accessed by the\nstages in the pipeline , including\nadditional $lookup stages nested in the pipeline .\n- A $match stage requires the use of an $expr operator to access the variables. The $expr operator allows the use of aggregation expressions inside of the $match syntax. The $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations: Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot. Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value. Multikey indexes are not used.\n- Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\n- Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\n- Multikey indexes are not used.\n- Other (non- $match ) stages in the pipeline do not require an $expr operator to access the variables.\nA $match stage requires the use of an $expr operator to access the variables. The $expr operator allows the use of aggregation expressions inside of the $match syntax. The $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations: Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot. Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value. Multikey indexes are not used.\nA $match stage requires the use of an $expr operator to access the variables. The $expr operator allows the use of aggregation expressions inside of the $match syntax.\nThe $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations:\n- Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\n- Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\n- Multikey indexes are not used.\nIndexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\nIndexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant.\nFor example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\nIndexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\nIndexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\nMultikey indexes are not used.\nOther (non- $match ) stages in the pipeline do not require an $expr operator to access the variables.\nas\nRequired\nSpecifies the name of the new array field to add to the input\ndocuments. The new array field contains the matching\ndocuments from the from collection. If the specified name\nalready exists in the input document, the existing field is overwritten .",
+      "code_blocks": [
+        "{ $lookup: { from: <collection to join>, localField: <field from the input documents>, foreignField: <field from the documents of the \"from\" collection>, let: { <var_1>: <expression>, …, <var_n>: <expression> }, pipeline: [ <pipeline to run> ], as: <output array field> } }"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "equality-match-with-a-single-join-condition",
+          "heading": "Equality Match with a Single Join Condition",
+          "heading_level": 3,
+          "content": "To perform an equality match between a field from the input documents\nwith a field from the documents of the foreign collection, the $lookup stage has this syntax:",
+          "code_blocks": [
+            "{ $lookup: { from: <collection to join>, localField: <field from the input documents>, foreignField: <field from the documents of the \"from\" collection>, pipeline: [ <pipeline to run> ], as: <output array field> } }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "In this example, pipeline is optional and runs after\nthe local and foreign equality stage.\nThe operation corresponds to this pseudo-SQL statement:",
+      "code_blocks": [
+        "SELECT * , ( SELECT ARRAY_AGG ( * ) FROM < collection to join > WHERE < foreignField > = < collection.localField > ) AS < output array field > FROM collection;"
+      ],
+      "subsections": []
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "The SQL statements on this page are included for comparison to the\nMongoDB aggregation pipeline syntax. The SQL statements aren't\nrunnable.\nFor MongoDB examples, see these pages:\n- Perform a Single Equality Join with $lookup\n- Use $lookup with an Array\n- Use $lookup with $mergeObjects\nPerform a Single Equality Join with $lookup\nUse $lookup with an Array\nUse $lookup with $mergeObjects",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "join-conditions-and-subqueries-on-a-foreign-collection",
+          "heading": "Join Conditions and Subqueries on a Foreign Collection",
+          "heading_level": 3,
+          "content": "MongoDB supports:\n- Executing a pipeline on a foreign collection.\n- Multiple join conditions.\n- Correlated and uncorrelated subqueries.\nExecuting a pipeline on a foreign collection.\nMultiple join conditions.\nCorrelated and uncorrelated subqueries.\nIn MongoDB, an uncorrelated subquery means that every input document will return\nthe same result. A correlated subquery is a pipeline in a $lookup stage that uses the local\nor input collection's fields to return results correlated to each incoming\ndocument.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Starting in MongoDB 5.0, for an uncorrelated subquery in a $lookup pipeline stage containing a $sample stage, the $sampleRate operator, or the $rand operator, the subquery is always run again if\nrepeated. Previously, depending on the subquery output size, either the\nsubquery output was cached or the subquery was run again.\nMongoDB correlated subqueries are comparable to SQL correlated\nsubqueries, where the inner query references outer query values. An\nSQL uncorrelated subquery does not reference outer query values.\nMongoDB 5.0 also supports concise correlated subqueries .\nTo perform correlated and uncorrelated subqueries with two collections,\nand perform other join conditions besides a single equality match, use\nthis $lookup syntax:\nThe operation corresponds to this pseudo-SQL statement:\nSee the following examples:\n- Use Multiple Join Conditions and a Correlated Subquery\n- Perform an Uncorrelated Subquery with $lookup\nUse Multiple Join Conditions and a Correlated Subquery\nPerform an Uncorrelated Subquery with $lookup",
+      "code_blocks": [
+        "{ $lookup : { from : <foreign collection>, let: { <var_1>: <expression>, …, <var_n>: <expression> }, pipeline: [ <pipeline to run on foreign collection> ], as: <output array field> } }",
+        "SELECT * , < output array field > FROM collection WHERE < output array field > IN ( SELECT < documents as determined from the pipeline > FROM < collection to join > WHERE < pipeline > );"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "correlated-subqueries-using-concise-syntax",
+          "heading": "Correlated Subqueries Using Concise Syntax",
+          "heading_level": 3,
+          "content": "New in version 5.0 .\nStarting in MongoDB 5.0, you can use a concise syntax for a correlated\nsubquery. Correlated subqueries reference document fields from a foreign\ncollection and the \"local\" collection on which the aggregate() method was run.\nThe following new concise syntax removes the requirement for an equality\nmatch on the foreign and local fields inside of an $expr operator:\nThe operation corresponds to this pseudo-SQL statement:\nSee this example:\n- Perform a Concise Correlated Subquery with $lookup\nPerform a Concise Correlated Subquery with $lookup",
+          "code_blocks": [
+            "{ $lookup : { from : <foreign collection>, localField: <field from local collection's documents>, foreignField: <field from foreign collection's documents>, let: { <var_1>: <expression>, …, <var_n>: <expression> }, pipeline: [ <pipeline to run> ], as: <output array field> } }",
+            "SELECT * , < output array field > FROM localCollection WHERE < output array field > IN ( SELECT < documents as determined from the pipeline > FROM < foreignCollection > WHERE < foreignCollection.foreignField > = < localCollection.localField > AND < pipeline match condition > );"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "behavior",
+      "heading": "Behavior",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "encrypted-collections",
+          "heading": "Encrypted Collections",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 8.1, you can reference multiple encrypted collections in a $lookup stage. However, $lookup does not support:\n- Using an encrypted field as the join field in the localField or foreignField . Note For drivers using Client-Side Field Level Encryption, you can use an encrypted field as a join\nfield only if you are performing a self-join operation.\n- Using any field in an encrypted array. An array is considered as encrypted if\nit contains any encrypted elements. For example, you can't use any field within the resulting as array of the $lookup operation, unless\nyou're using Client-Side Field Level Encryption and $unwind the as field.\n- For example, you can't use any field within the resulting as array of the $lookup operation, unless\nyou're using Client-Side Field Level Encryption and $unwind the as field.\nUsing an encrypted field as the join field in the localField or foreignField . Note For drivers using Client-Side Field Level Encryption, you can use an encrypted field as a join\nfield only if you are performing a self-join operation.\nUsing an encrypted field as the join field in the localField or foreignField .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "For drivers using Client-Side Field Level Encryption, you can use an encrypted field as a join\nfield only if you are performing a self-join operation.\nUsing any field in an encrypted array. An array is considered as encrypted if\nit contains any encrypted elements. For example, you can't use any field within the resulting as array of the $lookup operation, unless\nyou're using Client-Side Field Level Encryption and $unwind the as field.\nUsing any field in an encrypted array. An array is considered as encrypted if\nit contains any encrypted elements.\n- For example, you can't use any field within the resulting as array of the $lookup operation, unless\nyou're using Client-Side Field Level Encryption and $unwind the as field.\nFor example, you can't use any field within the resulting as array of the $lookup operation, unless\nyou're using Client-Side Field Level Encryption and $unwind the as field.\nFor example, you can't use any field within the resulting as array of the $lookup operation, unless\nyou're using Client-Side Field Level Encryption and $unwind the as field.",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "views-and-collation",
+          "heading": "Views and Collation",
+          "heading_level": 3,
+          "content": "If performing an aggregation that involves multiple views, such as\nwith $lookup or $graphLookup , the views must\nhave the same collation .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "restrictions",
+          "heading": "Restrictions",
+          "heading_level": 3,
+          "content": "You cannot include the $out or the $merge stage in the $lookup stage. That is, when specifying a pipeline for the foreign collection , you cannot include either stage in\nthe pipeline field.",
+          "code_blocks": [
+            "{ $lookup : { from : <collection to join>, let: { <var_1>: <expression>, …, <var_n>: <expression> }, pipeline: [ <pipeline to execute on the foreign collection> ], // Cannot include $out or $merge as: <output array field> } }"
+          ]
+        },
+        {
+          "subsection_id": "mongodb-search-support",
+          "heading": "MongoDB Search Support",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 6.0, you can specify the MongoDB Search $search or $searchMeta stage\nin the $lookup pipeline to search collections on the Atlas\ncluster. The $search or the $searchMeta stage\nmust be the first stage inside the $lookup pipeline.\nFor example, when you Join Conditions and Subqueries on a Foreign Collection or run Correlated Subqueries Using Concise Syntax , you can specify $search or $searchMeta inside the pipeline as\nshown below:\nTo see an example of $lookup with $search ,\nsee the MongoDB Search tutorial Run a MongoDB Search $search Query\nUsing $lookup .",
+          "code_blocks": [
+            "[{ \"$lookup\": { \"from\": <foreign collection>, localField: <field from the input documents>, foreignField: <field from the documents of the \"from\" collection>, \"as\": <output array field>, \"pipeline\": [{ \"$search\": { \"<operator>\": { <operator-specification> } }, ... }] } }]",
+            "[{ \"$lookup\": { \"from\": <foreign collection>, localField: <field from the input documents>, foreignField: <field from the documents of the \"from\" collection>, \"as\": <output array field>, \"pipeline\": [{ \"$searchMeta\": { \"<collector>\": { <collector-specification> } }, ... }] } }]"
+          ]
+        },
+        {
+          "subsection_id": "sharded-collections",
+          "heading": "Sharded Collections",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 5.1, you can specify sharded collections in the from parameter of $lookup stages.\nStarting in MongoDB 8.0, you can use the $lookup stage within a\ntransaction while targeting a sharded collection.",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "slot-based-query-execution-engine",
+          "heading": "Slot-Based Query Execution Engine",
+          "heading_level": 3,
+          "content": "Starting in version 6.0, MongoDB can use the slot-based execution\nquery engine to execute $lookup stages\nif all preceding stages in the pipeline can also be executed by the slot-based execution engine and none of the following conditions are true:\n- The $lookup operation executes a pipeline on a foreign collection.\nTo see an example of this kind of operation, see Join Conditions and Subqueries on a Foreign Collection .\n- The $lookup 's localField or foreignField specify numeric\ncomponents. For example: { localField: \"restaurant.0.review\" } .\n- The from field of any $lookup in the pipeline specifies a view\nor sharded collection.\nThe $lookup operation executes a pipeline on a foreign collection.\nTo see an example of this kind of operation, see Join Conditions and Subqueries on a Foreign Collection .\nThe $lookup operation executes a pipeline on a foreign collection.\nTo see an example of this kind of operation, see Join Conditions and Subqueries on a Foreign Collection .\nThe $lookup 's localField or foreignField specify numeric\ncomponents. For example: { localField: \"restaurant.0.review\" } .\nThe $lookup 's localField or foreignField specify numeric\ncomponents. For example: { localField: \"restaurant.0.review\" } .\nThe from field of any $lookup in the pipeline specifies a view\nor sharded collection.\nThe from field of any $lookup in the pipeline specifies a view\nor sharded collection.\nFor more information, see $lookup Optimization .",
+          "code_blocks": []
+        },
+        {
+          "subsection_id": "performance-considerations",
+          "heading": "Performance Considerations",
+          "heading_level": 3,
+          "content": "$lookup performance depends on the type of operation performed.\nRefer to the following table for performance considerations for\ndifferent $lookup operations.\nEquality Match with a Single Join\n- $lookup operations that perform equality matches with a\nsingle join perform better when the foreign collection contains\nan index on the foreignField . IMPORTANT: If a supporting index on the foreignField does\nnot exist, a $lookup operation that performs an equality match with\na single join will likely have poor performance.\n$lookup operations that perform equality matches with a\nsingle join perform better when the foreign collection contains\nan index on the foreignField . IMPORTANT: If a supporting index on the foreignField does\nnot exist, a $lookup operation that performs an equality match with\na single join will likely have poor performance.\n$lookup operations that perform equality matches with a\nsingle join perform better when the foreign collection contains\nan index on the foreignField .\nIMPORTANT: If a supporting index on the foreignField does\nnot exist, a $lookup operation that performs an equality match with\na single join will likely have poor performance.\nUncorrelated Subqueries\n- $lookup operations that contain uncorrelated subqueries\nperform better when the inner pipeline can reference an\nindex of the foreign collection.\n- MongoDB only needs to run the $lookup subquery once before\ncaching the query because there is no relationship between the\nsource and foreign collections. The subquery is not based on\nany value in the source collection. This behavior improves\nperformance for subsequent executions of the $lookup operation.\n$lookup operations that contain uncorrelated subqueries\nperform better when the inner pipeline can reference an\nindex of the foreign collection.\n$lookup operations that contain uncorrelated subqueries\nperform better when the inner pipeline can reference an\nindex of the foreign collection.\nMongoDB only needs to run the $lookup subquery once before\ncaching the query because there is no relationship between the\nsource and foreign collections. The subquery is not based on\nany value in the source collection. This behavior improves\nperformance for subsequent executions of the $lookup operation.\nMongoDB only needs to run the $lookup subquery once before\ncaching the query because there is no relationship between the\nsource and foreign collections. The subquery is not based on\nany value in the source collection. This behavior improves\nperformance for subsequent executions of the $lookup operation.\nCorrelated Subqueries\n- $lookup operations that contain correlated subqueries\nperform better when the following conditions apply: The foreign collection contains an index on the foreignField . The foreign collection contains an index that references the\ninner pipline.\n- The foreign collection contains an index on the foreignField .\n- The foreign collection contains an index that references the\ninner pipline.\n- If your pipeline passes a large number of documents to the $lookup query, the following strategies may improve\nperformance: Reduce the number of documents that MongoDB passes to the $lookup query. For example, set a stricter filter\nduring the $match stage. Run the inner pipeline of the $lookup subquery as a\nseparate query and use $out to create a temporary\ncollection. Then, run an equality match with a single\njoin . Reconsider the data's schema to ensure it is optimal for the\nuse case.\n- Reduce the number of documents that MongoDB passes to the $lookup query. For example, set a stricter filter\nduring the $match stage.\n- Run the inner pipeline of the $lookup subquery as a\nseparate query and use $out to create a temporary\ncollection. Then, run an equality match with a single\njoin .\n- Reconsider the data's schema to ensure it is optimal for the\nuse case.\n$lookup operations that contain correlated subqueries\nperform better when the following conditions apply: The foreign collection contains an index on the foreignField . The foreign collection contains an index that references the\ninner pipline.\n$lookup operations that contain correlated subqueries\nperform better when the following conditions apply:\n- The foreign collection contains an index on the foreignField .\n- The foreign collection contains an index that references the\ninner pipline.\nThe foreign collection contains an index on the foreignField .\nThe foreign collection contains an index that references the\ninner pipline.\nThe foreign collection contains an index that references the\ninner pipline.\nIf your pipeline passes a large number of documents to the $lookup query, the following strategies may improve\nperformance: Reduce the number of documents that MongoDB passes to the $lookup query. For example, set a stricter filter\nduring the $match stage. Run the inner pipeline of the $lookup subquery as a\nseparate query and use $out to create a temporary\ncollection. Then, run an equality match with a single\njoin . Reconsider the data's schema to ensure it is optimal for the\nuse case.\nIf your pipeline passes a large number of documents to the $lookup query, the following strategies may improve\nperformance:\n- Reduce the number of documents that MongoDB passes to the $lookup query. For example, set a stricter filter\nduring the $match stage.\n- Run the inner pipeline of the $lookup subquery as a\nseparate query and use $out to create a temporary\ncollection. Then, run an equality match with a single\njoin .\n- Reconsider the data's schema to ensure it is optimal for the\nuse case.\nReduce the number of documents that MongoDB passes to the $lookup query. For example, set a stricter filter\nduring the $match stage.\nReduce the number of documents that MongoDB passes to the $lookup query. For example, set a stricter filter\nduring the $match stage.\nRun the inner pipeline of the $lookup subquery as a\nseparate query and use $out to create a temporary\ncollection. Then, run an equality match with a single\njoin .\nRun the inner pipeline of the $lookup subquery as a\nseparate query and use $out to create a temporary\ncollection. Then, run an equality match with a single\njoin .\nReconsider the data's schema to ensure it is optimal for the\nuse case.\nReconsider the data's schema to ensure it is optimal for the\nuse case.\nFor general performance strategies, see Indexing Strategies and Query Optimization .",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "examples",
+      "heading": "Examples",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "perform-a-single-equality-join-with-$lookup",
+          "heading": "Perform a Single Equality Join with $lookup",
+          "heading_level": 3,
+          "content": "Create a collection orders with these documents:\nCreate another collection inventory with these documents:\nThe following aggregation operation on the orders collection\njoins the documents from orders with the documents from the inventory collection using the fields item from the orders collection and the sku field from the inventory collection:\nThe operation returns these documents:\nThe operation corresponds to this pseudo-SQL statement:\nFor more information, see Equality Match Performance Considerations .",
+          "code_blocks": [
+            "db. orders . insertMany ( [ { _id : 1 , item : \"almonds\" , price : 12 , quantity : 2 } , { _id : 2 , item : \"pecans\" , price : 20 , quantity : 1 } , { _id : 3 } ] )",
+            "db. inventory . insertMany ( [ { _id : 1 , sku : \"almonds\" , description : \"product 1\" , instock : 120 } , { _id : 2 , sku : \"bread\" , description : \"product 2\" , instock : 80 } , { _id : 3 , sku : \"cashews\" , description : \"product 3\" , instock : 60 } , { _id : 4 , sku : \"pecans\" , description : \"product 4\" , instock : 70 } , { _id : 5 , sku : null , description : \"Incomplete\" } , { _id : 6 } ] )",
+            "db. orders . aggregate ( [ { $lookup : { from : \"inventory\" , localField : \"item\" , foreignField : \"sku\" , as : \"inventory_docs\" } } ] )",
+            "{ _id : 1 , item : \"almonds\" , price : 12 , quantity : 2 , inventory_docs : [ { _id : 1 , sku : \"almonds\" , description : \"product 1\" , instock : 120 } ] } { _id : 2 , item : \"pecans\" , price : 20 , quantity : 1 , inventory_docs : [ { _id : 4 , sku : \"pecans\" , description : \"product 4\" , instock : 70 } ] } { _id : 3 , inventory_docs : [ { _id : 5 , sku : null , description : \"Incomplete\" } , { _id : 6 } ] }",
+            "SELECT * , inventory_docs FROM orders WHERE inventory_docs IN ( SELECT * FROM inventory WHERE sku = orders.item );"
+          ]
+        },
+        {
+          "subsection_id": "use-$lookup-with-an-array",
+          "heading": "Use $lookup with an Array",
+          "heading_level": 3,
+          "content": "If the localField is an array, you can match the array elements\nagainst a scalar foreignField without an $unwind stage.\nFor example, create an example collection classes with these\ndocuments:\nCreate another collection members with these documents:\nThe following aggregation operation joins documents in the classes collection with the members collection, matching on the enrollmentlist field to the name field:\nThe operation returns the following:",
+          "code_blocks": [
+            "db. classes . insertMany ( [ { _id : 1 , title : \"Reading is ...\" , enrollmentlist : [ \"giraffe2\" , \"pandabear\" , \"artie\" ] , days : [ \"M\" , \"W\" , \"F\" ] } , { _id : 2 , title : \"But Writing ...\" , enrollmentlist : [ \"giraffe1\" , \"artie\" ] , days : [ \"T\" , \"F\" ] } ] )",
+            "db. members . insertMany ( [ { _id : 1 , name : \"artie\" , foreign : new Date ( \"2016-05-01\" ) , status : \"A\" } , { _id : 2 , name : \"giraffe\" , foreign : new Date ( \"2017-05-01\" ) , status : \"D\" } , { _id : 3 , name : \"giraffe1\" , foreign : new Date ( \"2017-10-01\" ) , status : \"A\" } , { _id : 4 , name : \"panda\" , foreign : new Date ( \"2018-10-11\" ) , status : \"A\" } , { _id : 5 , name : \"pandabear\" , foreign : new Date ( \"2018-12-01\" ) , status : \"A\" } , { _id : 6 , name : \"giraffe2\" , foreign : new Date ( \"2018-12-01\" ) , status : \"D\" } ] )",
+            "db. classes . aggregate ( [ { $lookup : { from : \"members\" , localField : \"enrollmentlist\" , foreignField : \"name\" , as : \"enrollee_info\" } } ] )",
+            "{ _id : 1 , title : \"Reading is ...\" , enrollmentlist : [ \"giraffe2\" , \"pandabear\" , \"artie\" ] , days : [ \"M\" , \"W\" , \"F\" ] , enrollee_info : [ { _id : 1 , name : \"artie\" , foreign : ISODate ( \"2016-05-01T00:00:00Z\" ) , status : \"A\" } , { _id : 5 , name : \"pandabear\" , foreign : ISODate ( \"2018-12-01T00:00:00Z\" ) , status : \"A\" } , { _id : 6 , name : \"giraffe2\" , foreign : ISODate ( \"2018-12-01T00:00:00Z\" ) , status : \"D\" } ] } { _id : 2 , title : \"But Writing ...\" , enrollmentlist : [ \"giraffe1\" , \"artie\" ] , days : [ \"T\" , \"F\" ] , enrollee_info : [ { _id : 1 , name : \"artie\" , foreign : ISODate ( \"2016-05-01T00:00:00Z\" ) , status : \"A\" } , { _id : 3 , name : \"giraffe1\" , foreign : ISODate ( \"2017-10-01T00:00:00Z\" ) , status : \"A\" } ] }"
+          ]
+        },
+        {
+          "subsection_id": "use-$lookup-with-$mergeobjects",
+          "heading": "Use $lookup with $mergeObjects",
+          "heading_level": 3,
+          "content": "The $mergeObjects operator combines multiple documents\ninto a single document.\nCreate a collection orders with these documents:\nCreate another collection items with these documents:\nThe following operation first uses the $lookup stage to\njoin the two collections by the item fields and then uses $mergeObjects in the $replaceRoot to merge\nthe foreign documents from items and orders :\nThe operation returns these documents:",
+          "code_blocks": [
+            "db. orders . insertMany ( [ { _id : 1 , item : \"almonds\" , price : 12 , quantity : 2 } , { _id : 2 , item : \"pecans\" , price : 20 , quantity : 1 } ] )",
+            "db. items . insertMany ( [ { _id : 1 , item : \"almonds\" , description : \"almond clusters\" , instock : 120 } , { _id : 2 , item : \"bread\" , description : \"raisin and nut bread\" , instock : 80 } , { _id : 3 , item : \"pecans\" , description : \"candied pecans\" , instock : 60 } ] )",
+            "db. orders . aggregate ( [ { $lookup : { from : \"items\" , localField : \"item\" , // field in the orders collection foreignField : \"item\" , // field in the items collection as : \"fromItems\" } } , { $replaceRoot : { newRoot : { $mergeObjects : [ { $arrayElemAt : [ \"$fromItems\" , 0 ] } , \"$$ROOT\" ] } } } , { $project : { fromItems : 0 } } ] )",
+            "{ _id : 1 , item : 'almonds' , description : 'almond clusters' , instock : 120 , price : 12 , quantity : 2 } , { _id : 2 , item : 'pecans' , description : 'candied pecans' , instock : 60 , price : 20 , quantity : 1 }"
+          ]
+        },
+        {
+          "subsection_id": "use-multiple-join-conditions-and-a-correlated-subquery",
+          "heading": "Use Multiple Join Conditions and a Correlated Subquery",
+          "heading_level": 3,
+          "content": "Pipelines can execute on a foreign collection and include multiple join\nconditions. The $expr operator enables more complex join\nconditions including conjunctions and non-equality matches.\nA join condition can reference a field in the local collection on which\nthe aggregate() method was run and reference a\nfield in the foreign collection. This allows a correlated subquery\nbetween the two collections.\nMongoDB 5.0 supports concise correlated subqueries .\nCreate a collection orders with these documents:\nCreate another collection warehouses with these documents:\nThe following example:\n- Uses a correlated subquery with a join on the orders.item and warehouse.stock_item fields.\n- Ensures the quantity of the item in stock can fulfill the\nordered quantity.\nUses a correlated subquery with a join on the orders.item and warehouse.stock_item fields.\nEnsures the quantity of the item in stock can fulfill the\nordered quantity.\nEnsures the quantity of the item in stock can fulfill the\nordered quantity.\nThe operation returns these documents:\nThe operation corresponds to this pseudo-SQL statement:\nThe $eq , $lt , $lte , $gt , and $gte comparison operators placed in\nan $expr operator can use an index on the from collection\nreferenced in a $lookup stage. Limitations:\n- Indexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\n- Indexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\n- Multikey indexes are not used.\nIndexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant. For example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\nIndexes can only be used for comparisons between fields and constants, so the let operand must resolve to a constant.\nFor example, a comparison between $a and a constant\nvalue can use an index, but a comparison between $a and $b cannot.\nIndexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\nIndexes are not used for comparisons where the let operand resolves to an\nempty or missing value.\nMultikey indexes are not used.\nFor example, if the index { stock_item: 1, instock: 1 } exists on\nthe warehouses collection:\n- The equality match on the warehouses.stock_item field uses the\nindex.\n- The range part of the query on the warehouses.instock field\nalso uses the indexed field in the compound index.\nThe equality match on the warehouses.stock_item field uses the\nindex.\nThe equality match on the warehouses.stock_item field uses the\nindex.\nThe range part of the query on the warehouses.instock field\nalso uses the indexed field in the compound index.\nThe range part of the query on the warehouses.instock field\nalso uses the indexed field in the compound index.",
+          "code_blocks": [
+            "db. orders . insertMany ( [ { _id : 1 , item : \"almonds\" , price : 12 , ordered : 2 } , { _id : 2 , item : \"pecans\" , price : 20 , ordered : 1 } , { _id : 3 , item : \"cookies\" , price : 10 , ordered : 60 } ] )",
+            "db. warehouses . insertMany ( [ { _id : 1 , stock_item : \"almonds\" , warehouse : \"A\" , instock : 120 } , { _id : 2 , stock_item : \"pecans\" , warehouse : \"A\" , instock : 80 } , { _id : 3 , stock_item : \"almonds\" , warehouse : \"B\" , instock : 60 } , { _id : 4 , stock_item : \"cookies\" , warehouse : \"B\" , instock : 40 } , { _id : 5 , stock_item : \"cookies\" , warehouse : \"A\" , instock : 80 } ] )",
+            "db. orders . aggregate ( [ { $lookup : { from : \"warehouses\" , localField : \"item\" , foreignField : \"stock_item\" , let : { order_qty : \"$ordered\" } , pipeline : [ { $match : { $expr : { $gte : [ \"$instock\" , \"$$order_qty\" ] } } } , { $project : { stock_item : 0 , _id : 0 } } ] , as : \"stockdata\" } } ] )",
+            "{ _id : 1 , item : 'almonds' , price : 12 , ordered : 2 , stockdata : [ { warehouse : 'A' , instock : 120 } , { warehouse : 'B' , instock : 60 } ] } , { _id : 2 , item : 'pecans' , price : 20 , ordered : 1 , stockdata : [ { warehouse : 'A' , instock : 80 } ] } , { _id : 3 , item : 'cookies' , price : 10 , ordered : 60 , stockdata : [ { warehouse : 'A' , instock : 80 } ] }",
+            "SELECT * , stockdata FROM orders WHERE stockdata IN ( SELECT warehouse, instock FROM warehouses WHERE stock_item = orders.item AND instock >= orders.ordered );"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "tip",
+      "heading": "Tip",
+      "heading_level": 2,
+      "content": "- $expr\n- Variables in Aggregation Expressions\n$expr\nVariables in Aggregation Expressions",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "perform-an-uncorrelated-subquery-with-$lookup",
+          "heading": "Perform an Uncorrelated Subquery with $lookup",
+          "heading_level": 3,
+          "content": "An aggregation pipeline $lookup stage can execute a pipeline\non the foreign collection, which allows uncorrelated subqueries. An\nuncorrelated subquery does not reference the local document fields.",
+          "code_blocks": []
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "Starting in MongoDB 5.0, for an uncorrelated subquery in a $lookup pipeline stage containing a $sample stage, the $sampleRate operator, or the $rand operator, the subquery is always run again if\nrepeated. Previously, depending on the subquery output size, either the\nsubquery output was cached or the subquery was run again.\nCreate a collection absences with these documents:\nCreate another collection holidays with these documents:\nThe following operation joins the absences collection with 2018\nholiday information from the holidays collection:\nThe operation returns the following:\nThe operation corresponds to this pseudo-SQL statement:\nFor more information, see Uncorrelated Subquery Performance Considerations .",
+      "code_blocks": [
+        "db. absences . insertMany ( [ { _id : 1 , student : \"Ann Aardvark\" , sickdays : [ new Date ( \"2018-05-01\" ) , new Date ( \"2018-08-23\" ) ] } , { _id : 2 , student : \"Zoe Zebra\" , sickdays : [ new Date ( \"2018-02-01\" ) , new Date ( \"2018-05-23\" ) ] } , ] )",
+        "db. holidays . insertMany ( [ { _id : 1 , year : 2018 , name : \"New Years\" , date : new Date ( \"2018-01-01\" ) } , { _id : 2 , year : 2018 , name : \"Pi Day\" , date : new Date ( \"2018-03-14\" ) } , { _id : 3 , year : 2018 , name : \"Ice Cream Day\" , date : new Date ( \"2018-07-15\" ) } , { _id : 4 , year : 2017 , name : \"New Years\" , date : new Date ( \"2017-01-01\" ) } , { _id : 5 , year : 2017 , name : \"Ice Cream Day\" , date : new Date ( \"2017-07-16\" ) } ] )",
+        "db. absences . aggregate ( [ { $lookup : { from : \"holidays\" , pipeline : [ { $match : { year : 2018 } } , { $project : { _id : 0 , date : { name : \"$name\" , date : \"$date\" } } } , { $replaceRoot : { newRoot : \"$date\" } } ] , as : \"holidays\" } } ] )",
+        "{ _id : 1 , student : 'Ann Aardvark' , sickdays : [ ISODate ( \"2018-05-01T00:00:00.000Z\" ) , ISODate ( \"2018-08-23T00:00:00.000Z\" ) ] , holidays : [ { name : 'New Years' , date : ISODate ( \"2018-01-01T00:00:00.000Z\" ) } , { name : 'Pi Day' , date : ISODate ( \"2018-03-14T00:00:00.000Z\" ) } , { name : 'Ice Cream Day' , date : ISODate ( \"2018-07-15T00:00:00.000Z\" ) } ] } , { _id : 2 , student : 'Zoe Zebra' , sickdays : [ ISODate ( \"2018-02-01T00:00:00.000Z\" ) , ISODate ( \"2018-05-23T00:00:00.000Z\" ) ] , holidays : [ { name : 'New Years' , date : ISODate ( \"2018-01-01T00:00:00.000Z\" ) } , { name : 'Pi Day' , date : ISODate ( \"2018-03-14T00:00:00.000Z\" ) } , { name : 'Ice Cream Day' , date : ISODate ( \"2018-07-15T00:00:00.000Z\" ) } ] }",
+        "SELECT * , holidays FROM absences WHERE holidays IN ( SELECT name, date FROM holidays WHERE year = 2018 );"
+      ],
+      "subsections": [
+        {
+          "subsection_id": "perform-a-concise-correlated-subquery-with-$lookup",
+          "heading": "Perform a Concise Correlated Subquery with $lookup",
+          "heading_level": 3,
+          "content": "New in version 5.0 .\nStarting in MongoDB 5.0, an aggregation pipeline $lookup stage supports a concise correlated subquery syntax that improves joins between\ncollections. The new concise syntax removes the requirement for an\nequality match on the foreign and local fields inside of an $expr operator in a $match stage.\nCreate a collection restaurants :\nCreate another collection orders with food and optional drink\norders:\nThe following example:\n- Joins the orders and restaurants collections by matching the orders.restaurant_name localField with\nthe restaurants.name foreignField .\nThe match is performed before the pipeline is run.\n- Performs an $in array match between the orders.drink and restaurants.beverages fields that are accessed using $$orders_drink and $beverages respectively.\nJoins the orders and restaurants collections by matching the orders.restaurant_name localField with\nthe restaurants.name foreignField .\nThe match is performed before the pipeline is run.\nJoins the orders and restaurants collections by matching the orders.restaurant_name localField with\nthe restaurants.name foreignField .\nThe match is performed before the pipeline is run.\nPerforms an $in array match between the orders.drink and restaurants.beverages fields that are accessed using $$orders_drink and $beverages respectively.\nThere is a match for the soda value in the orders.drink and restaurants.beverages fields. This output shows the matches array and contains all foreign fields from the restaurants collection\nfor the match:\nThis example uses the older verbose syntax from MongoDB versions before\n5.0 and returns the same results as the previous concise example:\nThe previous examples correspond to this pseudo-SQL statement:\nFor more information, see Correlated Subquery Performance Considerations .",
+          "code_blocks": [
+            "db. restaurants . insertMany ( [ { _id : 1 , name : \"American Steak House\" , food : [ \"filet\" , \"sirloin\" ] , beverages : [ \"beer\" , \"wine\" ] } , { _id : 2 , name : \"Honest John Pizza\" , food : [ \"cheese pizza\" , \"pepperoni pizza\" ] , beverages : [ \"soda\" ] } ] )",
+            "db. orders . insertMany ( [ { _id : 1 , item : \"filet\" , restaurant_name : \"American Steak House\" } , { _id : 2 , item : \"cheese pizza\" , restaurant_name : \"Honest John Pizza\" , drink : \"lemonade\" } , { _id : 3 , item : \"cheese pizza\" , restaurant_name : \"Honest John Pizza\" , drink : \"soda\" } ] )",
+            "db. orders . aggregate ( [ { $lookup : { from : \"restaurants\" , localField : \"restaurant_name\" , foreignField : \"name\" , let : { orders_drink : \"$drink\" } , pipeline : [ { $match : { $expr : { $in : [ \"$$orders_drink\" , \"$beverages\" ] } } } ] , as : \"matches\" } } ] )",
+            "{ _id : 1 , item : \"filet\" , restaurant_name : \"American Steak House\" , matches : [ ] } { _id : 2 , item : \"cheese pizza\" , restaurant_name : \"Honest John Pizza\" , drink : \"lemonade\" , matches : [ ] } { _id : 3 , item : \"cheese pizza\" , restaurant_name : \"Honest John Pizza\" , drink : \"soda\" , matches : [ { _id : 2 , name \": \" Honest John Pizza \", food: [ \" cheese pizza \", \" pepperoni pizza \" ], beverages: [ \" soda \" ] } ] }",
+            "db. orders . aggregate ( [ { $lookup : { from : \"restaurants\" , let : { orders_restaurant_name : \"$restaurant_name\" , orders_drink : \"$drink\" } , pipeline : [ { $match : { $expr : { $and : [ { $eq : [ \"$$orders_restaurant_name\" , \"$name\" ] } , { $in : [ \"$$orders_drink\" , \"$beverages\" ] } ] } } } ] , as : \"matches\" } } ] )",
+            "SELECT * , matches FROM orders WHERE matches IN ( SELECT * FROM restaurants WHERE restaurants.name = orders.restaurant_name AND restaurants.beverages = orders.drink );"
+          ]
+        },
+        {
+          "subsection_id": "namespaces-in-subpipelines",
+          "heading": "Namespaces in Subpipelines",
+          "heading_level": 3,
+          "content": "Starting in MongoDB 8.0, namespaces in subpipelines within $lookup and $unionWith are validated to ensure the correct use of from and coll fields:\n- For $lookup , omit the from field if you use a subpipeline with\na stage which doesn't require a specified collection. For example, a $documents stage.\n- Similarly, for $unionWith , omit the coll field.\nFor $lookup , omit the from field if you use a subpipeline with\na stage which doesn't require a specified collection. For example, a $documents stage.\nFor $lookup , omit the from field if you use a subpipeline with\na stage which doesn't require a specified collection. For example, a $documents stage.\nSimilarly, for $unionWith , omit the coll field.\nUnchanged behavior:\n- For a $lookup that starts with a stage for a collection, for\nexample a $match or $collStats subpipeline,\nyou must include the from field and specify the collection.\n- Similarly, for $unionWith , include the coll field and specify\nthe collection.\nFor a $lookup that starts with a stage for a collection, for\nexample a $match or $collStats subpipeline,\nyou must include the from field and specify the collection.\nFor a $lookup that starts with a stage for a collection, for\nexample a $match or $collStats subpipeline,\nyou must include the from field and specify the collection.\nSimilarly, for $unionWith , include the coll field and specify\nthe collection.\nSimilarly, for $unionWith , include the coll field and specify\nthe collection.\nThe following scenario shows an example.\nCreate a collection cakeFlavors :\nStarting in MongoDB 8.0, the following example returns an error because\nit contains an invalid from field:\nIn MongoDB versions before 8.0, the previous example runs.\nFor an example with a valid from field, see Perform a Single Equality Join with $lookup .\nThe C# examples on this page use the sample_mflix database\nfrom the Atlas sample datasets . To learn how to create a\nfree MongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB .NET/C#\nDriver documentation.\nThe following Movie class models the documents in the sample_mflix.movies collection:",
+          "code_blocks": [
+            "db. cakeFlavors . insertMany ( [ { _id : 1 , flavor : \"chocolate\" } , { _id : 2 , flavor : \"strawberry\" } , { _id : 3 , flavor : \"cherry\" } ] )",
+            "db. cakeFlavors . aggregate ( [ { $lookup : { from : \"cakeFlavors\" , pipeline : [ { $documents : [ { } ] } ] , as : \"test\" } } ] )",
+            "public class Movie { public ObjectId Id { get ; set ; } public int Runtime { get ; set ; } public string Title { get ; set ; } public string Rated { get ; set ; } public List< string > Genres { get ; set ; } public string Plot { get ; set ; } public ImdbData Imdb { get ; set ; } public int Year { get ; set ; } public int Index { get ; set ; } public string [] Comments { get ; set ; } [ BsonElement( \"lastupdated\" ) ] public DateTime LastUpdated { get ; set ; } }"
+          ]
+        }
+      ]
+    },
+    {
+      "section_id": "note",
+      "heading": "Note",
+      "heading_level": 2,
+      "content": "",
+      "code_blocks": [],
+      "subsections": [
+        {
+          "subsection_id": "conventionpack-for-pascal-case",
+          "heading": "ConventionPack for Pascal Case",
+          "heading_level": 3,
+          "content": "The C# classes on this page use Pascal case for their property names, but the\nfield names in the MongoDB collection use camel case. To account for this difference,\nyou can use the following code to register a ConventionPack when your\napplication starts:\nThe following Comment class models the documents in the sample_mflix.comments collection:\nTo use the MongoDB .NET/C# driver to add a $lookup stage to an aggregation\npipeline, call the Lookup() method on a PipelineDefinition object.\nThe following example creates a pipeline stage that performs a left outer join between the movies and comments collections.\nThe code joins the Id field from each Movie document to the MovieId field in the Comment documents. The comments for each movie are stored in a field\nnamed Comments in each Movie document.\nThe Node.js examples on this page use the sample_mflix database from the Atlas sample datasets . To learn how to create a free\nMongoDB Atlas cluster and load the sample datasets, see Get Started in the MongoDB Node.js driver documentation.\nTo use the MongoDB Node.js driver to add a $lookup stage to an aggregation\npipeline, use the $lookup operator in a pipeline object.\nThe following example creates a pipeline stage that performs a left outer join between the movies and comments collections. The code joins the _id field from each movie document to the movie_id field in the comment documents. The comments field stores the comments for each movie in each movie document . The\nexample then runs the aggregation pipeline:\n$listSessions\n$match\nMaster \" Relational to Document Model \" for free!\n- Definition\n- Compatibility\n- Syntax\n- Equality Match with a Single Join Condition\n- Join Conditions and Subqueries on a Foreign Collection\n- Correlated Subqueries Using Concise Syntax\n- Behavior\n- Encrypted Collections\n- Views and Collation\n- Restrictions\n- MongoDB Search Support\n- Sharded Collections\n- Slot-Based Query Execution Engine\n- Performance Considerations\n- Examples\nEquality Match with a Single Join Condition\nJoin Conditions and Subqueries on a Foreign Collection\nCorrelated Subqueries Using Concise Syntax\nBehavior\nEncrypted Collections\nViews and Collation\nRestrictions\nMongoDB Search Support\nSharded Collections\nSlot-Based Query Execution Engine\nPerformance Considerations\n- Definition\n- Compatibility\n- Syntax\n- Equality Match with a Single Join Condition\n- Join Conditions and Subqueries on a Foreign Collection\n- Correlated Subqueries Using Concise Syntax\n- Behavior\n- Encrypted Collections\n- Views and Collation\n- Restrictions\n- MongoDB Search Support\n- Sharded Collections\n- Slot-Based Query Execution Engine\n- Performance Considerations\n- Examples\nEquality Match with a Single Join Condition\nJoin Conditions and Subqueries on a Foreign Collection\nCorrelated Subqueries Using Concise Syntax\nBehavior\nEncrypted Collections\nViews and Collation\nRestrictions\nMongoDB Search Support\nSharded Collections\nSlot-Based Query Execution Engine\nPerformance Considerations",
+          "code_blocks": [
+            "var camelCaseConvention = new ConventionPack { new CamelCaseElementNameConvention() }; ConventionRegistry.Register( \"CamelCase\" , camelCaseConvention, type => true );",
+            "public class Comment { public Guid Id { get ; set ; } [ BsonElement( \"movie_id\" ) ] public Guid MovieId { get ; set ; } public string Text { get ; set ; } }",
+            "var commentCollection = client .GetDatabase( \"aggregation_examples\" ) .GetCollection<Comment>( \"comments\" ); var pipeline = new EmptyPipelineDefinition<Movie>() .Lookup<Movie, Movie, Comment, Movie>( foreignCollection: commentCollection, localField: m => m.Id, foreignField: c => c.MovieId, @as : m => m.Comments);",
+            "const pipeline = [ { $lookup : { from : \"comments\" , localField : \"_id\" , foreignField : \"movie_id\" , as : \"comments\" } } ] ; const cursor = collection. aggregate ( pipeline) ; return cursor ;"
+          ]
+        }
+      ]
+    }
+  ],
+  "fetched_at": "2025-12-09T03:46:26.163259",
+  "exam_code": "associate_developer_python",
+  "domain_id": 2,
+  "domain_name": "CRUD",
+  "seed_id": "agg-lookup",
+  "source_type": "manual",
+  "file_stub": "d2_agg-lookup"
+}

@@ -1,0 +1,7 @@
+[paths]
+        raw_data_dir = "data/raw"
+        processed_data_dir = "data/processed"
+        catalog_dir = "data/catalog"
+
+        [scraper]
+        user_agent = "MongoCoachScraper/0.1"
