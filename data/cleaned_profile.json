@@ -1,0 +1,11 @@
+{
+    "summary": {
+        "total_files": 5,
+        "total_lines": 2346,
+        "total_empty_lines": 704,
+        "empty_line_ratio": 30.01,
+        "code_blocks_detected": 83,
+        "files_with_tables": 1
+    },
+    "anomalies": []
+}

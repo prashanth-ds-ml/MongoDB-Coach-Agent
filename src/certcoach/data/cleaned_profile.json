@@ -1,0 +1,100 @@
+{
+    "summary": {
+        "total_files": 35,
+        "total_lines": 14812,
+        "total_empty_lines": 5177,
+        "empty_line_ratio": 34.95,
+        "code_blocks_detected": 0,
+        "files_with_tables": 3
+    },
+    "anomalies": [
+        {
+            "file": "docs_languages_python_pymongo-driver_current.md",
+            "issue": "High empty line ratio: 53/106"
+        },
+        {
+            "file": "docs_manual_core_aggregation-pipeline.md",
+            "issue": "High empty line ratio: 71/149"
+        },
+        {
+            "file": "docs_manual_core_data-modeling-introduction.md",
+            "issue": "High empty line ratio: 50/103"
+        },
+        {
+            "file": "docs_manual_core_databases-and-collections.md",
+            "issue": "High empty line ratio: 164/330"
+        },
+        {
+            "file": "docs_manual_core_document.md",
+            "issue": "High empty line ratio: 144/318"
+        },
+        {
+            "file": "docs_manual_core_index-compound.md",
+            "issue": "High empty line ratio: 73/155"
+        },
+        {
+            "file": "docs_manual_core_index-multikey.md",
+            "issue": "High empty line ratio: 96/201"
+        },
+        {
+            "file": "docs_manual_core_index-single.md",
+            "issue": "High empty line ratio: 39/78"
+        },
+        {
+            "file": "docs_manual_core_index-unique.md",
+            "issue": "High empty line ratio: 118/239"
+        },
+        {
+            "file": "docs_manual_crud.md",
+            "issue": "High empty line ratio: 59/118"
+        },
+        {
+            "file": "docs_manual_indexes.md",
+            "issue": "High empty line ratio: 53/110"
+        },
+        {
+            "file": "docs_manual_introduction.md",
+            "issue": "High empty line ratio: 56/122"
+        },
+        {
+            "file": "docs_manual_reference_bson-types.md",
+            "issue": "High empty line ratio: 136/321"
+        },
+        {
+            "file": "docs_manual_reference_method_cursorlimit.md",
+            "issue": "High empty line ratio: 60/120"
+        },
+        {
+            "file": "docs_manual_reference_method_cursorskip.md",
+            "issue": "High empty line ratio: 81/199"
+        },
+        {
+            "file": "docs_manual_reference_method_cursorsort.md",
+            "issue": "High empty line ratio: 173/393"
+        },
+        {
+            "file": "docs_manual_reference_operator_query-array.md",
+            "issue": "High empty line ratio: 29/62"
+        },
+        {
+            "file": "docs_manual_reference_operator_query-comparison.md",
+            "issue": "High empty line ratio: 27/63"
+        },
+        {
+            "file": "docs_manual_reference_operator_query-element.md",
+            "issue": "High empty line ratio: 26/55"
+        },
+        {
+            "file": "docs_manual_reference_operator_query-logical.md",
+            "issue": "High empty line ratio: 26/57"
+        },
+        {
+            "file": "docs_manual_tutorial_project-fields-from-query-results.md",
+            "issue": "High empty line ratio: 38/76"
+        },
+        {
+            "file": "docs_manual_tutorial_remove-documents.md",
+            "issue": "High empty line ratio: 34/68"
+        }
+    ]
+}

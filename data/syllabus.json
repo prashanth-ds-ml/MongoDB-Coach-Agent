@@ -1,0 +1,122 @@
+[
+    {
+        "id": 1,
+        "topic": "MongoDB Overview & The Document Model",
+        "subtopics": ["BSON Data Types", "Document structure", "Collections vs Tables"],
+        "question_keywords": ["bson", "document", "collection", "field", "objectid", "schema", "flexible"],
+        "md_files": [],
+        "exam_weight": "Low",
+        "in_question_bank": true,
+        "bank_topic_keys": ["BSON Data Types", "General"]
+    },
+    {
+        "id": 2,
+        "topic": "CRUD Operations - Create",
+        "subtopics": ["insertOne()", "insertMany()", "_id and ObjectId"],
+        "question_keywords": ["insertone", "insertmany", "insert", "_id", "objectid", "acknowledged", "insertedid"],
+        "md_files": ["CRUD_Create_L1_01.md", "CRUD_Create_L1_02.md"],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["CRUD Operations"]
+    },
+    {
+        "id": 3,
+        "topic": "CRUD Operations - Read",
+        "subtopics": ["find()", "findOne()", "Projections", "Cursors", "sort/limit/skip"],
+        "question_keywords": ["find", "findone", "projection", "cursor", "sort", "limit", "skip", "countdocuments"],
+        "md_files": ["CRUD_Read_L2_01.md"],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["CRUD Operations", "Finding Documents in a MongoDB Collection"]
+    },
+    {
+        "id": 4,
+        "topic": "CRUD Operations - Update",
+        "subtopics": ["updateOne()", "updateMany()", "$set", "$push", "$inc", "upsert", "replaceOne()"],
+        "question_keywords": ["updateone", "updatemany", "$set", "$push", "$inc", "$unset", "upsert", "replaceone", "modifiedcount"],
+        "md_files": [],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["CRUD Operations"]
+    },
+    {
+        "id": 5,
+        "topic": "CRUD Operations - Delete",
+        "subtopics": ["deleteOne()", "deleteMany()"],
+        "question_keywords": ["deleteone", "deletemany", "delete", "deletedcount", "remove"],
+        "md_files": [],
+        "exam_weight": "Medium",
+        "in_question_bank": true,
+        "bank_topic_keys": ["CRUD Operations"]
+    },
+    {
+        "id": 6,
+        "topic": "Query Operators & MQL",
+        "subtopics": ["Comparison ($eq, $gt, $lt, $in, $nin)", "Logical ($and, $or, $not, $nor)", "Element ($exists, $type)"],
+        "question_keywords": ["$eq", "$gt", "$gte", "$lt", "$lte", "$in", "$nin", "$ne", "$and", "$or", "$not", "$nor", "$exists", "$type", "comparison", "operator"],
+        "md_files": ["Query_Operators_L3_01.md", "Query_Operators_L2_02.md", "Query_Operators_L5_01.md"],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["Finding Documents by Using Comparison Operators", "Finding Documents in a MongoDB Collection"]
+    },
+    {
+        "id": 7,
+        "topic": "Querying Arrays & Embedded Documents",
+        "subtopics": ["$elemMatch", "dot notation", "Array size queries"],
+        "question_keywords": ["$elemmatch", "array", "dot notation", "embedded", "nested", "$size", "$all"],
+        "md_files": ["Query_Arrays_L4_01.md", "Query_Arrays_L4_02.md"],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["Querying on Array Elements in MongoDB"]
+    },
+    {
+        "id": 8,
+        "topic": "Aggregation Framework",
+        "subtopics": ["$match", "$group", "$project", "$sort", "$limit", "$lookup", "$out", "$unwind", "$addFields"],
+        "question_keywords": ["$match", "$group", "$project", "$lookup", "$unwind", "$out", "$addfields", "pipeline", "aggregate", "aggregation"],
+        "md_files": [],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["Aggregation"]
+    },
+    {
+        "id": 9,
+        "topic": "Indexes & Performance",
+        "subtopics": ["Single field indexes", "Compound indexes", "Multikey indexes", "explain()", "Covered queries"],
+        "question_keywords": ["index", "createindex", "compound", "multikey", "explain", "covered", "collscan", "ixscan", "hint"],
+        "md_files": [],
+        "exam_weight": "High",
+        "in_question_bank": true,
+        "bank_topic_keys": ["Indexes"]
+    },
+    {
+        "id": 10,
+        "topic": "Data Modeling",
+        "subtopics": ["Embedding vs Referencing", "Schema design patterns", "Anti-patterns", "One-to-Many relationships"],
+        "question_keywords": ["embedding", "referencing", "schema", "one-to-many", "anti-pattern", "denormalized", "normalized", "bucket", "outlier"],
+        "md_files": [],
+        "exam_weight": "Medium",
+        "in_question_bank": true,
+        "bank_topic_keys": ["Schema Design"]
+    },
+    {
+        "id": 11,
+        "topic": "MongoDB Drivers & PyMongo",
+        "subtopics": ["Connection strings", "MongoClient", "CRUD with PyMongo", "Error handling"],
+        "question_keywords": ["pymongo", "mongoclient", "connection", "driver", "insert_one", "find_one", "update_one", "delete_one"],
+        "md_files": [],
+        "exam_weight": "Medium",
+        "in_question_bank": true,
+        "bank_topic_keys": ["PyMongo Basics", "MongoDB Driver Methods", "Connection Management"]
+    },
+    {
+        "id": 12,
+        "topic": "MongoDB Atlas & Operations",
+        "subtopics": ["Atlas Clusters", "Atlas Search", "Data Explorer", "Monitoring basics"],
+        "question_keywords": ["atlas", "cluster", "search", "data explorer", "monitoring", "cloud", "deployment"],
+        "md_files": [],
+        "exam_weight": "Low",
+        "in_question_bank": true,
+        "bank_topic_keys": ["MongoDB Atlas", "Atlas Search"]
+    }
+]

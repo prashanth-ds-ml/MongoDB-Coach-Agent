@@ -1,0 +1,3 @@
+[console_scripts]
+ag = antigravity_cli.cli:main
+certcoach = certcoach.cli:main_menu

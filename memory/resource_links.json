@@ -1,0 +1,42 @@
+{
+  "project_name": "CertCoach_MongoDB_Module",
+  "description": "Centralized resource index mapping official exam topics, necessary study paths, and primary technical concepts for content generation.",
+  "source_documents": [
+    {
+      "name": "MongoDB_Exam_Blueprint.md",
+      "description": "The comprehensive, structured curriculum derived from the exam syllabus, detailing 9 core domains.",
+      "links": {
+        "official_guide": "https://learn.mongodb.com/learn/course/mongodb-associate-developer-exam-study-guide/main/associate-dba-exam-study-guide",
+        "core_manual_paths": [
+          "/docs/manual/introduction/",
+          "/docs/manual/core/document",
+          "/docs/manual/reference/bson-types/",
+          "/docs/manual/core/databases-and-collections/",
+          "/docs/manual/core/data-modeling-introduction/"
+        ]
+      }
+    },
+    {
+      "name": "PDF_Summary_Concept_Map",
+      "description": "High-level conceptual map covering the 5 core modules: Ingestion, Intelligence, Interaction, Tracking, Output.",
+      "derived_from": "WebFetch analysis of the study guide."
+    }
+  ],
+  "exam_weighting_guide": {
+    "high_priority": [
+      "CRUD Operations",
+      "Indexing",
+      "Aggregation Framework",
+      "Data Modeling",
+      "PyMongo usage"
+    ],
+    "moderate_priority": [
+      "Transactions",
+      "Querying Arrays and Embedded Documents"
+    ]
+  },
+  "schema_notes": {
+    "database": "Vector database recommended (e.g., ChromaDB).",
+    "metadata": "Every chunk *must* contain: {source_file, page_num, chunk_id} for citation tracking."
+  }
+}

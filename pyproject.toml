@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "certcoach"
+version = "0.1.0"
+description = "CertCoach CLI: AI Tutor for MongoDB Certification"
+dependencies = [
+    "pyyaml>=6.0",
+    "pymongo>=4.0.0",
+    "rich>=13.0.0",
+    "langchain-ollama>=0.1.0",
+    "python-dotenv>=1.0.0",
+    "duckduckgo-search>=6.0.0"
+]
+
+[project.scripts]
+certcoach = "certcoach.cli:main_menu"
+ag = "antigravity_cli.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+certcoach = ["data/*", "data/raw_markdowns/*"]

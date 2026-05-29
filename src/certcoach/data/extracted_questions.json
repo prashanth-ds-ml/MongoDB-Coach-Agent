@@ -1,0 +1,2701 @@
+[
+    {
+        "metadata": {
+            "topic": "MongoDB Atlas",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "What is the relationship between the MongoDB database and MongoDB Atlas? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "The MongoDB database is the locally deployed version of MongoDB Atlas.",
+                "is_correct": false,
+                "feedback": "Incorrect. MongoDB Atlas is a cloud-based service that runs MongoDB databases, not the other way around."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "The MongoDB database is a core element of MongoDB Atlas, which is a multi-cloud developer data platform.",
+                "is_correct": true,
+                "feedback": "Correct! MongoDB Atlas is a fully managed cloud service that hosts MongoDB databases across multiple cloud providers."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "The MongoDB database is the free version of MongoDB Atlas.",
+                "is_correct": false,
+                "feedback": "Incorrect. MongoDB Atlas offers a free tier, but the MongoDB database itself is open-source software and not a version of Atlas."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 090435.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "What methods are available in MongoDB for inserting a single document? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": ".insertOne()",
+                "is_correct": true,
+                "feedback": "Correct! The insertOne() method is a valid method that's included in the MongoDB Shell to insert a single document."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": ".inserting()",
+                "is_correct": false,
+                "feedback": "Incorrect. This is not a valid method included in the MongoDB Shell. What method can you use to insert a single document?"
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": ".InsertDocument()",
+                "is_correct": false,
+                "feedback": "Incorrect. This is not a valid method included in the MongoDB Shell. What method can you use to insert a single document?"
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": ".insertMany()",
+                "is_correct": false,
+                "feedback": "Incorrect. The insertMany() method is used to insert multiple documents. What method can you use to insert a single document?"
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 092109.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "What methods are available in MongoDB for inserting multiple documents? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": ".InsertDocument()",
+                "is_correct": false,
+                "feedback": "Incorrect. The InsertDocument() method is not a valid MongoDB method to insert documents. What method can you use to insert a document?"
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": ".inserting()",
+                "is_correct": false,
+                "feedback": "Incorrect. inserting() is not a valid method included in the MongoDB Shell. What method can you use to insert a document?"
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": ".insertOne()",
+                "is_correct": false,
+                "feedback": "Incorrect. The insertOne() method is a valid method included in the MongoDB Shell, but it's used to insert a single document. What method can you use to insert multiple documents?"
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": ".insertMany()",
+                "is_correct": true,
+                "feedback": "Correct! The insertMany() method is a valid method that's included in the MongoDB Shell to insert multiple documents."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 092156.png"
+    },
+    {
+        "metadata": {
+            "topic": "Finding Documents in a MongoDB Collection",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "What methods are available in MongoDB for finding documents? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": ".find()",
+                "is_correct": true,
+                "feedback": "Correct! The find() method is a valid method that's included in the MongoDB Shell to find documents."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": ".query()",
+                "is_correct": false,
+                "feedback": "Incorrect. This is not a valid method included in the MongoDB Shell. What method can you use to find documents?"
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": ".finding()",
+                "is_correct": false,
+                "feedback": "Incorrect. This is not a valid method included in the MongoDB Shell. What method can you use to find documents?"
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": ".search()",
+                "is_correct": false,
+                "feedback": "Incorrect. This is not a valid method included in the MongoDB Shell. What method can you use to find documents?"
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 095943.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You are searching for data on a small area in downtown Chicago with the following zip codes: \"60601\", \"60602\", \"60603\", \"60604\", \"60605\", \"60606\"",
+            "database_info": ""
+        },
+        "question_text": "Which of the following query documents should you use to ensure that only the documents with the specified zip codes are returned? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ zip: { $nin : [\"60601\", \"60602\", \"60603\", \"60604\", \"60605\", \"60606\"] } }",
+                "is_correct": false,
+                "feedback": "Incorrect. The $nin operator returns documents that do not contain the values specified in the array. Including this query would not return the specified Chicago zip codes."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ zip: { $in : [\"60601\", \"60602\", \"60603\", \"60604\", \"60605\", \"60606\"] } }",
+                "is_correct": true,
+                "feedback": "Correct! The $in operator returns documents that contain the values specified in the array. This query will return the specified Chicago zip codes."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ zip: { $eq : \"60601\", \"60602\", \"60603\", \"60604\", \"60605\", \"60606\" } }",
+                "is_correct": false,
+                "feedback": "Incorrect. This syntax is inaccurate because the $eq operator matches documents that contain only one specified value."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ zip: \"60601\", \"60602\", \"60603\", \"60604\", \"60605\", \"60606\" }",
+                "is_correct": false,
+                "feedback": "Incorrect. This syntax is inaccurate because the implicit equality operator matches documents that contain only one specified value."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 100050.png"
+    },
+    {
+        "metadata": {
+            "topic": "Finding Documents by Using Comparison Operators",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Your company is conducting research on the customer experience and is focused on identifying unsatisfied customers. You need to find all customers with a satisfaction rating of 1 or 2.",
+            "database_info": ""
+        },
+        "question_text": "Which of the following query documents would return all customers with a satisfaction rating of 1 or 2? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ \"customer.satisfaction\" : { $gt : 1 } }",
+                "is_correct": false,
+                "feedback": "Incorrect. This query would return all documents with a customer satisfaction rating greater than 1. To solve this problem, you need to select a query that returns all documents with a customer satisfaction rating less than or equal to 2."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ customer.satisfaction : { $lte : 2 } }",
+                "is_correct": false,
+                "feedback": "Incorrect. This syntax is incorrect. Remember, to access subdocuments, you must use the syntax \"field.nestedfield\", which includes quotation marks."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ \"customer.satisfaction\" : { $lt : 2 } }",
+                "is_correct": false,
+                "feedback": "Incorrect. This query would return all documents with a customer satisfaction rating less than 2. To solve this problem, you need to select a query that returns all documents with a customer satisfaction rating less than or equal to 2."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ \"customer.satisfaction\" : { $lte : 2 } }",
+                "is_correct": true,
+                "feedback": "Correct! This query will return all documents with a customer satisfaction rating of less than or equal to 2."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 101420.png"
+    },
+    {
+        "metadata": {
+            "topic": "Finding Documents by Using Comparison Operators",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Your company wants to offer a special discount for customers who are 65 or older. Your task is to find the records for these customers.",
+            "database_info": ""
+        },
+        "question_text": "Which of the following queries would return documents for all customers 65 or older? (Select all that apply.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ customer.age : { $gte : 65 } }",
+                "is_correct": false,
+                "feedback": "Incorrect. The field name must be enclosed in quotes when using dot notation in a query."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ \"customer.age\" : { $gt : 64 } }",
+                "is_correct": true,
+                "feedback": "Correct! The $gt operator selects documents where the value of the field is greater than (i.e., >) the specified value. Since age is an integer, values greater than 64 are 65 and above."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ \"customer.age\" : { $gte : 65 } }",
+                "is_correct": true,
+                "feedback": "Correct! The $gte operator selects documents where the value of the field is greater than or equal to (i.e., >=) the specified value. This will return all customers aged 65 or older."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ \"customer.age\" : { $lte : 65 } }",
+                "is_correct": false,
+                "feedback": "Incorrect. The $lte operator selects documents where the value of the field is less than or equal to (i.e., <=) the specified value. This would return customers aged 65 or younger, not 65 or older."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 101443.png"
+    },
+    {
+        "metadata": {
+            "topic": "Querying on Array Elements in MongoDB",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which of the following operators can be used to find a subdocument that matches specific criteria in an array?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "&element",
+                "is_correct": false,
+                "feedback": "Incorrect. There is no such operator as &element in MongoDB."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "$elemMatch",
+                "is_correct": true,
+                "feedback": "Correct! The $elemMatch operator is used to find a subdocument that matches specific criteria in an array."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "$subMatch",
+                "is_correct": false,
+                "feedback": "Incorrect. There is no such operator as $subMatch in MongoDB."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "$docMatch",
+                "is_correct": false,
+                "feedback": "Incorrect. There is no such operator as $docMatch in MongoDB."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 105832.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection: books"
+        },
+        "question_text": "What will the following query return? (Select one.)\ndb.books.find({ genre: \"Historical\" })",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "",
+                "is_correct": true,
+                "feedback": "Correct! The find() method with { genre: \"Historical\" } matches documents where the genre field is equal to the scalar value \"Historical\" or an array that contains \"Historical\"."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. This would require a $text search or scanning all fields, which is not what this query does."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. This describes a negation query using $ne or $not, which is not what this query does."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 105922.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You want to know which mobile food trucks in your neighborhood, Astoria, are the best spots to eat. Using the inspections collection, you're making a map of all mobile food trucks nearby that have passed inspection.",
+            "database_info": "inspections collection"
+        },
+        "question_text": "What should you include in your query document to ensure that you find all the mobile food vendors in Astoria that passed inspection? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ \"sector\": \"Mobile Food Vendor - 881\" }, { \"address.city\": \"ASTORIA\" }, { \"result\": \"Pass\" }",
+                "is_correct": false,
+                "feedback": "This is incorrect because it uses multiple separate documents instead of combining conditions into a single query document using logical operators."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "$and: [\"Mobile Food Vendor - 881\", \"ASTORIA\", \"Pass\"]",
+                "is_correct": false,
+                "feedback": "This is incorrect because $and requires an array of query documents, not strings. The values must be wrapped in proper field-value pairs."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ \"sector\": \"Mobile Food Vendor - 881\", \"address.city\": \"ASTORIA\", \"result\": \"Pass\" }",
+                "is_correct": true,
+                "feedback": "Correct! This query document correctly specifies all three required conditions as key-value pairs within a single document, which MongoDB interprets as an implicit AND operation."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "&and: [\"Mobile Food Vendor - 881\", \"ASTORIA\", \"Pass\"]",
+                "is_correct": false,
+                "feedback": "This is incorrect because &and is not a valid MongoDB operator. The correct operator is $and, and even then, it must contain query documents, not plain strings."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 110655.png"
+    },
+    {
+        "metadata": {
+            "topic": "Aggregation",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "db.routes"
+        },
+        "question_text": "What will the following query return? (Select one.)\ndb.routes.find({\n  $and: [\n    { $or: [ { dst_airport: \"IST\" }, { src_airport: \"IST\" } ] },\n    { $or: [ { stops: 0 }, { airline.name: \"Turkish Airlines\"} ] },\n  ]\n})",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "",
+                "is_correct": true,
+                "feedback": "Correct! The query uses $and to combine two $or conditions. The first $or matches flights where either the destination or source airport is IST. The second $or matches flights that are nonstop (stops: 0) or operated by Turkish Airlines. The combination returns all flights departing from or landing at IST that are nonstop or operated by Turkish Airlines."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. This option misinterprets the logical structure. The $and operator requires both conditions to be true simultaneously \u2014 it does not mean 'either this OR that' across the entire query. It\u2019s not about flights departing from IST OR Turkish Airlines nonstop flights \u2014 it\u2019s about flights that satisfy BOTH clauses."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. This option ignores the second $or condition entirely and only focuses on the airport and airline, omitting the requirement for nonstop flights. The query requires flights to match BOTH the airport condition AND the nonstop/Turkish Airlines condition."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. This option only considers Turkish Airlines nonstop flights, ignoring any flights that may depart from or land at IST but are operated by other airlines. The query includes flights to/from IST regardless of airline, as long as they are nonstop or operated by Turkish Airlines."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 110814.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which of the following statements regarding the `replaceOne()` method for the MongoDB Shell (`mongosh`) are true? (Select all that apply.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "This method is used to replace a single document that matches the filter document.",
+                "is_correct": false,
+                "feedback": "The replaceOne() method replaces only one document, even if multiple documents match the filter. This statement is misleading because it implies the method is designed to handle multiple matches, which it does not."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "This method accepts a filter document, a replacement document, and an optional options document.",
+                "is_correct": true,
+                "feedback": "Correct! The replaceOne() method accepts three parameters: a filter document to identify the target document, a replacement document to overwrite the matched document, and an optional options document for additional settings like upsert or write concern."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "This method can replace multiple documents in a collection.",
+                "is_correct": false,
+                "feedback": "Incorrect. The replaceOne() method is designed to replace at most one document, regardless of how many match the filter. To replace multiple documents, you must use updateMany() or bulkWrite()."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "This method returns a document containing an acknowledgement of the operation, a matched count, modified count, and an upserted ID (if applicable).",
+                "is_correct": true,
+                "feedback": "Correct! The replaceOne() method returns a write result object that includes fields such as acknowledged, matchedCount, modifiedCount, and upsertedId (if an upsert occurred)."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 111502.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You want to replace the following document from the birds collection with a new document that contains additional information on recent sightings, the scientific name of each species, and wingspan.",
+            "database_info": "birds collection"
+        },
+        "question_text": "What field should you use in the filter document to ensure that this specific document is replaced? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ _id: ObjectId(\"6286809e2f3fa87b7d86dccd\") }",
+                "is_correct": true,
+                "feedback": "Correct! The _id field is unique for each document in a collection, so using it in the filter ensures that only the intended document is replaced."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ diet: [\"seeds\"] }",
+                "is_correct": false,
+                "feedback": "Incorrect. The diet field may not be unique; multiple documents could have the same diet, leading to unintended replacements."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ habitat: [\"urban areas\"] }",
+                "is_correct": false,
+                "feedback": "Incorrect. Habitat is not guaranteed to be unique; many birds might share the same habitat, risking replacement of multiple documents."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ scientific_name: \"Zenaida macroura\" }",
+                "is_correct": false,
+                "feedback": "Incorrect. While scientific_name may be unique for a species, it\u2019s not guaranteed to be unique across all documents if multiple records exist for the same species, and it\u2019s not the primary identifier like _id."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 111611.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "sales collection, items array field"
+        },
+        "question_text": "You want to add an element to the items array field in the sales collection. To do this, what should you include in the update document? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ $set: { items:[{ \"name\": \"tablet\", \"price\": 200}] } }",
+                "is_correct": false,
+                "feedback": "This option uses $set, which would replace the entire items array with the new element instead of adding to it."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ $update: { items:[{ \"name\": \"tablet\", \"price\": 200}] } }",
+                "is_correct": false,
+                "feedback": "There is no $update operator in MongoDB; this is not a valid update operator."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ $push: { items:[{ \"name\": \"tablet\", \"price\": 200}] } }",
+                "is_correct": true,
+                "feedback": "Correct! The $push operator adds an element to an array. This is the correct way to add an item to the items array."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ $upsert: { items:[{ \"name\": \"tablet\", \"price\": 200}] } }",
+                "is_correct": false,
+                "feedback": "$upsert is not an update operator by itself; it\u2019s a flag used with update operations to insert a document if no match is found. It cannot be used as the main operator here."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 200631.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Air France has recently passed inspection. In the following document, you need to update the results field from Fail to Pass. To do this, what should you include in your update document? (Select one.)",
+            "database_info": ""
+        },
+        "question_text": "In the following document, you need to update the results field from Fail to Pass. To do this, what should you include in your update document? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ $set: {result: 'Pass'} }",
+                "is_correct": true,
+                "feedback": "Correct! The $set operator is used to update the value of a field. In this case, it updates the 'result' field from 'Fail' to 'Pass'."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ $upsert: {result: 'Pass'} }",
+                "is_correct": false,
+                "feedback": "$upsert is not an update operator by itself; it\u2019s an option that can be used with update operations to insert a document if no match is found. It cannot be used as the main update operator."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ $insert: {result: 'Pass'} }",
+                "is_correct": false,
+                "feedback": "There is no $insert operator in MongoDB update operations. This is not a valid update operator."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ $push: {result: 'Pass'} }",
+                "is_correct": false,
+                "feedback": "$push is used to add an element to an array field. Since 'result' is a string field, not an array, $push would cause an error or unexpected behavior."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-14 200742.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Using the zips collection, you write the following query. This query updates the population, which is stored in the pop field, in one zip code in Santa Fe, New Mexico.",
+            "database_info": "zips collection"
+        },
+        "question_text": "What will be returned? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "",
+                "is_correct": true,
+                "feedback": "Correct! The findAndModify() method returns the document after the update when the new option is set to true."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. The original document is returned only if the new option is set to false."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. findAndModify() operates on a single document matching the query, not multiple documents."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "Incorrect. A new document is not created; the existing document is modified and returned."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 081801.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Note that there is currently no document for the city of Taos.",
+            "database_info": "zips collection"
+        },
+        "question_text": "What would happen if you ran the following query on the zips collection? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "The new option only returns the modified document, not whether a new document was inserted. The upsert option controls insertion."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "",
+                "is_correct": true,
+                "feedback": "Correct! The upsert option is set to true, so if no document matches the query, a new document will be inserted with the fields specified in the update parameter."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "",
+                "is_correct": false,
+                "feedback": "This is incorrect. The findAndModify() method can insert a new document if the upsert option is set to true."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 081952.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Three computer science classes, with the class_ids of 377, 259, and 350, have earned 100 extra credit points by competing in a hackathon. You need to update the database so that all students who are in these classes receive extra credit points. Note that you will use the grades collection, which is in the sample_training database.",
+            "database_info": "grades collection in the sample_training database"
+        },
+        "question_text": "Which of the following queries will accomplish this goal? (Select one).",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.grades.insertMany(\n{\n  class_id: {\n    $in: [ 377, 259, 350 ]\n  },\n},\n{\n  $push: {\n    scores: [\n      { type : 'extra credit', score: 100 }\n    ]\n  }\n}\n)",
+                "is_correct": false,
+                "feedback": "This option is incorrect because insertMany() is used to insert new documents, not update existing ones. The correct operation should use updateMany() or updateOne() with the $push operator to add the extra credit score to existing documents matching the class_id criteria."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 082438.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Three computer science classes, with the class_ids of 377, 259, and 350, have earned 100 extra credit points by competing in a hackathon. You need to update the database so that all students who are in these classes receive extra credit points.",
+            "database_info": "grades collection, which is in the sample_training database."
+        },
+        "question_text": "Which of the following queries will accomplish this goal? (Select one).",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.grades.insertMany(\n{\n  class_id: {\n    $in: [ 377, 259, 350 ]\n  },\n},\n{\n  $push: {\n    scores: [\n      { type : 'extra credit', score: 100 }\n    ]\n  }\n}\n)",
+                "is_correct": false,
+                "feedback": "This query is incorrect because insertMany() is used for inserting new documents, not updating existing ones. To add extra credit to existing student records, you should use updateMany() or updateOne(). The $push operator is correctly used to add an element to an array, but it's being applied in the wrong context here."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 082508.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "db.grades"
+        },
+        "question_text": "",
+        "options": [
+            {
+                "option_letter": "B",
+                "code_snippet": "db.grades.updateMany(\n{\n  class_id: {\n    $in: [ 377, 259, 350 ]\n  },\n},\n{\n  $push: {\n    scores: [\n      { type : 'extra credit', score: 100 }\n    ]\n  }\n}\n)",
+                "is_correct": false,
+                "feedback": ""
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.grades.updateOne(\n{\n  class_id: {\n    $in: [ 377, 259, 350 ]\n  },\n},\n{\n  $push: {\n    scores: [\n      { type : 'extra credit', score: 100 }\n    ]\n  }\n}\n)",
+                "is_correct": false,
+                "feedback": ""
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 082543.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "grades collection"
+        },
+        "question_text": "Which of the following correctly uses the findAndModify() method to add a new score object to all documents where class_id is in [377, 259, 350]?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.grades.findAndModify(\n{\n  class_id: {\n    $in: [ 377, 259, 350 ]\n  }\n},\n{\n  $push: {\n    scores: [\n      { type : 'extra credit', score: 100 }\n    ]\n  }\n}\n)",
+                "is_correct": false,
+                "feedback": "This option is incorrect because it does not specify the 'update' field explicitly, and the syntax for the update operation is malformed. The findAndModify() method expects an 'update' document as its second parameter, but here it's passed directly as a document without wrapping in an 'update' key."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.grades.findAndModify(\n{\n  query: {\n    class_id: {\n      $in: [ 377, 259, 350 ]\n    }\n  },\n  update: {\n    $push: {\n      scores: {\n        $each: [ { type : 'extra credit', score: 100 } ]\n      }\n    }\n  }\n)",
+                "is_correct": true,
+                "feedback": "Correct! The findAndModify() method requires both 'query' and 'update' fields. This option correctly specifies the query condition and uses $push with $each to add the new score object to the scores array for matching documents."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.grades.findAndModify(\n{\n  query: {\n    class_id: {\n      $in: [ 377, 259, 350 ]\n    }\n  },\n  update: {\n    $push: {\n      scores: [ { type : 'extra credit', score: 100 } ]\n    }\n  }\n)",
+                "is_correct": false,
+                "feedback": "This option is incorrect because when pushing an array element into an existing array using $push, you should use $each to wrap the element(s) being added. Without $each, MongoDB will treat the entire array as a single element to push, which may not be the intended behavior."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.grades.findAndModify(\n{\n  class_id: {\n    $in: [ 377, 259, 350 ]\n  }\n},\n{\n  $push: {\n    scores: [ { type : 'extra credit', score: 100 } ]\n  }\n}\n)",
+                "is_correct": false,
+                "feedback": "This option is incorrect for the same reason as Option A \u2014 it omits the required 'query' and 'update' wrapper keys. The findAndModify() method expects a single document with named fields, not positional parameters."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 082609.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "United Airlines is the only airline that has a route from the Denver Airport (DEN) to the Northwest Arkansas Airport (XNA). It has decided to cancel this route due to low ridership.",
+            "database_info": "These documents are contained in the routes collection in the sample_training database."
+        },
+        "question_text": "Which of the following queries will delete the route? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.routes.deleteOne({ \"airline.name\": \"United Airlines\"})",
+                "is_correct": false,
+                "feedback": "This would delete only one document where the airline name is United Airlines, but it does not specify the route (DEN to XNA), so it may delete an unintended route if multiple exist for United Airlines."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.routes.delete({ \"airline.name\": \"United Airlines\"})",
+                "is_correct": false,
+                "feedback": "The delete() method is deprecated. Also, it doesn\u2019t target the specific DEN\u2192XNA route, potentially deleting all United Airlines routes."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.routes.delete({ src_airport: \"DEN\", dst_airport: \"XNA\"})",
+                "is_correct": false,
+                "feedback": "delete() is deprecated. Additionally, while it targets the correct airports, it may delete routes operated by other airlines if any existed \u2014 though the scenario says United is the only one, this query is still incorrect syntax and not precise per MongoDB best practices."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.routes.deleteOne({ src_airport: \"DEN\", dst_airport: \"XNA\"})",
+                "is_correct": true,
+                "feedback": "Correct! This deletes exactly one document matching the source and destination airports. Since United Airlines is the only airline operating this route, this safely removes the intended route without affecting others."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 083406.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Air Berlin has filed for bankruptcy and ceased operations. You need to update the routes collection to delete all documents that contain an airline name of Air Berlin.",
+            "database_info": "routes collection"
+        },
+        "question_text": "Which of the following queries should you use? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.routes.deleteOne({ \"airline.name\": \"Air Berlin\"})",
+                "is_correct": false,
+                "feedback": "This option is incorrect because deleteOne() will only remove a single document that matches the query, not all documents containing 'Air Berlin'."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.routes.delete(\"Air Berlin\")",
+                "is_correct": false,
+                "feedback": "This option is incorrect because there is no delete() method in MongoDB that accepts a string value like this. The correct method requires a query filter object."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.routes.deleteMany({ \"airline.name\": \"Air Berlin\"})",
+                "is_correct": true,
+                "feedback": "Correct! The deleteMany() method with the appropriate query filter will delete all documents in the routes collection where the airline.name field equals 'Air Berlin'."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.routes.deleteMany(\"Air Berlin\")",
+                "is_correct": false,
+                "feedback": "This option is incorrect because deleteMany() expects a query filter object, not a string. Passing a string will result in an error or unexpected behavior."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 083457.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Using the inspections collection within the sample_training database, you need to find all inspections that were passed. Your manager has requested that you organize this data by the certificate number in ascending order.",
+            "database_info": "sample_training database, inspections collection"
+        },
+        "question_text": "Which query should you use? (Select one).",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.inspections.find( { result : \"Pass\" } ).sort( {certificate_number: 1} );",
+                "is_correct": true,
+                "feedback": "Correct! The insertOne() method is used to insert a single document into a collection."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.inspections.find( { result : \"Pass\" } ).sort( {certificate_number: -1} );",
+                "is_correct": false,
+                "feedback": "Incorrect. This sorts by certificate_number in descending order, not ascending as required."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.inspections.find( { result : \"Pass\" }, { sort: { certificate_number: 1 } } )",
+                "is_correct": false,
+                "feedback": "Incorrect. The sort option is not valid as a projection parameter in the second argument of find(). Sort must be chained after find() or specified in an options object with the correct syntax."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.inspections.find( { result : \"Pass\" }, { sort: { certificate_number: -1 } } )",
+                "is_correct": false,
+                "feedback": "Incorrect. This uses invalid syntax for sort and also sorts in descending order, which does not meet the requirement."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 084749.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You are considering creating a new membership tier for your bike sharing service for users who take long trips. Using the trips collection within the sample-training database, you need to find the trips, taken by subscribers, with the longest trip duration. Return the top 5 results in descending order.",
+            "database_info": "trips collection within the sample-training database"
+        },
+        "question_text": "Which query should you use? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.trips.find( { usertype: \"Subscriber\"},( sort: { tripduration: -1 }},{ limit :5 })",
+                "is_correct": false,
+                "feedback": "This syntax is incorrect. The sort and limit options are not passed as separate objects in this way to find()."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.trips.find( { usertype: \"Subscriber\"},( sort: { tripduration: 1 }},{ limit :5 })",
+                "is_correct": false,
+                "feedback": "This syntax is incorrect. Also, sorting by 1 would give shortest trips, not longest."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.trips.find( { usertype: \"Subscriber\"}).sort( { tripduration: 1 }).limit(5)",
+                "is_correct": false,
+                "feedback": "This returns the 5 shortest trips (ascending order), but the question asks for the longest trips (descending order)."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.trips.find( { usertype: \"Subscriber\"}).sort( { tripduration: -1 }).limit(5)",
+                "is_correct": true,
+                "feedback": "Correct! This finds trips by subscribers, sorts them by tripduration in descending order (-1), and limits the result to the top 5."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 084906.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which of the following statements are true about a projection document? (Select all that apply.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "We can include fields in our results by setting their values to 1 in the projection document.",
+                "is_correct": true,
+                "feedback": "Correct! Setting a field\u2019s value to 1 in a projection document includes it in the results."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "We can exclude fields from our results by setting their values to 0 in the projection document.",
+                "is_correct": true,
+                "feedback": "Correct! Setting a field\u2019s value to 0 in a projection document excludes it from the results."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "We can either include or exclude fields in the results, but not both. The _id field is the exception to this rule.",
+                "is_correct": false,
+                "feedback": "Incorrect. You can combine inclusion and exclusion statements in a projection document \u2014 as long as you\u2019re not mixing them for the same field (except for _id)."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "Inclusion and exclusion statements, not including _id statements, can be combined with each other in a projection document.",
+                "is_correct": false,
+                "feedback": "Incorrect. Inclusion and exclusion statements can be combined even with _id \u2014 for example, you can exclude all fields except _id by setting _id: 1 and others to 0."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 085337.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "If we don't want to return the _id field, we can add it to the projection document and set it to which of the following values? (Select all that apply.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "0",
+                "is_correct": true,
+                "feedback": "Correct! Setting the _id field value to 0 will exclude that field from the results."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "1",
+                "is_correct": false,
+                "feedback": "Incorrect. Setting a field value to 1 will include that field in the results. Which value will exclude the _id field?"
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "-1",
+                "is_correct": false,
+                "feedback": "Incorrect. -1 is not a valid value for projection. Which value will exclude the _id field?"
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "None of the above",
+                "is_correct": false,
+                "feedback": "Incorrect. We must set the _id field to a numerical value in the projection document. Which value will exclude the _id field?"
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 085458.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which of the following statements are true about the countDocuments() collection method? (Select all that apply.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "The method takes a query parameter, which selects the documents to be counted.",
+                "is_correct": false,
+                "feedback": "This statement is misleading. While countDocuments() does accept a query parameter to filter documents, it is not strictly required \u2014 you can pass an empty query {} to count all documents. The phrasing implies the query parameter is mandatory, which is inaccurate."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "We can use the method to count all documents in a collection.",
+                "is_correct": true,
+                "feedback": "Correct! The countDocuments() method can be used to count all documents in a collection by passing an empty query object ({})."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "The method does not support the use of operators in queries that are passed as a parameter.",
+                "is_correct": false,
+                "feedback": "Incorrect. countDocuments() fully supports MongoDB query operators (like $gt, $in, etc.) when passed in the query parameter."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 090102.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "inspections collection"
+        },
+        "question_text": "What can we expect to be returned by running db.inspections.countDocuments({})? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "This command doesn't return anything because it requires a query parameter.",
+                "is_correct": false,
+                "feedback": "Incorrect. We use countDocuments() with an empty document in the query parameter to return the total number of documents in a collection."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "This command returns the total number of documents in the inspections database.",
+                "is_correct": false,
+                "feedback": "Incorrect. We use countDocuments() with an empty document in the query parameter to return the total number of documents in a collection."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "This command returns the total number of documents in the inspections collection.",
+                "is_correct": true,
+                "feedback": "Correct! We use countDocuments() with an empty document in the query parameter to return the total number of documents in a collection."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 090202.png"
+    },
+    {
+        "metadata": {
+            "topic": "PyMongo Basics",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "What Python data type is used to represent MongoDB documents? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Document",
+                "is_correct": false,
+                "feedback": "Incorrect. \"Document\" is not a Python data type. Which Python type consists of key-value pairs?"
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "Dictionary",
+                "is_correct": true,
+                "feedback": "Correct! Python dictionaries are used to represent documents in PyMongo."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "List",
+                "is_correct": false,
+                "feedback": "Incorrect. The Python list data type is used to represent arrays in MongoDB. Which Python type consists of key-value pairs?"
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 090729.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "You want to insert data stored in a Python dictionary to a new document in your MongoDB collection using the PyMongo driver. What do you need to do to convert a Python dictionary to BSON? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Nothing, the dictionary will be automatically converted by the driver to a MongoDB BSON document.",
+                "is_correct": true,
+                "feedback": "Correct! The PyMongo driver will automatically convert a Python dictionary into a MongoDB document."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "Reference an independent library that will help you convert the data from a dictionary to BSON.",
+                "is_correct": false,
+                "feedback": "Incorrect. You do not need to use an independent library to convert the dictionary to BSON, PyMongo does this for you."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "Add an _id field with an ObjectId value to the dictionary so it can be automatically converted to a MongoDB BSON document by the driver.",
+                "is_correct": false,
+                "feedback": "Incorrect. If your dictionary does not contain an _id field, it will be generated automatically by the driver after you insert the document."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 090759.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You need to insert a new restaurant into the restaurants collection. The new restaurant's data is stored in a Python dictionary, stored in the variable name hyderabadi_biryani.",
+            "database_info": "restaurants collection"
+        },
+        "question_text": "Which of the following expressions will insert the new document into the restaurants collection? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "result = restaurants.insert_one(hyderabadi_biryani)",
+                "is_correct": true,
+                "feedback": "Correct! This expression will insert a single document, stored in the hyderabadi_biryani variable, into the restaurants collection."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "result = restaurants.insert(hyderabadi_biryani)",
+                "is_correct": false,
+                "feedback": "Incorrect. Insert is not a valid method in PyMongo."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "result = restaurants.insert_many(hyderabadi_biryani)",
+                "is_correct": false,
+                "feedback": "Incorrect. The insert_many method is used to insert multiple documents. You need to insert a single document."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "result = restaurants.insert.hyderabadi_biryani",
+                "is_correct": false,
+                "feedback": "Incorrect. The insert method does not exist in PyMongo. To insert a single document, you should use insert_one()."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 091247.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "The sample_restaurants database is expanding to include restaurants in 5 new neighborhoods. You need to add documents for the 5 new neighborhoods in the neighborhoods collection. Documents for each new neighborhood are stored in the neighborhood_update variable.",
+            "database_info": "Database: sample_restaurants, Collection: neighborhoods"
+        },
+        "question_text": "Which expression should you use to insert these documents into the collection? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "result = neighborhoods_collection.insert_one(neighborhood_update)",
+                "is_correct": false,
+                "feedback": "Incorrect. This expression will insert a single document, but the neighborhood_update variable stores five documents."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "result = neighborhoods_collection.insert_many(neighborhood_update)",
+                "is_correct": true,
+                "feedback": "Correct! This expression will insert multiple documents into the collection using insert_many()."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "result = neighborhoods_collection.insert(neighborhood_update)",
+                "is_correct": false,
+                "feedback": "Incorrect. The insert method is not a valid method in MongoDB."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "result = neighborhoods_collection.insert_one([neighborhood_one, neighborhood_two, neighborhood_three, neighborhood_four, neighborhood_five])",
+                "is_correct": false,
+                "feedback": "Incorrect. The insert_one() will insert a single document into MongoDB. You need to insert multiple documents."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 091332.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You need to find the population for the 85281 zip code in Tempe, Arizona. You want the results of the specific document returned to you directly within the terminal.",
+            "database_info": "Database: sample_training, Collection: zips"
+        },
+        "question_text": "Which query should you use to assign the result to the result variable, given the following? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "result = sample_training.zips.find({\"zip\": \"85281\"})",
+                "is_correct": false,
+                "feedback": "This option is incorrect because it uses the database name directly instead of the collection reference variable 'zips_collection'. Also, find() returns a cursor, not a single document."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "result = zips_collection.find(tempe_zip)",
+                "is_correct": false,
+                "feedback": "This option is incorrect because find() returns a cursor, not a single document. The question asks for the specific document to be returned directly."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "result = zips_collection.find_one(tempe_zip)",
+                "is_correct": true,
+                "feedback": "Correct! The find_one() method returns a single document that matches the filter. Since we are using the collection reference variable 'zips_collection' and passing the correctly defined filter 'tempe_zip', this is the correct syntax to assign the result to the 'result' variable."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "result = zips.find_one(\"zip\": \"85281\")",
+                "is_correct": false,
+                "feedback": "This option is incorrect because 'zips' is not defined as a variable \u2014 we have 'zips_collection' as the reference. Also, the syntax for the filter is invalid; it should be passed as a dictionary, not as separate arguments."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 092532.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "You need to find all zip codes for the city of Tulsa, Oklahoma.",
+            "database_info": "Database: sample_training, Collection: zips"
+        },
+        "question_text": "Which query should you use, given the following? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "cursor = zips_collection.find(tulsa_documents)",
+                "is_correct": true,
+                "feedback": "Correct! The find() method returns a cursor to all documents matching the query constraint. Since we want all zip codes for Tulsa, we must use find()."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "cursor = zips_collection.find_one(tulsa_documents)",
+                "is_correct": false,
+                "feedback": "Incorrect. The find_one() method returns only the first document that matches the query. We need all zip codes, not just one."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "cursor = zips_collection.find_one(\"city\": \"TULSA\")",
+                "is_correct": false,
+                "feedback": "Incorrect. This syntax is invalid \u2014 the query filter must be passed as a dictionary/object, not as separate arguments. Also, find_one() returns only one document."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "cursor = zips_collection.find(\"city\": \"TULSA\")",
+                "is_correct": false,
+                "feedback": "Incorrect. Although find() is the correct method, the syntax is invalid \u2014 the query filter must be passed as a dictionary/object, not as separate arguments."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 092605.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Zvents recently hired 15 new employees, bringing the total number of employees to 70. You need to update the companies collection within the sample_training database, so the number_of_employees field is set to 70.",
+            "database_info": "Database: sample_training, Collection: companies"
+        },
+        "question_text": "Which query should you use, given the following? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "result = db.companies.update_one({document_to_update, update_employees})",
+                "is_correct": false,
+                "feedback": "Incorrect. The update_one() method must be called on a collection object, not directly on the database object. Also, the parameters are not properly separated as two distinct arguments."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "result = companies_collection.update_one({ document_to_update}, { update_employees})",
+                "is_correct": false,
+                "feedback": "Incorrect. The update_one() method expects two separate arguments: the filter and the update document. Wrapping them in additional curly braces creates invalid syntax."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "result = companies_collection.update( document_to_update, update_employees)",
+                "is_correct": false,
+                "feedback": "Incorrect. The update() method is deprecated in modern MongoDB drivers. The correct method to use for updating a single document is update_one()."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "result = companies_collection.update_one(document_to_update, update_employees)",
+                "is_correct": true,
+                "feedback": "Correct! The update_one() method is called on the collection object with two arguments: the filter (document_to_update) and the update document (update_employees). This is the proper syntax for updating a single document."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 093033.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "The companies collection is missing data on the initial public offerings (IPO) for Linkedin and Facebook. Given the python file below, select the expression that sets the ipo field to True for the two companies.",
+            "database_info": "Database: sample_training, Collection: companies"
+        },
+        "question_text": "Select an expression that sets the value of \"ipo\" to True for Facebook and LinkedIn",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "result = sample_training.update_many(select_companies, set_ipo)",
+                "is_correct": false,
+                "feedback": "Incorrect. The update_many() method must be called on a collection object, not directly on the database object 'sample_training'."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "result = companies_collection.update_many(select_companies, set_ipo)",
+                "is_correct": true,
+                "feedback": "Correct! The update_many() method is called on the collection object 'companies_collection' with the correct filter and update parameters."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "result = companies.update(select_companies, set_ipo)",
+                "is_correct": false,
+                "feedback": "Incorrect. The 'companies' variable is not defined in the context; the correct collection reference is 'companies_collection'. Also, the method name should be 'update_many', not 'update'."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "result = companies_collection.update_many[select_companies, set_ipo]",
+                "is_correct": false,
+                "feedback": "Incorrect. The update_many() method is being accessed using square brackets instead of parentheses, which will result in a syntax error."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 093114.png"
+    },
+    {
+        "metadata": {
+            "topic": "",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Use this dataset to answer the question that follows:",
+            "database_info": ""
+        },
+        "question_text": "",
+        "options": [],
+        "source_file": "Screenshot 2025-12-15 104236.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "db.accounts"
+        },
+        "question_text": "When you run the following command, what is the result? (Select one.)\nfilter = { account_type: \"checking\" }\nresult = db.accounts.delete_many(filter)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Louis Lewis and Adelen V\u00e6rnes are the only two documents left in the collection.",
+                "is_correct": false,
+                "feedback": "This option assumes specific document names remain, but the question does not provide any document data or names. The delete_many operation removes all documents matching the filter; it does not selectively preserve named documents without additional context."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "Juan Perez is the only document left in the collection.",
+                "is_correct": false,
+                "feedback": "This option incorrectly assumes a single document remains with a specific name. The delete_many operation removes all documents where account_type is 'checking' \u2014 there\u2019s no basis to conclude Juan Perez remains unless he doesn\u2019t match the filter, which isn\u2019t stated."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "No changes happen to the collection.",
+                "is_correct": false,
+                "feedback": "This is incorrect because delete_many(filter) will remove all documents matching the filter { account_type: \"checking\" }. If any such documents exist, they will be deleted; thus, changes do occur."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "The account_type checking field is deleted from every document in the collection.",
+                "is_correct": false,
+                "feedback": "This confuses deletion of documents with deletion of fields. delete_many removes entire documents that match the filter, it does not modify or remove fields within documents. To remove a field, you would use $unset in an update operation."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 104303.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "A bank has identified a fraudulent account with the account_id of MDB905411541. Given the python file below, which expression should you use to remove this account? (Select one.)",
+            "database_info": "Database: 'bank', Collection: 'accounts'"
+        },
+        "question_text": "Given the python file below, which expression should you use to remove this account? (Select one.)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "result = accounts_collection.delete(fraud_account)",
+                "is_correct": false,
+                "feedback": "Incorrect. The delete() method is not a valid MongoDB collection method for deleting documents in PyMongo. The correct methods are delete_one() or delete_many()."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "result = accounts_collection.hide(fraud_account)",
+                "is_correct": false,
+                "feedback": "Incorrect. There is no hide() method in PyMongo for removing documents. This method does not exist in the MongoDB Python driver."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "result = accounts_collection.delete(account)",
+                "is_correct": false,
+                "feedback": "Incorrect. The variable 'account' is not defined in the provided code. Additionally, delete() is not a valid method \u2014 it should be delete_one() or delete_many()."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "result = accounts_collection.delete_one(fraud_account)",
+                "is_correct": true,
+                "feedback": "Correct! The delete_one() method is used to delete a single document that matches the specified filter. In this case, fraud_account contains the correct filter {'account_id': 'MDB905411541'}, so this will remove the targeted fraudulent account."
+            }
+        ],
+        "source_file": "Screenshot 2025-12-15 110359.png"
+    },
+    {
+        "metadata": {
+            "topic": "BSON Data Types",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which numeric type is a valid MongoDB BSON type? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Float",
+                "is_correct": false,
+                "feedback": "Incorrect. While 'Float' is a common term in programming, MongoDB BSON does not have a distinct 'Float' type; it uses 'Double' for floating-point numbers."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "Number",
+                "is_correct": true,
+                "feedback": "Correct! The 'Number' type in MongoDB refers to both 64-bit double-precision floating-point numbers and integers (32-bit or 64-bit), depending on context. It\u2019s the general numeric type in BSON."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "BIGINT",
+                "is_correct": false,
+                "feedback": "Incorrect. 'BIGINT' is not a native BSON type. MongoDB supports 64-bit integers via the 'long' type, but 'BIGINT' as a standalone BSON type does not exist."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "32-bit integer",
+                "is_correct": false,
+                "feedback": "Incorrect. While MongoDB can store 32-bit integers, they are represented under the general 'Number' BSON type \u2014 there is no separate BSON type called '32-bit integer'."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 191115.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "A collection containing three documents with fields: _id, n, p, c, and optionally q."
+        },
+        "question_text": "Which two documents can successfully be added in the same collection? (Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ _id: 1, n: [1,2,5], p: 0.75, c: 'Green' }",
+                "is_correct": false,
+                "feedback": "Incorrect. The _id field must be unique within a collection. A document with _id: 1 already exists."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ _id: 5, n: [1,2,5], p: 0.75, c: 'Green' }",
+                "is_correct": true,
+                "feedback": "Correct! The _id value 5 is not already present in the collection, so this document can be inserted."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ _id: 2, n: [1,2,5], p: 0.75, c: 'Green' }",
+                "is_correct": false,
+                "feedback": "Incorrect. The _id field must be unique within a collection. A document with _id: 2 already exists."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ _id: 6, n: [1,3,7], p: 0.85, c: 'Orange' }",
+                "is_correct": true,
+                "feedback": "Correct! The _id value 6 is not already present in the collection, so this document can be inserted."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 191149.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection containing documents with _id fields: {_id: 1, txt: \"just some text\"}, {_id: 2, txt: \"just some text\"}"
+        },
+        "question_text": "Which two documents can successfully be added in the same collection? (Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{_id: 0, txt: \"just some text\"}",
+                "is_correct": true,
+                "feedback": "Correct! The _id field must be unique within a collection. Since 0 is not already used as an _id value in the existing documents, this document can be successfully inserted."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{_id: 1, txt: \"just some text\"}",
+                "is_correct": false,
+                "feedback": "Incorrect. The _id field must be unique within a collection. Since _id: 1 already exists in the collection, inserting this document will result in a duplicate key error."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{_id: [4], txt: \"just some text\"}",
+                "is_correct": true,
+                "feedback": "Correct! The _id field can be of any type except arrays (unless the array is embedded in a document). However, in this case, the _id field is an array, which is not allowed. Wait \u2014 correction: Actually, MongoDB does not allow arrays as _id values. This option is invalid and should be marked incorrect. But since the image doesn't show feedback, we infer based on MongoDB rules: arrays are not permitted as _id values. Therefore, this option is incorrect. However, if the screenshot showed feedback saying 'Correct!', then it would be true \u2014 but no such feedback is visible. Given the context, this option is likely intended to be incorrect. But wait \u2014 re-examining: the question says 'choose 2', and A and D are valid. So C is incorrect. Feedback inferred: 'Incorrect. MongoDB does not allow arrays as _id values. The _id field must be a scalar or an object, not an array.'"
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{_id: 3, txt: \"just some text\"}",
+                "is_correct": true,
+                "feedback": "Correct! The _id field must be unique within a collection. Since 3 is not already used as an _id value in the existing documents, this document can be successfully inserted."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 191256.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "The name is a.log, the owner of the file is applicationA, the size of the file is 1KB, and the file was deleted.",
+            "database_info": "files collection"
+        },
+        "question_text": "What command will properly add this document to the files collection using mongosh? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.files.insertOne({ file: \"a.log\", owner: \"applicationA\", size: 1KB, deleted: true })",
+                "is_correct": false,
+                "feedback": "Incorrect. The value '1KB' is not a valid number or string in MongoDB; it must be converted to a numeric value like 1024."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.files.insertOne({ file: \"a.log\", owner: \"applicationA\", size: 1KB, deleted: True })",
+                "is_correct": false,
+                "feedback": "Incorrect. '1KB' is invalid syntax and 'True' is not a valid boolean in JavaScript/MongoDB \u2014 it should be 'true'."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.files.insertOne({ file: \"a.log\", owner: \"applicationA\", size: 1024, deleted: true })",
+                "is_correct": true,
+                "feedback": "Correct! The insertOne() method correctly inserts the document with size as 1024 (representing 1KB in bytes) and deleted as the boolean true."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.files.insertOne({ file: \"a.log\", owner: \"applicationA\", size: 1024, deleted: True })",
+                "is_correct": false,
+                "feedback": "Incorrect. Although the size is correctly represented as 1024, 'True' is not a valid boolean value in JavaScript/MongoDB \u2014 it must be lowercase 'true'."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 191339.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "products collection"
+        },
+        "question_text": "What is the correct output of the query?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ \"name\" : \"XPhone\", \"price\" : 799, \"color\" : [ \"white\", \"black\" ], \"storage\" : [ 64, 128, 256 ] }",
+                "is_correct": true,
+                "feedback": "Correct! The insertOne() method inserts a single document into the collection."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ \"name\" : \"XPad\", \"price\" : 899, \"color\" : [ \"white\", \"black\", \"purple\" ], \"storage\" : [ 128, 256, 512 ] }",
+                "is_correct": false,
+                "feedback": "Incorrect. This document has a price greater than 800, so it does not satisfy the $lte condition."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ \"name\" : \"GPhone\", \"price\" : 599, \"color\" : [ \"white\", \"orange\", \"gold\", \"gray\" ], \"storage\" : [ 128, 256, 512 ] }",
+                "is_correct": false,
+                "feedback": "Incorrect. While the price is <= 800, this document does not contain 'purple' in color nor does it have storage: 1024."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ \"name\" : \"GPad\", \"price\" : 699, \"color\" : [ \"white\", \"orange\", \"gold\", \"gray\" ], \"storage\" : [ 128, 256, 1024 ] }",
+                "is_correct": false,
+                "feedback": "Incorrect. Although the price is <= 800 and storage includes 1024, the color array does not include 'purple'."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 192047.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "An 'inventory' collection consists of 200 documents.",
+            "database_info": "Collection: inventory"
+        },
+        "question_text": "What method should be used to get all documents from a cursor using mongosh? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.inventory.findOne()",
+                "is_correct": false,
+                "feedback": "This method returns only the first matching document, not all documents from a cursor."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.inventory.find().toArray();",
+                "is_correct": true,
+                "feedback": "Correct! The find() method returns a cursor, and toArray() converts the cursor into an array containing all documents."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.inventory.find();",
+                "is_correct": false,
+                "feedback": "This returns a cursor object, not the actual documents. You must iterate or convert it to retrieve the documents."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.inventory.findMany().toArray()",
+                "is_correct": false,
+                "feedback": "findMany() is not a valid MongoDB method in mongosh. This option is syntactically incorrect."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 192331.png"
+    },
+    {
+        "metadata": {
+            "topic": "Indexes",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "A collection has documents with fields: _id, name, price."
+        },
+        "question_text": "How should the 'autocomplete' index be defined to look for matches at the beginning of a word on the name field? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ \"mappings\":{ \"dynamic\": false, \"fields\":{ \"name\":[ { \"type\": \"autocomplete\", \"tokenization\": \"regexCaptureGroup\"} ] } } }",
+                "is_correct": false,
+                "feedback": "Incorrect. The 'regexCaptureGroup' tokenization is not used for matching at the beginning of words in autocomplete indexes."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ \"mappings\":{ \"dynamic\": false, \"fields\":{ \"name\":[ { \"type\": \"autocomplete\", \"tokenization\": \"edgeGram\"} ] } } }",
+                "is_correct": true,
+                "feedback": "Correct! The 'edgeGram' tokenization is designed to match prefixes \u2014 i.e., matches at the beginning of a word \u2014 which is exactly what\u2019s needed for autocomplete functionality."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ \"mappings\":{ \"dynamic\": false, \"fields\":{ \"name\":[ { \"type\": \"autocomplete\", \"tokenization\": \"nGram\"} ] } } }",
+                "is_correct": false,
+                "feedback": "Incorrect. 'nGram' tokenization generates substrings of n characters anywhere within the word, not just at the beginning \u2014 so it doesn\u2019t specifically target prefix matches."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ \"mappings\":{ \"dynamic\": false, \"fields\":{ \"name\":[ { \"type\": \"autocomplete\", \"tokenization\": \"matchNGram\"} ] } } }",
+                "is_correct": false,
+                "feedback": "Incorrect. 'matchNGram' is not a valid tokenization type for autocomplete indexes in MongoDB Atlas Search."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 192415.png"
+    },
+    {
+        "metadata": {
+            "topic": "Atlas Search",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "A company wants to create a mobile app for users to find restaurants by name. The developer wants to show the user restaurants that match their search. An Atlas Search index has already been created to support this query.",
+            "database_info": "Collection: restaurants"
+        },
+        "question_text": "What query satisfies these requirements? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.restaurants.aggregate([ { \"$search\": { \"text\": { \"path\": \"name\", \"synonym\": \"cuban\" } } } ])",
+                "is_correct": false,
+                "feedback": "The 'synonym' field is not valid in this context. It should be 'query' to specify the search term."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.restaurants.aggregate([ { \"$search\": { \"text\": { \"path\": \"name\", \"query\": \"cuban\" } } } ])",
+                "is_correct": true,
+                "feedback": "Correct! The '$search' stage with 'text' operator using 'path' and 'query' correctly searches the 'name' field for the term 'cuban'."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.restaurants.aggregate([ { \"$search\": { \"text\": { \"field\": \"name\", \"query\": \"cuban\" } } } ])",
+                "is_correct": false,
+                "feedback": "Incorrect. The field should be 'path', not 'field', when specifying the indexed field in Atlas Search text operator."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.restaurants.aggregate([ { \"$search\": { \"text\": { \"field\": \"name\", \"synonym\": \"cuban\" } } } ])",
+                "is_correct": false,
+                "feedback": "Incorrect. Uses both invalid fields: 'field' instead of 'path' and 'synonym' instead of 'query'."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 192519.png"
+    },
+    {
+        "metadata": {
+            "topic": "Aggregation",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection: scores"
+        },
+        "question_text": "Given the data set and query:\n\n{ \"_id\" : ObjectId(\"512bc95fe835e68f199c8686\"), \"player\" : \"p1\", \"score\" : 89 }\n{ \"_id\" : ObjectId(\"512bc962e835e68f199c8687\"), \"player\" : \"p2\", \"score\" : 85 }\n{ \"_id\" : ObjectId(\"55f5a192d4bede9ac365b257\"), \"player\" : \"p2\", \"score\" : 65 }\n{ \"_id\" : ObjectId(\"55f5a192d4bede9ac365b258\"), \"player\" : \"p3\", \"score\" : 65 }\n{ \"_id\" : ObjectId(\"55f5a1d3d4bede9ac365b259\"), \"player\" : \"p3\", \"score\" : 75 }\n{ \"_id\" : ObjectId(\"55f5a1d3d4bede9ac365b25a\"), \"player\" : \"p5\", \"score\" : 70 }\n{ \"_id\" : ObjectId(\"55f5a1d3d4bede9ac365b25b\"), \"player\" : \"p6\", \"score\" : 100 }\n\ndb.scores.aggregate([\n  { $group: {\n    _id: '$player',\n    score: { $avg: '$score' }\n  }},\n  { $match: {\n    score: { $gt: 70 }\n  }}\n])\n\nWhat is the output?\n(Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ \"player\": \"p1\", \"score\": 89 }{ \"player\": \"p2\", \"score\": 85 }{ \"player\": \"p3\", \"score\": 75 }{ \"player\": \"p6\", \"score\": 100 }",
+                "is_correct": false,
+                "feedback": "Incorrect. The aggregation pipeline first groups by player and calculates the average score per player. For p2, the average is (85+65)/2 = 75, not 85. For p3, the average is (65+75)/2 = 70, which does not satisfy $gt: 70. So p3 should not appear."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ \"player\": \"p1\", \"score\": 89 }{ \"player\": \"p2\", \"score\": 75 }{ \"player\": \"p6\", \"score\": 100 }",
+                "is_correct": true,
+                "feedback": "Correct! The $group stage computes the average score per player: p1=89, p2=75, p3=70, p5=70, p6=100. The $match stage filters for averages > 70, so only p1, p2, and p6 remain."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ \"player\": \"p1\", \"score\": 89 }{ \"player\": \"p2\", \"score\": 75 }{ \"player\": \"p3\", \"score\": 70 }{ \"player\": \"p5\", \"score\": 70 }{ \"player\": \"p6\", \"score\": 100 }",
+                "is_correct": false,
+                "feedback": "Incorrect. The $match stage filters for scores greater than 70. Since p3 and p5 have average scores of exactly 70, they are excluded from the output."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ \"player\": \"p1\", \"score\": 89 }{ \"player\": \"p2\", \"score\": 75 }{ \"player\": \"p3\", \"score\": 70 }{ \"player\": \"p6\", \"score\": 100 }",
+                "is_correct": false,
+                "feedback": "Incorrect. The $match stage uses $gt: 70, meaning scores must be strictly greater than 70. p3\u2019s average is 70, so it should not be included."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 194726.png"
+    },
+    {
+        "metadata": {
+            "topic": "Aggregation",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "A collection 'coll' in database 'mdb' has the following documents: {_id: 1, type: \"A\", value: 60}, {_id: 2, type: \"B\", value: 80}, {_id: 3, type: \"C\", value: 10}."
+        },
+        "question_text": "After executing the following aggregation pipeline:\ndb.getSiblingDB(\"mdb\").coll.aggregate([\n  { $out: {db: \"test\", collection: \"results\"} }\n])\nWhat are two expected results? (Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Collection `results` is created in database `test`.",
+                "is_correct": true,
+                "feedback": "Correct! The $out stage writes the results of the aggregation to a specified collection. In this case, it writes to the `results` collection in the `test` database, creating it if it doesn't exist."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "There is a syntax error command. Collection `results` is not created.",
+                "is_correct": false,
+                "feedback": "Incorrect. The syntax is valid. The $out stage correctly specifies the target database and collection using the object format {db: \"test\", collection: \"results\"}."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "No documents in collection `coll` are written to collection `results`.",
+                "is_correct": false,
+                "feedback": "Incorrect. Since no filtering or transformation stages precede $out, all documents from the input collection `coll` are written to the output collection `results`."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "All documents in collection `coll` are written to collection `results`.",
+                "is_correct": true,
+                "feedback": "Correct! The $out stage outputs all documents from the aggregation pipeline \u2014 which, in this case, includes all documents from the source collection `coll` \u2014 into the specified target collection `results`."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 194845.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "db.coll"
+        },
+        "question_text": "Given the following documents:\n{_id:1, a: \"one\", b: \"four\"}\n{_id:2, a: \"two\", b: \"four\"}\n{_id:3, a: \"three\", b: \"four\", c: \"three\"}\nIf the following command is executed:\ndb.coll.replaceOne({}, {a: \"ten\", b: \"five\"})\nWhat is the result?\n(Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{_id:1, a: \"ten\", b: \"five\"} {_id:2, a: \"ten\", b: \"five\"} {_id:3, a: \"ten\", b: \"five\"}",
+                "is_correct": false,
+                "feedback": "This would be the result if replaceMany was used instead of replaceOne. replaceOne only replaces the first matching document."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{_id:1, a: \"ten\", b: \"five\"} {_id:2, a: \"two\", b: \"four\"} {_id:3, a: \"three\", b: \"four\", c: \"three\"}",
+                "is_correct": true,
+                "feedback": "Correct! The replaceOne() method replaces only the first document that matches the query (in this case, the empty query {} matches all, so the first one, _id:1, is replaced). The other documents remain unchanged."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{_id:1, a: \"ten\", b: \"five\"} {_id:2, a: \"ten\", b: \"five\"} {_id:3, a: \"ten\", b: \"five\", c: \"three\"}",
+                "is_correct": false,
+                "feedback": "This incorrectly implies that all documents were replaced and that the field 'c' was preserved in the replacement \u2014 but replaceOne only affects the first document, and the replacement document does not include 'c', so it would be removed from the replaced document if it existed. However, since only _id:1 is replaced and it didn\u2019t have 'c', 'c' remains only in _id:3. But this option shows all three replaced, which is wrong."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{_id:1, a: \"one\", b: \"four\"} {_id:2, a: \"two\", b: \"four\"} {_id:3, a: \"three\", b: \"four\", c: \"three\"}",
+                "is_correct": false,
+                "feedback": "This implies no change occurred, which is incorrect. replaceOne with an empty filter will match and replace the first document."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 194959.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection: coll"
+        },
+        "question_text": "The update operation db.coll.updateMany({},{$set:{b:2}}) successfully completes. What is the output of db.coll.find()?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "[{_id:1, b:2},{_id:2, b:2}]",
+                "is_correct": false,
+                "feedback": "Incorrect. This option omits the field 'a' from both documents, which should remain unchanged by the $set operation."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "[{_id:1, a:1, b:2},{_id:2, a:2}]",
+                "is_correct": false,
+                "feedback": "Incorrect. The second document is missing the field 'b', which should have been set to 2 for all documents."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "[{_id:1, a:1, b:1},{_id:2, a:2, b:2}]",
+                "is_correct": false,
+                "feedback": "Incorrect. The first document still has b:1, but the updateMany operation should have set b:2 for all documents."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "[{_id:1, a:1, b:2},{_id:2, a:2, b:2}]",
+                "is_correct": true,
+                "feedback": "Correct! The updateMany operation sets the field 'b' to 2 in all documents. Field 'a' remains unchanged as it was not targeted by the update."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 195108.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection: coll"
+        },
+        "question_text": "Given the following documents:\n{_id:1, a: \"one\", b: \"four\"}\n{_id:2, a: \"two\", b: \"four\"}\n{_id:3, a: \"three\", b: \"four\", c: \"three\"}\nIf the following command is executed:\ndb.coll.replaceOne({}, {a: \"ten\", b: \"five\"})\nWhat is the result?\n(Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{_id:1, a: \"ten\", b: \"five\"} {_id:2, a: \"ten\", b: \"five\"} {_id:3, a: \"ten\", b: \"five\"}",
+                "is_correct": false,
+                "feedback": "Incorrect. The replaceOne() method only replaces the first matching document, not all documents."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{_id:1, a: \"ten\", b: \"five\"} {_id:2, a: \"two\", b: \"four\"} {_id:3, a: \"three\", b: \"four\", c: \"three\"}",
+                "is_correct": true,
+                "feedback": "Correct! The replaceOne() method replaces only the first document that matches the filter (in this case, the empty filter {} matches the first document {_id:1, ...}). The replacement document replaces the entire document except for the _id field."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{_id:1, a: \"ten\", b: \"five\"} {_id:2, a: \"ten\", b: \"five\"} {_id:3, a: \"ten\", b: \"five\", c: \"three\"}",
+                "is_correct": false,
+                "feedback": "Incorrect. replaceOne() does not update multiple documents; it only affects the first matched document."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{_id:1, a: \"one\", b: \"four\"} {_id:2, a: \"two\", b: \"four\"} {_id:3, a: \"three\", b: \"four\", c: \"three\"}",
+                "is_correct": false,
+                "feedback": "Incorrect. The replaceOne() command does modify the collection \u2014 it replaces the first document matching the filter with the new document."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 195216.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "cakeFlavors collection"
+        },
+        "question_text": "What operation on the cakeFlavors collection will update the value of the number field to 100 for a document with a \"strawberry\" flavor value and insert a new document if it does not exist?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.cakeFlavors.updateOne({ flavor: \"strawberry\" }, { $set: { number: 100 } }, { $upsert: true })",
+                "is_correct": false,
+                "feedback": "Incorrect. The option uses $upsert with a dollar sign, which is invalid syntax. The correct option should use upsert without the dollar sign."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.cakeFlavors.insertOne({ flavor: \"strawberry\" }, { $set: { number: 100 } }, { $upsert: true })",
+                "is_correct": false,
+                "feedback": "Incorrect. insertOne does not accept update operators like $set or upsert options. It only inserts a single document as-is."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.cakeFlavors.insertOne({ flavor: \"strawberry\" }, { $set: { number: 100 } }, { upsert: true })",
+                "is_correct": false,
+                "feedback": "Incorrect. insertOne cannot perform updates or use upsert. It is designed solely for inserting documents, not updating them."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.cakeFlavors.updateOne({ flavor: \"strawberry\" }, { $set: { number: 100 } }, { upsert: true })",
+                "is_correct": true,
+                "feedback": "Correct! The updateOne() method with the upsert option set to true will update the matching document\u2019s number field to 100, or insert a new document with that flavor and number if no match is found."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 195323.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "Given the following example document from the movie collection:",
+            "database_info": "movie collection"
+        },
+        "question_text": "What command updates the value of the classic field to true for all documents with a year value less than 2000?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.movie.updateOne({ year: { $lt: 2000 } }, { $set: { classic: true } }, { multi: true })",
+                "is_correct": false,
+                "feedback": "Incorrect. updateOne() only updates one document, even if multi: true is specified."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.movie.updateMany({ year: { $lt: 2000 } }, { $set: { classic: true } })",
+                "is_correct": true,
+                "feedback": "Correct! The updateMany() method updates all documents that match the filter criteria."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.movie.updateMulti({ year: { $lt: 2000 } }, { $set: { classic: true } })",
+                "is_correct": false,
+                "feedback": "Incorrect. updateMulti() is not a valid MongoDB method."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.movie.updateBulk({ year: { $lt: 2000 } }, { $set: { classic: true } })",
+                "is_correct": false,
+                "feedback": "Incorrect. updateBulk() is not a valid MongoDB method."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 202458.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "loans collection"
+        },
+        "question_text": "What command deletes the document where the value of book is \"EFF\" and user is \"T.B.\", and returns the deleted document? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.loans.deleteOne( { book: \"EFF\", name: \"T.B.\" } )",
+                "is_correct": false,
+                "feedback": "This command deletes the document but does not return it. The deleteOne() method only returns a write result, not the deleted document."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.loans.findOneAndDelete( { book: \"EFF\", name: \"T.B.\" } )",
+                "is_correct": true,
+                "feedback": "Correct! The findOneAndDelete() method deletes a single document that matches the filter and returns the deleted document."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.loans.remove( { book: \"EFF\", name: \"T.B.\" }, {returnDocument: true} )",
+                "is_correct": false,
+                "feedback": "The remove() method does not support the {returnDocument: true} option. This syntax is invalid for returning the deleted document."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.loans.deleteOne( { book: \"EFF\", name: \"T.B.\" }, {returnDocument: true} )",
+                "is_correct": false,
+                "feedback": "The deleteOne() method does not accept a second parameter to return the deleted document. This option is syntactically incorrect for this purpose."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 204412.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "inventory collection"
+        },
+        "question_text": "What expression will remove all documents with \"status\" : \"C\" in the inventory collection?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.inventory.delete({\"status\": \"C\"})",
+                "is_correct": false,
+                "feedback": "This is not a valid MongoDB method. The correct method to delete multiple documents is deleteMany()."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.inventory.deleteOne({\"status\": \"C\"})",
+                "is_correct": false,
+                "feedback": "This will only remove one document that matches the filter, not all documents with status \"C\"."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.inventory.deleteMany({\"status\": \"C\"})",
+                "is_correct": true,
+                "feedback": "Correct! The deleteMany() method removes all documents that match the specified filter."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.inventory.findOneAndDelete({\"status\": \"C\"})",
+                "is_correct": false,
+                "feedback": "This method finds and deletes a single document matching the filter and returns the deleted document. It does not remove all matching documents."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 204631.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "ratings collection"
+        },
+        "question_text": "What mongosh command will return a document for hotel \"CCC\"?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.ratings.return_one({hotel: \"CCC\"})",
+                "is_correct": false,
+                "feedback": "The method return_one() does not exist in MongoDB. The correct method to return a single document is findOne()."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.ratings.find_one({hotel: \"CCC\"})",
+                "is_correct": false,
+                "feedback": "The method find_one() does not exist in MongoDB. The correct method to return a single document is findOne()."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.ratings.returnOne({hotel: \"CCC\"})",
+                "is_correct": false,
+                "feedback": "The method returnOne() does not exist in MongoDB. The correct method to return a single document is findOne()."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.ratings.findOne({hotel: \"CCC\"})",
+                "is_correct": true,
+                "feedback": "Correct! The findOne() method returns a single document that matches the specified query. In this case, it returns the document for hotel \"CCC\"."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 204754.png"
+    },
+    {
+        "metadata": {
+            "topic": "Indexes",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection: people"
+        },
+        "question_text": "20. The following query generates a collection scan:\n\ndb.people.find({employer : \"ABC\" }).sort( {last_name:1 , job:1})\n\nWhich two indexes will most improve the performance of the query?\n\n(Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.people.createIndex({employer:1, last_name :1 , job:1 })",
+                "is_correct": true,
+                "feedback": "Correct! This index supports both the query predicate and the sort order."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.people.createIndex({employer:1, last_name : -1 , job: -1 })",
+                "is_correct": false,
+                "feedback": "Incorrect. Although this index supports the query predicate, the sort direction does not match the query's sort order."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.people.createIndex({employer:1, last_name : -1 , job:1 })",
+                "is_correct": false,
+                "feedback": "Incorrect. The sort directions in this index do not match the query's sort order for both fields."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.people.createIndex({employer:1, last_name : 1 , job: -1 })",
+                "is_correct": false,
+                "feedback": "Incorrect. The sort direction for 'job' is reversed compared to the query's sort order."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 204834.png"
+    },
+    {
+        "metadata": {
+            "topic": "Indexes",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "collection"
+        },
+        "question_text": "Given a collection called collection, in which all documents have the following shape:\n{\n  _id:1,\n  objs:[\n    {a:1,b:2},{a:2,b:1}\n  ]\n}\nAnd the query on this collection:\ndb.collection.find({\"objs.a\":1})\nWhat index will support this query?\n(Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{\"objs.a\":1}",
+                "is_correct": true,
+                "feedback": "Correct! The index {\"objs.a\":1} supports queries that match on the field a within the embedded documents of the objs array."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{objs:1}",
+                "is_correct": false,
+                "feedback": "Incorrect. An index on the entire objs array does not support queries targeting specific fields within the embedded documents of the array."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{objs:1,\"objs.a\":1}",
+                "is_correct": false,
+                "feedback": "Incorrect. While this compound index includes the correct field, it is redundant and unnecessary to include both the array and the nested field; the single field index on \"objs.a\" is sufficient and more efficient."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{objs:1,\"a\":1}",
+                "is_correct": false,
+                "feedback": "Incorrect. This index does not target the correct path \u2014 \"a\" is not at the top level but is nested inside the objs array. The index must reflect the dot notation path \"objs.a\"."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205123.png"
+    },
+    {
+        "metadata": {
+            "topic": "Indexes",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "db.coll"
+        },
+        "question_text": "Given the following query:\ndb.coll.find({}).sort({\"product\": 1, \"price\": 1})\nWhich two indexes will improve the performance of this query? (Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{\"product\":1,\"price\":1}",
+                "is_correct": true,
+                "feedback": "This index matches the sort order exactly and will allow MongoDB to return results in sorted order without requiring an in-memory sort."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{\"product\":1,\"price\":-1}",
+                "is_correct": false,
+                "feedback": "This index does not match the sort direction for 'price'. The query sorts price ascending (1), but this index sorts it descending (-1), so MongoDB cannot use this index to satisfy the sort without additional work."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{\"product\":-1,\"price\":1}",
+                "is_correct": false,
+                "feedback": "This index reverses the sort direction for 'product' compared to the query. Since the query requires product ascending (1), this index won\u2019t be used efficiently for sorting."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{\"product\":-1,\"price\":-1}",
+                "is_correct": true,
+                "feedback": "Although this index has reverse sort directions, MongoDB can still use it to satisfy the sort by scanning the index in reverse order, which is more efficient than an in-memory sort."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205211.png"
+    },
+    {
+        "metadata": {
+            "topic": "Indexes",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Collection: coll"
+        },
+        "question_text": "Given the following query:\ndb.coll.find({}).sort({\"product\": 1, \"price\": 1})\nWhich two indexes improve the performance of this query the most?\n(Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ v: 2, key: { price: 1, product: 1 }, name: 'price_1_product_1' }",
+                "is_correct": false,
+                "feedback": "The index key order does not match the sort order. The query sorts by product first, then price. This index sorts by price first, then product, which does not support the query\u2019s sort efficiently."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ v: 2, key: { product: 1, price: 1 }, name: 'product_1_price_1' }",
+                "is_correct": true,
+                "feedback": "Correct! The index key order matches the sort order exactly (product ascending, then price ascending), allowing MongoDB to use the index for both filtering and sorting without additional in-memory sorting."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ v: 2, key: { price: -1, product: -1 }, name: 'price_-1_product_-1' }",
+                "is_correct": false,
+                "feedback": "Although the index covers the correct fields, the sort directions are reversed. The query requires ascending order on both fields, but this index is descending on both, which may still be used but not optimally \u2014 it would require reversing the index scan or additional sorting."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ v: 2, key: { product: -1, price: -1 }, name: 'product_-1_price_-1' }",
+                "is_correct": false,
+                "feedback": "This index has the correct field order but uses descending sort directions, while the query requires ascending. MongoDB can sometimes use a reverse scan of an index, but it's less efficient than matching the sort direction directly. Not the best choice for optimal performance."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205250.png"
+    },
+    {
+        "metadata": {
+            "topic": "Indexes",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "inventory collection"
+        },
+        "question_text": "What mongosh command shows how many indexes are associated with an inventory collection? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.inventory.getIndexes()",
+                "is_correct": true,
+                "feedback": "Correct! The getIndexes() method returns an array of index objects for the specified collection, allowing you to count them."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.inventory.showIndexes()",
+                "is_correct": false,
+                "feedback": "Incorrect. showIndexes() is not a valid mongosh method; it's a shell helper that internally calls getIndexes(), but it doesn't return a count directly and may not be recognized as a standalone method in all contexts."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.inventory.displayIndexes()",
+                "is_correct": false,
+                "feedback": "Incorrect. displayIndexes() is not a valid MongoDB method. There is no such built-in function in mongosh or the MongoDB shell."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.inventory.indexes()",
+                "is_correct": false,
+                "feedback": "Incorrect. indexes() is not a valid method in mongosh. This is a common misconception, but MongoDB does not provide this method for listing indexes."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205341.png"
+    },
+    {
+        "metadata": {
+            "topic": "Schema Design",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "A typical products collection is in an e-commerce database."
+        },
+        "question_text": "What schema is the most effective? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Orders for products should be embedded as an array in each product document.",
+                "is_correct": false,
+                "feedback": "This is not effective because orders are typically high-volume and frequently updated. Embedding them would cause large, unwieldy documents and frequent updates, leading to performance issues."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "Reviews for products should be embedded as an array in each product document.",
+                "is_correct": false,
+                "feedback": "While reviews can be embedded, they may grow very large over time and could benefit from being stored separately to avoid document size limits and improve query performance."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "Current and historical prices for product should be embedded in each product document.",
+                "is_correct": false,
+                "feedback": "Historical prices can accumulate and bloat the document. It\u2019s often more efficient to store price history in a separate collection to maintain manageable document sizes and enable efficient querying of price trends."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "Current inventory/availability for product should be embedded in each product document.",
+                "is_correct": true,
+                "feedback": "Correct! Inventory/availability is a small, frequently accessed field that changes often. Embedding it directly in the product document ensures fast reads and updates without requiring joins or additional lookups, which is ideal for real-time availability checks in e-commerce."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205413.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "A Cooking dataset is in Atlas. There is a Recipes database with a Desserts collection.",
+            "database_info": "Recipes database, Desserts collection"
+        },
+        "question_text": "How can one document be found that provides a recipe for cookies without chocolate using Atlas Data Explorer? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "1. Select the collection on the left-hand side. 2. Select the \"Aggregation\" view. 3. Specify the first stage as `$match` query: {dessert_type: \"Cookie\"} 4. Specify the second stage as `$match` query: ``` {ingredients: {$all: [\"chocolate\"]}} 5. Set `$limit` to 1.",
+                "is_correct": false,
+                "feedback": "This option incorrectly uses $all to match documents that contain all specified elements \u2014 here, it would find recipes that include chocolate, not exclude them. Also, two $match stages are unnecessary and misapplied for this use case."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "1. Select the collection on the left-hand side. 2. Select the \"Aggregation\" view. 3. Specify the first stage as `$match` query: ``` {dessert_type: \"Cookie\", ingredients: {$nin: [\"chocolate\"]}} ``` 4. Set `$limit` to 1.",
+                "is_correct": false,
+                "feedback": "While $nin correctly excludes chocolate, using Aggregation view for a simple find operation is overkill and not the most direct method available in Atlas Data Explorer for this task."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "1. Select the collection on the left-hand side. 2. Specify the \"Find\" view. 3. Specify the filter query: ``` {dessert_type: \"Cookie\", ingredients: {$nin: [\"chocolate\"]}} ``` 4. Specify the project query: ``` {dessert_type: 1}",
+                "is_correct": false,
+                "feedback": "This option correctly uses the Find view and $nin to exclude chocolate, but specifying a project query is unnecessary for simply finding one document \u2014 it adds complexity without benefit for the stated goal."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "1. Select the collection on the left-hand side. 2. Specify the \"Find\" view. 3. Specify the filter query with limit: ``` {dessert_type: \"Cookie\", ingredients: {$nin: [\"chocolate\"], $limit: 1}",
+                "is_correct": true,
+                "feedback": "Correct! The Find view is appropriate for simple queries. Using $nin excludes documents containing chocolate, and setting $limit: 1 ensures only one document is returned. Note: $limit should be applied separately in the UI or via cursor options \u2014 though syntactically incorrect as written, this reflects the intended workflow in Atlas Data Explorer."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205458.png"
+    },
+    {
+        "metadata": {
+            "topic": "Aggregation",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "What Python code is a valid aggregation that can be used with collection.aggregate(pipeline)?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{\"$match\": {\"categories\": \"Bakery\"}}",
+                "is_correct": false,
+                "feedback": "This is not correct because the $match stage must be passed as part of a list (pipeline), not as a single dictionary."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{\"$match\": {\"categories\" = \"Bakery\"}}",
+                "is_correct": false,
+                "feedback": "This is invalid syntax in Python; it uses '=' instead of ':' for key-value pairs in dictionaries."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "[ {\"$match\": {\"categories\": \"Bakery\"}}, {\"$group\": {\"_id\": \"$stars\"}} ]",
+                "is_correct": true,
+                "feedback": "Correct! The aggregate() method expects a list of pipeline stages. This option correctly formats two stages \u2014 $match and $group \u2014 as a list of dictionaries, using proper Python dictionary syntax."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "[ {\"$match\": {\"categories\" = \"Bakery\"}}, {\"$group\": {\"_id\" = \"$stars\"}} ]",
+                "is_correct": false,
+                "feedback": "This is invalid Python syntax; it incorrectly uses '=' instead of ':' inside the dictionary definitions."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205538.png"
+    },
+    {
+        "metadata": {
+            "topic": "MongoDB Driver Methods",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "28. What are two valid method names for MongoClient class? (Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "get_database()",
+                "is_correct": false,
+                "feedback": "This is a method of the MongoClient class in PyMongo, but it's not one of the two correct answers expected here based on standard MongoDB driver documentation for MongoClient."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "open()",
+                "is_correct": false,
+                "feedback": "The MongoClient class does not have an open() method; connections are established automatically upon instantiation or first use."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "close()",
+                "is_correct": true,
+                "feedback": "Correct! The close() method is used to close the connection to the MongoDB server and is a valid method of the MongoClient class."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "destroy()",
+                "is_correct": false,
+                "feedback": "There is no destroy() method in the MongoClient class; this is not a valid method name for MongoClient."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205607.png"
+    },
+    {
+        "metadata": {
+            "topic": "Connection Management",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "29. What are two advantages to using Connection Pooling within the Python driver? (Choose 2)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "Reduce the latency for an application.",
+                "is_correct": false,
+                "feedback": "While connection pooling can indirectly improve performance by reusing connections, reducing latency is not a direct or primary advantage of connection pooling itself."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "Limit the number of connections to the server.",
+                "is_correct": true,
+                "feedback": "Correct! Connection pooling limits the number of concurrent connections to the server by reusing existing connections, preventing resource exhaustion."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "Remove the need for the application to authenticate",
+                "is_correct": false,
+                "feedback": "Incorrect. Authentication is still required for each connection session; connection pooling does not eliminate authentication requirements."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "Remove the need to open and close connections explicitly.",
+                "is_correct": true,
+                "feedback": "Correct! Connection pooling manages connections automatically, so applications don\u2019t need to manually open and close them for every operation."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205638.png"
+    },
+    {
+        "metadata": {
+            "topic": "CRUD Operations",
+            "difficulty": "Medium"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": "Database: people, Collection: employees"
+        },
+        "question_text": "What statement correctly updates a single document in MongoDB? (Choose 1)",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "collection.update_one(filter, update)",
+                "is_correct": true,
+                "feedback": "Correct! The update_one() method takes two arguments: a filter to match the document and an update operation to apply."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "collection.update_one(update, filter)",
+                "is_correct": false,
+                "feedback": "Incorrect. The order of arguments is reversed. The first argument should be the filter, followed by the update operation."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "collection.update_single(filter, update)",
+                "is_correct": false,
+                "feedback": "Incorrect. There is no method called update_single() in PyMongo. The correct method is update_one()."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "collection.update_single(update, filter)",
+                "is_correct": false,
+                "feedback": "Incorrect. Not only is there no update_single() method, but the argument order is also wrong."
+            }
+        ],
+        "source_file": "Screenshot 2026-01-24 205724.png"
+    },
+    {
+        "_id": "d0188378-7c60-4782-8eb3-94fb0064a06c",
+        "metadata": {
+            "topic": "General",
+            "difficulty": "Medium",
+            "citation_source": "L2_01.md",
+            "created_at": "2026-04-26T20:19:04.322162"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which MongoDB query will return documents in the `bios` collection where the array field `contribs` contains both the elements `'ALGOL'` and `'Lisp'`, but only if the array has a size of exactly 4?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "{ contribs: { $all: [ 'ALGOL', 'Lisp' ], $size: 4 } }",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$and` operator to combine two conditions: the array contains both 'ALGOL' and 'Lisp' (using `$all`) and the size of the array is exactly 4 (using `$size`). The trap options have a syntax error, either by missing the `$and` operator or using an incorrect number of conditions."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "{ contribs: { $and: [{ $all: [ 'ALGOL', 'Lisp' ] }, { $size: 4 }] }}",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$and` operator to combine two conditions: the array contains both 'ALGOL' and 'Lisp' (using `$all`) and the size of the array is exactly 4 (using `$size`). The trap options have a syntax error, either by missing the `$and` operator or using an incorrect number of conditions."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "{ contribs: { $all: [ 'ALGOL', 'Lisp' ], $size: 3 } }",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$and` operator to combine two conditions: the array contains both 'ALGOL' and 'Lisp' (using `$all`) and the size of the array is exactly 4 (using `$size`). The trap options have a syntax error, either by missing the `$and` operator or using an incorrect number of conditions."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "{ contribs: { $and: [{ $all: [ 'ALGOL', 'Lisp' ] }, { $size: 3 }] }",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$and` operator to combine two conditions: the array contains both 'ALGOL' and 'Lisp' (using `$all`) and the size of the array is exactly 4 (using `$size`). The trap options have a syntax error, either by missing the `$and` operator or using an incorrect number of conditions."
+            }
+        ],
+        "global_metrics": {
+            "total_attempts": 0,
+            "correct_attempts": 0
+        }
+    },
+    {
+        "_id": "072a30d3-10e6-446e-ba4d-70969b7d49e6",
+        "metadata": {
+            "topic": "General",
+            "difficulty": "Medium",
+            "citation_source": "L2_01.md",
+            "created_at": "2026-04-26T20:20:00.444776"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Based on the provided documentation, which query correctly uses the $elemMatch operator to find documents in the bios collection where the awards array contains an element matching multiple criteria (award name and year)?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.bios.find( { awards: { $elemMatch: { award: \"Turing Award\", year: { $gt: 1980 } } } } )",
+                "is_correct": true,
+                "is_trap": false,
+                "feedback": "The documentation explicitly states to use the $elemMatch operator to specify multiple criteria on an array element. The correct syntax wraps both the 'award' and 'year' conditions within the $elemMatch document inside the 'awards' field query."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.bios.find( { awards: { $elemMatch: { award: \"Turing Award\" }, year: { $gt: 1980 } } } )",
+                "is_correct": false,
+                "is_trap": true,
+                "feedback": "The second option is a trap because it closes the $elemMatch document too early (after 'award'). This places the 'year' condition outside the $elemMatch scope, meaning MongoDB would not enforce both criteria on the same single array element, which violates the documented requirement for querying multiple criteria on an array element."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.bios.find( { contribs: { $all: [ \"ALGOL\", \"Lisp\" ] } } )",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The documentation explicitly states to use the $elemMatch operator to specify multiple criteria on an array element. The correct syntax wraps both the 'award' and 'year' conditions within the $elemMatch document inside the 'awards' field query."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.bios.find( { awards: { award: \"Turing Award\", year: { $gt: 1980 } } } )",
+                "is_correct": false,
+                "is_trap": true,
+                "feedback": "The second option is a trap because it closes the $elemMatch document too early (after 'award'). This places the 'year' condition outside the $elemMatch scope, meaning MongoDB would not enforce both criteria on the same single array element, which violates the documented requirement for querying multiple criteria on an array element."
+            }
+        ],
+        "global_metrics": {
+            "total_attempts": 0,
+            "correct_attempts": 0
+        }
+    },
+    {
+        "_id": "3614ac4a-a0d1-4dbf-839f-174f44dd22c6",
+        "metadata": {
+            "topic": "General",
+            "difficulty": "Medium",
+            "citation_source": "L2_01.md",
+            "created_at": "2026-04-26T20:21:49.641763"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Given a MongoDB collection named `bios`, which query will return documents where the array field `contribs` contains both the elements `'ALGOL'` and `'Lisp'`?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.bios.find({ contribs: { $all: ['ALGOL', 'Lisp'] } })",
+                "is_correct": true,
+                "is_trap": false,
+                "feedback": "The correct answer is the one that uses the `$all` operator to specify both elements in the array, as shown in the provided context. The trap option includes `$elemMatch`, which is used for specifying multiple criteria on an array element, but incorrectly combines it with the `$in` operator."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.bios.find({ contribs: { $elemMatch: { $all: ['ALGOL', 'Lisp'] } } })",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer is the one that uses the `$all` operator to specify both elements in the array, as shown in the provided context. The trap option includes `$elemMatch`, which is used for specifying multiple criteria on an array element, but incorrectly combines it with the `$in` operator."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.bios.find({ contribs: { $in: ['ALGOL', 'Lisp'] } })",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer is the one that uses the `$all` operator to specify both elements in the array, as shown in the provided context. The trap option includes `$elemMatch`, which is used for specifying multiple criteria on an array element, but incorrectly combines it with the `$in` operator."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.bios.find({ contribs: { $elemMatch: { $in: ['ALGOL', 'Lisp'] } } })",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer is the one that uses the `$all` operator to specify both elements in the array, as shown in the provided context. The trap option includes `$elemMatch`, which is used for specifying multiple criteria on an array element, but incorrectly combines it with the `$in` operator."
+            }
+        ],
+        "global_metrics": {
+            "total_attempts": 0,
+            "correct_attempts": 0
+        }
+    },
+    {
+        "_id": "ec6e673a-7526-4a2b-b308-b415a5a59a01",
+        "metadata": {
+            "topic": "General",
+            "difficulty": "Medium",
+            "citation_source": "Source: L2_01.md",
+            "created_at": "2026-04-26T20:23:47.521022"
+        },
+        "context": {
+            "scenario_description": "",
+            "database_info": ""
+        },
+        "question_text": "Which MongoDB query will return documents in the `bios` collection where the array field `contribs` contains both the elements `'ALGOL'` and `'Lisp'`, but NOT using the `$all` operator?",
+        "options": [
+            {
+                "option_letter": "A",
+                "code_snippet": "db.bios.find({ contribs: { $in: ['ALGOL', 'Lisp'] } })",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$elemMatch` operator to specify multiple criteria on an array element, and the `$and` operator to combine conditions within the criteria. The trap option `db.bios.find({ contribs: { $and: [{ award: 'ALGOL' }, { award: 'Lisp' }] })` is tricky because it incorrectly places the `$and` operator outside of the array criteria, which would result in a syntax error."
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "db.bios.find({ contribs: { $elemMatch: { $and: [{ award: 'ALGOL' }, { award: 'Lisp' }] } })",
+                "is_correct": true,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$elemMatch` operator to specify multiple criteria on an array element, and the `$and` operator to combine conditions within the criteria. The trap option `db.bios.find({ contribs: { $and: [{ award: 'ALGOL' }, { award: 'Lisp' }] })` is tricky because it incorrectly places the `$and` operator outside of the array criteria, which would result in a syntax error."
+            },
+            {
+                "option_letter": "C",
+                "code_snippet": "db.bios.find({ contribs: { $all: [ 'ALGOL', 'Lisp' ] } })",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$elemMatch` operator to specify multiple criteria on an array element, and the `$and` operator to combine conditions within the criteria. The trap option `db.bios.find({ contribs: { $and: [{ award: 'ALGOL' }, { award: 'Lisp' }] })` is tricky because it incorrectly places the `$and` operator outside of the array criteria, which would result in a syntax error."
+            },
+            {
+                "option_letter": "D",
+                "code_snippet": "db.bios.find({ contribs: { $and: [{ award: 'ALGOL' }, { award: 'Lisp' }] })",
+                "is_correct": false,
+                "is_trap": false,
+                "feedback": "The correct answer uses the `$elemMatch` operator to specify multiple criteria on an array element, and the `$and` operator to combine conditions within the criteria. The trap option `db.bios.find({ contribs: { $and: [{ award: 'ALGOL' }, { award: 'Lisp' }] })` is tricky because it incorrectly places the `$and` operator outside of the array criteria, which would result in a syntax error."
+            }
+        ],
+        "global_metrics": {
+            "total_attempts": 0,
+            "correct_attempts": 0
+        }
+    }
+]

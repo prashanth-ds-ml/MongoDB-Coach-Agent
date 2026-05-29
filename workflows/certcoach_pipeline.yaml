@@ -1,0 +1,22 @@
+version: "1"
+project: certcoach-rag-platform
+
+tasks:
+  - name: clean-markdown-sources
+    image: python:3.9-slim
+    commands:
+      - cd /app
+      - python src/scripts/utils/markdown_cleaner.py
+    mounts:
+      - .:/app  
+
+  - name: build-chroma-database
+    image: python:3.9-slim
+    commands:
+      - cd /app
+      - pip install langchain chromadb sentence-transformers langchain-community
+      - python src/scripts/utils/knowledge_base_indexer.py
+    mounts:
+      - .:/app
+    env:
+      - CHROMA_ENVIRONMENT=local

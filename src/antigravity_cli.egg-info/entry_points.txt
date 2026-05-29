@@ -1,0 +1,2 @@
+[console_scripts]
+ag = antigravity_cli.cli:main

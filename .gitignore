@@ -1,0 +1,35 @@
+# Python files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Environment variables
+.env
+
+# ChromaDB
+chroma_db/
+
+# IDEs and Editors
+.vscode/
+.idea/
+.DS_Store
+
+# Obsidian settings to ignore (we keep app.json but ignore user workspace state)
+.obsidian/workspace
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/core-plugins-migration.json
+.obsidian/graph.json
+
+# Tool & CLI metadata caches
+.pytest_cache/
+.ai/
+.antigravity/
+.antigravitycli/
