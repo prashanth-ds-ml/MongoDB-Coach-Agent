@@ -918,6 +918,65 @@ def show_exam_traps():
         raise SystemExit
 
 
+def recalibrate_study_plan():
+    clear()
+    console.print(Rule("[bold cyan]🔄 Recalibrate Study Plan[/bold cyan]"))
+    console.print()
+    console.print(Panel(
+        "This option allows you to update your exam date, experience level,\n"
+        "and regenerate your customized daily study calendar based on your current progress.",
+        title="[bold yellow]Pacing Recalibration[/bold yellow]",
+        border_style="yellow", box=box.ROUNDED
+    ))
+    console.print()
+    
+    # Ask for days remaining
+    while True:
+        days_str = ask("[bold]How many days from today is your updated MongoDB exam date?[/bold] (e.g. 30)")
+        if days_str == "__back__":
+            return
+        try:
+            days = int(days_str)
+            if days < 1:
+                raise ValueError
+            break
+        except ValueError:
+            console.print("[red]Please enter a valid number greater than 0.[/red]")
+            
+    # Ask experience level
+    console.print()
+    exp_in = ask("[bold]What is your updated experience level?[/bold] (1=Beginner, 2=Intermediate, 3=Advanced)", choices=["1", "2", "3"])
+    exp_map = {"1": "Beginner", "2": "Intermediate", "3": "Advanced"}
+    if exp_in == "__back__":
+        return
+    experience_level = exp_map.get(exp_in, "Beginner")
+    
+    # Retrieve current mastered topics so they aren't lost
+    profile = database.get_user_profile(USER_ID)
+    completed_topics = profile.get("progress", {}).get("completed_topics", [])
+    
+    # Offer option to clear mastered topics to start completely fresh
+    console.print()
+    if Confirm.ask("[bold]Would you like to reset all topic mastery progress and start completely fresh?[/bold]"):
+        completed_topics = []
+        database.update_user_profile(USER_ID, {"progress": {"completed_topics": [], "current_agenda": []}})
+        
+    # Generate new study plan
+    console.print()
+    console.print("[dim]Regenerating and balancing your new study plan...[/dim]")
+    exam_date = datetime.datetime.utcnow() + datetime.timedelta(days=days)
+    calendar = planner.generate_study_calendar(days, experience_level, completed_topics)
+    
+    database.update_user_profile(USER_ID, {
+        "exam_date": exam_date.isoformat(),
+        "experience_level": experience_level,
+        "study_calendar": calendar
+    })
+    
+    console.print("\n[bold green]✅ Study plan successfully updated and recalibrated![/bold green]")
+    time.sleep(2)
+
+
 # ---------------------------------------------------------------------------
 # MAIN MENU
 # ---------------------------------------------------------------------------
@@ -1050,6 +1109,10 @@ def main_menu():
         choices[str(idx)] = {"type": "CheatSheet"}
         idx += 1
 
+        console.print(f"  [bold cyan]{idx}.[/bold cyan]  🔄  Update Study Plan & Recalibrate Pacing")
+        choices[str(idx)] = {"type": "UpdatePlan"}
+        idx += 1
+
         console.print(f"  [bold cyan]{idx}.[/bold cyan]  ❌  Quit  [dim](or type q anywhere)[/dim]")
         choices[str(idx)] = {"type": "Quit"}
 
@@ -1180,6 +1243,9 @@ def main_menu():
 
         elif selected.get("type") == "CheatSheet":
             show_exam_traps()
+
+        elif selected.get("type") == "UpdatePlan":
+            recalibrate_study_plan()
 
         elif selected.get("type") == "Quit":
             break

@@ -95,3 +95,28 @@ def test_main_menu_startup_briefing(mock_show_traps, mock_prompt_ask, mock_confi
         
     mock_confirm_ask.assert_called_once_with("  Would you like to review the Exam Cheat Sheet now?")
     mock_show_traps.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.ask")
+def test_recalibrate_study_plan(mock_ask, mock_confirm, mock_planner, mock_database, mock_console):
+    from certcoach.cli import recalibrate_study_plan
+    
+    mock_ask.side_effect = ["30", "2"]
+    mock_confirm.return_value = False
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_topics": ["Topic 1"]
+        }
+    }
+    mock_planner.generate_study_calendar.return_value = [{"day_num": 1, "topic": "Topic 1"}]
+    
+    with patch("time.sleep"):
+        recalibrate_study_plan()
+        
+    mock_planner.generate_study_calendar.assert_called_once_with(30, "Intermediate", ["Topic 1"])
+    mock_database.update_user_profile.assert_called_once()
