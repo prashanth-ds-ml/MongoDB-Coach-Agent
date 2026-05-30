@@ -332,6 +332,7 @@ def run_teach_session(agenda_item: dict):
         subtopics = [topic]
 
     force_practice = False
+    explained_subtopics = []
     for idx, subtopic in enumerate(subtopics):
         with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
             explanation = coach.explain_topic(topic, subtopic, md_context)
@@ -340,6 +341,7 @@ def run_teach_session(agenda_item: dict):
             console.print(f"  [dim]• '{subtopic}' is not covered in reference documents. Skipping...[/dim]")
             continue
             
+        explained_subtopics.append(subtopic)
         panel = Panel(
             Markdown(explanation, code_theme="monokai"),
             title=f"🧑‍🏫  CertCoach teaches: {subtopic}",
@@ -397,6 +399,19 @@ def run_teach_session(agenda_item: dict):
         if force_practice:
             break
 
+    # Build dynamic keywords from the subtopics that were actually explained to ensure strictly related practice
+    dynamic_keywords = []
+    for sub in explained_subtopics:
+        words = sub.replace("()", "").replace("-", " ").replace("_", " ").lower().split()
+        for w in words:
+            if len(w) > 2 and w not in ("and", "the", "for", "with", "from"):
+                dynamic_keywords.append(w)
+            elif w in ("_id", "id"):
+                dynamic_keywords.append(w)
+                
+    if not dynamic_keywords:
+        dynamic_keywords = question_keywords
+
     # ---- 3. PRACTICE OFFER ----
     console.print()
     console.print(Panel(
@@ -406,12 +421,12 @@ def run_teach_session(agenda_item: dict):
     ))
     time.sleep(1)
 
-    score = run_practice_questions(topic, bank_keys, question_keywords=question_keywords, num=5, is_mock=False)
+    score = run_practice_questions(topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=False)
 
     # ---- 4. MINI MOCK OFFER ----
     console.print()
     if Confirm.ask("  Want a quick [bold]5-question Mini-Mock[/bold] on this topic (no coaching, just speed)?"):
-        run_practice_questions(topic, bank_keys, question_keywords=question_keywords, num=5, is_mock=True)
+        run_practice_questions(topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=True)
 
     # Mark mastered if good score
     if score is not None and score >= 4:
@@ -549,8 +564,22 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
             seen.add(qt)
             unique.append(q)
 
-    random.shuffle(unique)
-    questions = unique[:num]
+    if not is_mock:
+        # Rate simplicity (lower score = simpler/beginner-friendly syntax question)
+        def get_simplicity_score(item: dict) -> float:
+            q_text = item.get("question_text", "")
+            has_scen = 1 if item.get("context", {}).get("scenario_description") else 0
+            adv_kws = ["replaceone", "updatemany", "deletemany", "projection", "cursor", "pipeline", "aggregate", "$match", "$group", "$lookup"]
+            hay = (q_text + " " + " ".join(opt.get("code_snippet", "") for opt in item.get("options", []))).lower()
+            adv_cnt = sum(1 for kw in adv_kws if kw in hay)
+            return len(q_text) + (has_scen * 200) + (adv_cnt * 100)
+
+        # Sort the entire pool so simple/beginner questions are at the front
+        unique.sort(key=get_simplicity_score)
+        questions = unique[:num]
+    else:
+        random.shuffle(unique)
+        questions = unique[:num]
 
     if not questions:
         console.print(f"[yellow]  No questions found for this topic yet. AI generation not available offline.[/yellow]")

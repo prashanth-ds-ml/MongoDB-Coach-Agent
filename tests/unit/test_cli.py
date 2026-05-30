@@ -296,7 +296,7 @@ def test_run_teach_session_skipping_and_practice_jump(mock_practice, mock_prompt
     called_subtopics = [call[0][1] for call in mock_coach.explain_topic.call_args_list]
     assert "Subtopic C" not in called_subtopics
     
-    mock_practice.assert_called_with("Topic A", ["Topic A"], question_keywords=[], num=5, is_mock=False)
+    mock_practice.assert_called_with("Topic A", ["Topic A"], question_keywords=["subtopic"], num=5, is_mock=False)
 
 
 @patch("certcoach.cli.console")
