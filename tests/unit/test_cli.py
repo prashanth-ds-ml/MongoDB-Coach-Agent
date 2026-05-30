@@ -258,3 +258,45 @@ def test_generate_daily_agenda_skipping_reviews(mock_load_syllabus, mock_get_pro
         planner.DATA_DIR = original_data_dir
 
 
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+def test_run_teach_session_skipping_and_practice_jump(mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+    
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_confirm_ask.return_value = False
+    mock_practice.return_value = 5
+    
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Subtopic A", "Subtopic B", "Subtopic C"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    
+    def mock_explain(topic, subtopic, context):
+        if subtopic == "Subtopic A":
+            return "This is not covered in my official docs."
+        return f"Explanation for {subtopic}\n**Micro-Challenge**:\nWhat is 1+1?\nType your answer or ask any questions."
+        
+    mock_coach.explain_topic.side_effect = mock_explain
+    mock_prompt_ask.side_effect = ["practice", "n"]
+    
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+        
+    mock_coach.explain_topic.assert_any_call("Topic A", "Subtopic A", "dummy context")
+    mock_coach.explain_topic.assert_any_call("Topic A", "Subtopic B", "dummy context")
+    
+    called_subtopics = [call[0][1] for call in mock_coach.explain_topic.call_args_list]
+    assert "Subtopic C" not in called_subtopics
+    
+    mock_practice.assert_called_with("Topic A", ["Topic A"], question_keywords=[], num=5, is_mock=False)
+
+
+

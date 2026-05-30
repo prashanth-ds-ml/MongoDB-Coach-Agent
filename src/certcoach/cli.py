@@ -331,10 +331,15 @@ def run_teach_session(agenda_item: dict):
     if not subtopics:
         subtopics = [topic]
 
+    force_practice = False
     for idx, subtopic in enumerate(subtopics):
         with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
             explanation = coach.explain_topic(topic, subtopic, md_context)
         
+        if "not covered in my official docs" in explanation.lower():
+            console.print(f"  [dim]• '{subtopic}' is not covered in reference documents. Skipping...[/dim]")
+            continue
+            
         panel = Panel(
             Markdown(explanation, code_theme="monokai"),
             title=f"🧑‍🏫  CertCoach teaches: {subtopic}",
@@ -347,7 +352,7 @@ def run_teach_session(agenda_item: dict):
         chat_history = memory_manager.load_active_history()
         console.print()
         console.print(
-            "  [dim]Answer the micro-challenge, ask a question, or type [bold]next[/bold] to proceed.[/dim]"
+            "  [dim]Answer the challenge, ask a question, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
         )
 
         while True:
@@ -366,7 +371,11 @@ def run_teach_session(agenda_item: dict):
             if user_input.lower() in BACK_COMMANDS:
                 return
 
-            if user_input.lower() in ("done", "practice", "p", "next"):
+            if user_input.lower() in ("practice", "p"):
+                force_practice = True
+                break
+
+            if user_input.lower() in ("done", "next"):
                 break
 
             # Generate follow-up answer
@@ -384,6 +393,9 @@ def run_teach_session(agenda_item: dict):
                 border_style="blue", box=box.ROUNDED,
                 padding=(1, 2),
             ))
+
+        if force_practice:
+            break
 
     # ---- 3. PRACTICE OFFER ----
     console.print()
