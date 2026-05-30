@@ -693,7 +693,7 @@ def show_syllabus_status():
         for item in audit["empty"]:
             alert_lines.append(f"  • [red]Topic #{item['id']}[/red] ({item['topic']}) has no markdown reference files mapped")
             
-        alert_lines.append("\n[dim]Please add these missing files to [bold cyan]data/raw_markdowns/[/bold cyan] to enable fully grounded RAG teaching.[/dim]")
+        alert_lines.append("\n[dim]Please provide which topics to include in the docs (add these missing files to [bold cyan]data/raw_markdowns/[/bold cyan]) so that the Coach can help in learning those topics.[/dim]")
         
         missing_panel = Panel(
             "\n".join(alert_lines),
@@ -1116,6 +1116,11 @@ def main_menu():
         due_reviews = planner.get_due_review_topics(USER_ID)
         badge = " [bold red](🚨 Spaced-Repetition Quiz Due!)[/bold red]" if due_reviews else ""
         
+        skipped_topics = status.get("skipped_unmapped_topics", [])
+        skipped_badge = ""
+        if skipped_topics:
+            skipped_badge = f" [bold yellow](⚠️ {len(skipped_topics)} topics skipped due to missing docs)[/bold yellow]"
+            
         lock_str = (
             "[bold green]🔓 Unlocked[/bold green]"
             if status["mock_exam_unlocked"]
@@ -1127,7 +1132,7 @@ def main_menu():
         # Sleek horizontally consolidated Status Bar
         console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
         console.print("━"*80)
-        console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}")
+        console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}{skipped_badge}")
         console.print(f"  [bold cyan]2.[/bold cyan] 📖 Reference Library (Journal, Cheat Sheet, Syllabus, Analytics)")
         console.print(f"  [bold cyan]3.[/bold cyan] 🛠️ Study Settings & Extras (Mock Exams, Pacing, Recalibrate, Quit)")
         console.print()
@@ -1145,6 +1150,24 @@ def main_menu():
             break
 
         if choice_raw == "1":
+            # Show skipped topics notice if any
+            if skipped_topics:
+                console.print()
+                alert_lines = [
+                    "[bold yellow]⚠️  The following syllabus topics were bypassed because their official reference documentation does not exist:[/bold yellow]\n"
+                ]
+                for item in skipped_topics:
+                    alert_lines.append(f"  • [cyan]Topic #{item['id']}[/cyan] ({item['topic']})")
+                alert_lines.append(
+                    "\n[bold]Action Required:[/bold] Please provide which topics to include in the docs (add their respective markdown files under [bold cyan]data/raw_markdowns/[/bold cyan]) so that CertCoach can help in learning those topics."
+                )
+                console.print(Panel(
+                    "\n".join(alert_lines),
+                    title="[bold yellow]📂 Bypassed Topics Notice[/bold yellow]",
+                    border_style="yellow", box=box.ROUNDED
+                ))
+                console.print()
+                
             # 1. Run due reviews first if any
             if due_reviews:
                 console.print(Rule("[bold yellow]🚨 Pop Quiz Time! 🚨[/bold yellow]"))

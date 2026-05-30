@@ -27,9 +27,10 @@ def load_md_context(md_files: list) -> str:
     """Load markdown file content as context for the LLM."""
     texts = []
     CLEANED_MD_DIR = os.path.join(DATA_DIR, "cleaned_markdowns")
+    RAW_MD_DIR_DYNAMIC = os.path.join(DATA_DIR, "raw_markdowns")
     for fname in md_files:
         clean_path = os.path.join(CLEANED_MD_DIR, fname)
-        raw_path = os.path.join(RAW_MD_DIR, fname)
+        raw_path = os.path.join(RAW_MD_DIR_DYNAMIC, fname)
         
         if os.path.exists(clean_path):
             with open(clean_path, "r", encoding="utf-8") as f:
@@ -38,6 +39,21 @@ def load_md_context(md_files: list) -> str:
             with open(raw_path, "r", encoding="utf-8") as f:
                 texts.append(f.read())
     return "\n\n---\n\n".join(texts)
+
+
+def has_topic_documentation(topic_item: dict) -> bool:
+    """Check if a topic has any reference documentation files available on disk."""
+    md_files = topic_item.get("md_files", [])
+    if not md_files:
+        return False
+    CLEANED_MD_DIR = os.path.join(DATA_DIR, "cleaned_markdowns")
+    RAW_MD_DIR_DYNAMIC = os.path.join(DATA_DIR, "raw_markdowns")
+    for fname in md_files:
+        clean_path = os.path.join(CLEANED_MD_DIR, fname)
+        raw_path = os.path.join(RAW_MD_DIR_DYNAMIC, fname)
+        if os.path.exists(clean_path) or os.path.exists(raw_path):
+            return True
+    return False
 
 
 def calculate_days_left(exam_date_str: str) -> int:
@@ -152,6 +168,7 @@ def get_syllabus_status(user_id: str) -> dict:
     total_topics = len(syllabus)
     mastered_count = 0
     next_topic = None
+    skipped_unmapped_topics = []
     gap_topics = []
     status_list = []
 
@@ -175,9 +192,15 @@ def get_syllabus_status(user_id: str) -> dict:
 
         if is_mastered:
             mastered_count += 1
-
-        if next_topic is None and not is_mastered:
-            next_topic = item
+        else:
+            if has_topic_documentation(item):
+                if next_topic is None:
+                    next_topic = item
+            else:
+                skipped_unmapped_topics.append({
+                    "id": item["id"],
+                    "topic": syllabus_topic
+                })
 
         status_list.append({
             "id": item["id"],
@@ -203,6 +226,7 @@ def get_syllabus_status(user_id: str) -> dict:
         "mock_exam_unlocked": mock_exam_unlocked,
         "unlock_threshold_percent": int(MOCK_EXAM_UNLOCK_THRESHOLD * 100),
         "next_topic": next_topic,
+        "skipped_unmapped_topics": skipped_unmapped_topics,
         "gap_topics": gap_topics,
         "status_list": status_list,
     }

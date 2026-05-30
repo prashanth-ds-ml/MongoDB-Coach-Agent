@@ -118,3 +118,102 @@ def test_recalibrate_study_plan(mock_ask, mock_confirm, mock_planner, mock_datab
         
     mock_planner.generate_study_calendar.assert_called_once_with(30, "Intermediate", ["Topic 1"])
     mock_database.update_user_profile.assert_called_once()
+
+
+def test_has_topic_documentation_and_get_syllabus_status(tmp_path):
+    import os
+    from certcoach.core import planner
+    
+    # Save original DATA_DIR
+    original_data_dir = planner.DATA_DIR
+    try:
+        planner.DATA_DIR = str(tmp_path)
+        raw_dir = tmp_path / "raw_markdowns"
+        clean_dir = tmp_path / "cleaned_markdowns"
+        raw_dir.mkdir(parents=True)
+        clean_dir.mkdir(parents=True)
+        
+        t1 = {"id": 1, "topic": "T1", "md_files": []}
+        t2 = {"id": 2, "topic": "T2", "md_files": ["f2.md"]}
+        t3 = {"id": 3, "topic": "T3", "md_files": ["f3.md"]}
+        (raw_dir / "f3.md").write_text("content3", encoding="utf-8")
+        t4 = {"id": 4, "topic": "T4", "md_files": ["f4.md"]}
+        (clean_dir / "f4.md").write_text("content4", encoding="utf-8")
+        
+        assert not planner.has_topic_documentation(t1)
+        assert not planner.has_topic_documentation(t2)
+        assert planner.has_topic_documentation(t3)
+        assert planner.has_topic_documentation(t4)
+    finally:
+        planner.DATA_DIR = original_data_dir
+
+
+@patch("certcoach.core.database.get_analytics")
+@patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.planner.load_syllabus")
+def test_get_syllabus_status_skipping(mock_load_syllabus, mock_get_profile, mock_get_analytics, tmp_path):
+    from certcoach.core import planner
+    
+    original_data_dir = planner.DATA_DIR
+    try:
+        planner.DATA_DIR = str(tmp_path)
+        raw_dir = tmp_path / "raw_markdowns"
+        clean_dir = tmp_path / "cleaned_markdowns"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        clean_dir.mkdir(parents=True, exist_ok=True)
+        
+        mock_get_profile.return_value = {"progress": {"completed_topics": []}}
+        mock_get_analytics.return_value = {"topic_stats": []}
+        
+        t1 = {"id": 1, "topic": "Topic 1", "md_files": ["missing.md"]}
+        t2 = {"id": 2, "topic": "Topic 2", "md_files": ["present.md"]}
+        (raw_dir / "present.md").write_text("grounded content", encoding="utf-8")
+        
+        mock_load_syllabus.return_value = [t1, t2]
+        
+        status = planner.get_syllabus_status("test_user")
+        assert status["next_topic"] == t2
+        assert len(status["skipped_unmapped_topics"]) == 1
+        assert status["skipped_unmapped_topics"][0]["topic"] == "Topic 1"
+    finally:
+        planner.DATA_DIR = original_data_dir
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.run_onboarding")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+def test_main_menu_skipped_topics_notice(mock_practice, mock_prompt_ask, mock_onboarding, mock_coach, mock_planner, mock_database, mock_console):
+    from certcoach.cli import main_menu
+    
+    mock_planner.get_due_review_topics.return_value = []
+    mock_coach.get_daily_greeting.return_value = "Hello!"
+    
+    mock_planner.get_syllabus_status.return_value = {
+        "mastery_percent": 10.0,
+        "mastered_count": 1,
+        "total_topics": 5,
+        "mock_exam_unlocked": False,
+        "unlock_threshold_percent": 70,
+        "skipped_unmapped_topics": [{"id": 1, "topic": "Skipped Topic"}]
+    }
+    mock_planner.generate_daily_agenda.return_value = []
+    
+    mock_prompt_ask.side_effect = ["1", KeyboardInterrupt()]
+    
+    try:
+        main_menu()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+        
+    panel_called = False
+    for call in mock_console.print.call_args_list:
+        args, kwargs = call
+        if args and hasattr(args[0], "title") and args[0].title == "[bold yellow]📂 Bypassed Topics Notice[/bold yellow]":
+            panel_called = True
+            break
+    assert panel_called
+
