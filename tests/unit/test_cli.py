@@ -299,4 +299,31 @@ def test_run_teach_session_skipping_and_practice_jump(mock_practice, mock_prompt
     mock_practice.assert_called_with("Topic A", ["Topic A"], question_keywords=[], num=5, is_mock=False)
 
 
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_practice_questions_clean_exit(mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+    
+    mock_database.get_random_questions.return_value = [
+        {
+            "_id": "q1",
+            "question_text": "Is MongoDB document-based?",
+            "options": [
+                {"option_letter": "A", "code_snippet": "Yes", "is_correct": True, "feedback": "Indeed."}
+            ],
+            "metadata": {"topic": "Topic A"},
+            "context": {}
+        }
+    ]
+    
+    mock_prompt_ask.return_value = "q"
+    
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
+        
+    assert score is None
+
+
+
 

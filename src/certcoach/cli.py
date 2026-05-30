@@ -582,12 +582,14 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
         console.print()
         try:
-            ans = Prompt.ask("  [bold]Answer[/bold]", choices=valid_options + ["q"]).upper()
+            ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK", "B"]).upper()
         except (KeyboardInterrupt, EOFError):
             raise SystemExit
 
-        if ans.lower() in EXIT_COMMANDS:
-            raise SystemExit
+        if ans in ("Q", "BACK", "B"):
+            console.print("[yellow]  Exiting practice session...[/yellow]")
+            time.sleep(1)
+            return None
 
         # Evaluate
         if not is_mock:
