@@ -276,7 +276,7 @@ def generate_daily_agenda(user_id: str) -> list:
         # If it's in the due reviews list OR (accuracy < 60% and attempted)
         is_due = any(k in due_reviews for k in item["bank_keys"])
         is_weak = not item["is_mastered"] and item["attempts"] > 0 and item["accuracy"] < 60
-        if is_due or is_weak:
+        if (is_due or is_weak) and has_topic_documentation(item):
             agenda.append({
                 "type": "Review",
                 "topic": item["topic"],

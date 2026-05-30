@@ -217,3 +217,44 @@ def test_main_menu_skipped_topics_notice(mock_practice, mock_prompt_ask, mock_on
             break
     assert panel_called
 
+
+@patch("certcoach.core.database.get_user_attempts")
+@patch("certcoach.core.database.get_analytics")
+@patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.planner.load_syllabus")
+def test_generate_daily_agenda_skipping_reviews(mock_load_syllabus, mock_get_profile, mock_get_analytics, mock_get_attempts, tmp_path):
+    import datetime
+    from certcoach.core import planner
+    
+    original_data_dir = planner.DATA_DIR
+    try:
+        planner.DATA_DIR = str(tmp_path)
+        raw_dir = tmp_path / "raw_markdowns"
+        clean_dir = tmp_path / "cleaned_markdowns"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        clean_dir.mkdir(parents=True, exist_ok=True)
+        
+        mock_get_profile.return_value = {"progress": {"completed_topics": []}}
+        mock_get_analytics.return_value = {"topic_stats": []}
+        
+        mock_get_attempts.return_value = [
+            {
+                "topic": "Topic 1",
+                "timestamp": (datetime.datetime.utcnow() - datetime.timedelta(days=5)).isoformat(),
+                "is_correct": False,
+                "confidence_level": "Low"
+            }
+        ]
+        
+        t1 = {"id": 1, "topic": "Topic 1", "bank_topic_keys": ["Topic 1"], "md_files": ["missing.md"]}
+        
+        mock_load_syllabus.return_value = [t1]
+        
+        agenda = planner.generate_daily_agenda("test_user")
+        
+        assert not any(item["type"] == "Review" for item in agenda)
+        
+    finally:
+        planner.DATA_DIR = original_data_dir
+
+
