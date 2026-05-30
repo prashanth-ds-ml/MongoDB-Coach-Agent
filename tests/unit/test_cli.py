@@ -65,16 +65,16 @@ def test_show_study_journal(mock_memory, mock_planner, mock_database, mock_conso
 @patch("certcoach.cli.planner")
 @patch("certcoach.cli.coach")
 @patch("certcoach.cli.run_onboarding")
-@patch("certcoach.cli.Confirm.ask")
 @patch("certcoach.cli.Prompt.ask")
-@patch("certcoach.cli.show_exam_traps")
-def test_main_menu_startup_briefing(mock_show_traps, mock_prompt_ask, mock_confirm_ask, mock_onboarding, mock_coach, mock_planner, mock_database, mock_console):
+@patch("certcoach.cli.run_library_submenu")
+@patch("certcoach.cli.run_settings_submenu")
+def test_main_menu_option_routing(mock_settings, mock_library, mock_prompt_ask, mock_onboarding, mock_coach, mock_planner, mock_database, mock_console):
     from certcoach.cli import main_menu
     
     mock_planner.get_due_review_topics.return_value = []
     mock_coach.get_daily_greeting.return_value = "Hello Student!"
     
-    # Mock status to avoid iterating on agenda/status list inside main_menu
+    # Mock status to avoid iterating on status list
     mock_planner.get_syllabus_status.return_value = {
         "mastery_percent": 0.0,
         "mastered_count": 0,
@@ -84,17 +84,15 @@ def test_main_menu_startup_briefing(mock_show_traps, mock_prompt_ask, mock_confi
     }
     mock_planner.generate_daily_agenda.return_value = []
     
-    # Force Confirm to return True, then prompt ask to raise SystemExit or KeyboardInterrupt to break loop
-    mock_confirm_ask.return_value = True
-    mock_prompt_ask.side_effect = KeyboardInterrupt()
+    # First loop returns '2' (opens library), second loop raises KeyboardInterrupt to exit
+    mock_prompt_ask.side_effect = ["2", KeyboardInterrupt()]
     
     try:
         main_menu()
     except (KeyboardInterrupt, SystemExit):
         pass
         
-    mock_confirm_ask.assert_called_once_with("  Would you like to review the Exam Cheat Sheet now?")
-    mock_show_traps.assert_called_once()
+    mock_library.assert_called_once()
 
 
 @patch("certcoach.cli.console")

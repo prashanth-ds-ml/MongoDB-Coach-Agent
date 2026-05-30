@@ -319,7 +319,6 @@ def run_teach_session(agenda_item: dict):
     bank_keys = agenda_item.get("bank_keys", [topic])
     question_keywords = agenda_item.get("question_keywords", [])
 
-    clear()
     console.print(Rule(f"[bold cyan]Today's Topic: {topic}[/bold cyan]"))
     console.print("[dim]  Type [bold]q[/bold] at any point to save and quit.\n[/dim]")
 
@@ -417,7 +416,6 @@ def run_teach_session(agenda_item: dict):
     return ans in ("y", "yes")
 
 def run_free_chat_session(initial_query: str):
-    clear()
     console.print(Rule("[bold cyan]💬 Free Chat with CertCoach[/bold cyan]"))
     console.print("[dim]  Type [bold]q[/bold] or [bold]back[/bold] at any point to leave.\n[/dim]")
     
@@ -457,7 +455,7 @@ def run_free_chat_session(initial_query: str):
                 border_style="blue", box=box.ROUNDED,
                 padding=(1, 2),
             )
-            print_paginated(panel, title="Free Chat Q&A")
+            console.print(panel)
             
         console.print()
         try:
@@ -978,6 +976,122 @@ def recalibrate_study_plan():
 
 
 # ---------------------------------------------------------------------------
+# MAIN MENU Helpers & Submenus
+# ---------------------------------------------------------------------------
+
+def run_full_mock():
+    pep = coach.get_mock_exam_pep_talk()
+    console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
+    try:
+        Prompt.ask("\n  Press Enter when ready...")
+    except (KeyboardInterrupt, EOFError):
+        return
+    all_keys = []
+    for item in planner.load_syllabus():
+        all_keys.extend(item.get("bank_topic_keys", []))
+    run_practice_questions("Full Mock", list(set(all_keys)), num=60, is_mock=True)
+
+def run_timed_mock():
+    pep = coach.get_mock_exam_pep_talk()
+    console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
+    try:
+        Prompt.ask("\n  Press Enter when ready...")
+    except (KeyboardInterrupt, EOFError):
+        return
+    all_keys = []
+    for item in planner.load_syllabus():
+        all_keys.extend(item.get("bank_topic_keys", []))
+    start_time = time.time()
+    score = run_practice_questions("Timed Mock Exam", list(set(all_keys)), num=20, is_mock=True)
+    elapsed_time = time.time() - start_time
+    minutes, seconds = divmod(int(elapsed_time), 60)
+    console.print(f"\n  [bold cyan]⏱️ Time Taken: {minutes}m {seconds}s[/bold cyan]")
+    console.print(f"  [dim]Target: ~28m (1.4m per question)[/dim]")
+    try:
+        Prompt.ask("\n  [dim]Press Enter to return[/dim]")
+    except (KeyboardInterrupt, EOFError):
+        return
+
+def run_library_submenu():
+    while True:
+        console.print("\n  [bold blue]📖 Reference Library & Progress[/bold blue]")
+        console.print("  [dim]  " + "─"*30 + "[/dim]")
+        console.print("    [bold cyan]a.[/bold cyan] 📖 View Study Journal (MongoDB Brain)")
+        console.print("    [bold cyan]b.[/bold cyan] 💡 View Exam Cheat Sheet (Traps & Reminders)")
+        console.print("    [bold cyan]c.[/bold cyan] 📚 Syllabus Coverage & Gap Report")
+        console.print("    [bold cyan]d.[/bold cyan] 📊 Performance Analytics Dashboard")
+        console.print("    [bold cyan]e.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print()
+        
+        try:
+            ans = Prompt.ask("  [bold blue]Library ❯[/bold blue]").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            break
+            
+        if ans == "a":
+            show_study_journal()
+        elif ans == "b":
+            show_exam_traps()
+        elif ans == "c":
+            show_syllabus_status()
+        elif ans == "d":
+            show_analytics()
+        elif ans in ("e", "back", "b", "q"):
+            break
+
+def run_settings_submenu(profile, status):
+    while True:
+        console.print("\n  [bold blue]🛠️ Study Settings & Extras[/bold blue]")
+        console.print("  [dim]  " + "─"*30 + "[/dim]")
+        console.print("    [bold cyan]a.[/bold cyan] 🗓️  View Full Study Plan Table")
+        console.print("    [bold cyan]b.[/bold cyan] 🔄 Update Study Plan & Recalibrate Pacing")
+        
+        # Gated Mock
+        if status["mock_exam_unlocked"]:
+            console.print("    [bold cyan]c.[/bold cyan] 🏆 Full Mock Exam (60 Questions)")
+            console.print("    [bold cyan]d.[/bold cyan] ⏱️  Timed Mock Exam (20 Questions)")
+        else:
+            console.print("    [dim]c. 🔒 Full Mock Exam (Locked — need 70% mastery)[/dim]")
+            console.print("    [dim]d. 🔒 Timed Mock Exam (Locked — need 70% mastery)[/dim]")
+            
+        console.print("    [bold cyan]e.[/bold cyan] 💻 Scenario Simulator (Apply Mode)")
+        console.print("    [bold cyan]f.[/bold cyan] ❌ Quit CertCoach")
+        console.print("    [bold cyan]g.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print()
+        
+        try:
+            ans = Prompt.ask("  [bold blue]Settings ❯[/bold blue]").strip().lower()
+        except (KeyboardInterrupt, EOFError):
+            break
+            
+        if ans == "a":
+            if profile.get("study_calendar"):
+                show_plan_preview(profile["study_calendar"], planner.calculate_days_left(profile.get("exam_date")))
+                try:
+                    Prompt.ask("\n  [dim]Press Enter to return[/dim]")
+                except (KeyboardInterrupt, EOFError):
+                    break
+        elif ans == "b":
+            recalibrate_study_plan()
+        elif ans == "c":
+            if status["mock_exam_unlocked"]:
+                run_full_mock()
+            else:
+                console.print("[red]  Locked! Complete 70% of the syllabus first.[/red]")
+        elif ans == "d":
+            if status["mock_exam_unlocked"]:
+                run_timed_mock()
+            else:
+                console.print("[red]  Locked! Complete 70% of the syllabus first.[/red]")
+        elif ans == "e":
+            run_scenario_simulator()
+        elif ans in ("f", "q", "quit"):
+            raise SystemExit
+        elif ans in ("g", "back", "b"):
+            break
+
+
+# ---------------------------------------------------------------------------
 # MAIN MENU
 # ---------------------------------------------------------------------------
 
@@ -987,268 +1101,102 @@ def main_menu():
 
     database.update_streak(USER_ID)
 
-    # Startup briefing: prompt to review exam cheat sheet
-    clear()
-    console.print(Rule("[bold yellow]💡 Startup Readiness Briefing 💡[/bold yellow]"))
-    console.print(Panel(
-        "[bold white]Welcome back, apprentice![/bold white]\n\n"
-        "To ensure you clear the MongoDB Certification Exam on your first try,\n"
-        "it is highly recommended to review the [bold yellow]Exam Cheat Sheet[/bold yellow] (critical syntactic traps\n"
-        "across all 12 modules) before beginning today's session.",
-        title="[bold blue]Ready to Study?[/bold blue]",
-        border_style="yellow", box=box.ROUNDED
-    ))
-    try:
-        if Confirm.ask("  Would you like to review the Exam Cheat Sheet now?"):
-            show_exam_traps()
-    except (KeyboardInterrupt, EOFError):
-        raise SystemExit
-
-    # Check for Pop Quiz (Anki Spaced Repetition)
-    due_reviews = planner.get_due_review_topics(USER_ID)
-    if due_reviews:
-        clear()
-        console.print(Rule("[bold yellow]🚨 Pop Quiz Time! 🚨[/bold yellow]"))
-        console.print(Panel(
-            "It's time for a quick Spaced-Repetition review of past topics before we start the daily agenda.",
-            border_style="yellow", box=box.ROUNDED
-        ))
-        if Confirm.ask("  Start 5-question Pop Quiz now?"):
-            run_practice_questions("Spaced Repetition", due_reviews, num=5, is_mock=True)
-            console.print("\n  [bold green]Great job! Let's get to today's agenda.[/bold green]")
-            time.sleep(2)
-
     while True:
-        clear()
         profile = database.get_user_profile(USER_ID)
         days_left = planner.calculate_days_left(profile.get("exam_date"))
         status = planner.get_syllabus_status(USER_ID)
         agenda = planner.generate_daily_agenda(USER_ID)
         streak = profile.get("streak_days", 1)
 
-        # --- Header ---
-        greeting = coach.get_daily_greeting(days_left, status["mastered_count"], status["total_topics"])
+        agenda_desc = "None"
+        if agenda:
+            first_item = agenda[0]
+            agenda_desc = f"{first_item['topic']} ({first_item['desc']})"
+            
+        due_reviews = planner.get_due_review_topics(USER_ID)
+        badge = " [bold red](🚨 Spaced-Repetition Quiz Due!)[/bold red]" if due_reviews else ""
+        
         lock_str = (
-            "[bold green]🔓 Full Mock Unlocked[/bold green]"
+            "[bold green]🔓 Unlocked[/bold green]"
             if status["mock_exam_unlocked"]
             else (
-                f"[yellow]🔒 Full Mock Locked — need {status['unlock_threshold_percent']}% mastery "
-                f"(currently {status['mastery_percent']}%)[/yellow]"
+                f"[yellow]🔒 Locked — need {status['unlock_threshold_percent']}% mastery[/yellow]"
             )
         )
-        console.print(Panel(
-            f"[dim]{greeting}[/dim]\n\n"
-            f"  📅 [bold]{days_left} days[/bold] until exam  |  "
-            f"🔥 Streak: [bold]{streak} days[/bold]  |  "
-            f"🏅 Mastery: [bold]{status['mastery_percent']}%[/bold]  ({status['mastered_count']}/{status['total_topics']} topics)\n"
-            f"  {lock_str}",
-            title="[bold blue]🧑‍🏫 CertCoach[/bold blue]",
-            border_style="bright_black", box=box.ROUNDED
-        ))
-
-        # --- Agenda ---
+        
+        # Sleek horizontally consolidated Status Bar
+        console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
+        console.print("━"*80)
+        console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}")
+        console.print(f"  [bold cyan]2.[/bold cyan] 📖 Reference Library (Journal, Cheat Sheet, Syllabus, Analytics)")
+        console.print(f"  [bold cyan]3.[/bold cyan] 🛠️ Study Settings & Extras (Mock Exams, Pacing, Recalibrate, Quit)")
         console.print()
-        console.print("  [bold blue]📝 Today's Agenda[/bold blue]")
-        console.print("  [dim]" + "─"*40 + "[/dim]")
-        choices: dict = {}
-        idx = 1
-
-        for item in agenda:
-            icon = "🔄" if item["type"] == "Review" else "📘"
-            console.print(
-                f"  [bold cyan]{idx}.[/bold cyan]  {icon}  "
-                f"[bold]{item['topic']}[/bold]  [dim]{item['desc']}[/dim]"
-            )
-            choices[str(idx)] = item
-            idx += 1
-
-        # --- Other options ---
-        console.print()
-        console.print("  [bold blue]⚡ Other Options[/bold blue]")
-        console.print("  [dim]" + "─"*40 + "[/dim]")
-
-        # View plan
-        if profile.get("study_calendar"):
-            console.print(f"  [bold cyan]{idx}.[/bold cyan]  🗓️   View Full Study Plan")
-            choices[str(idx)] = {"type": "Plan"}
-            idx += 1
-
-        # Syllabus report
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  📚  Syllabus Coverage & Gap Report")
-        choices[str(idx)] = {"type": "Syllabus"}
-        idx += 1
-
-        # Full mock (gated)
-        if status["mock_exam_unlocked"]:
-            console.print(f"  [bold cyan]{idx}.[/bold cyan]  🏆  [bold green]Full Mock Exam (60 Questions)[/bold green]")
-            choices[str(idx)] = {"type": "Mock"}
-            idx += 1
-            console.print(f"  [bold cyan]{idx}.[/bold cyan]  ⏱️   [bold yellow]Timed Mock Exam (20 Questions)[/bold yellow]")
-            choices[str(idx)] = {"type": "TimedMock"}
-        else:
-            console.print(
-                f"  [dim]{idx}.[/dim]  🔒  [dim]Full Mock Exam — Locked "
-                f"(need {status['unlock_threshold_percent']}% mastery)[/dim]"
-            )
-            choices[str(idx)] = {"type": "Locked"}
-        idx += 1
-
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  💻  Scenario Simulator (Apply Mode)")
-        choices[str(idx)] = {"type": "Scenario"}
-        idx += 1
-
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  📊  Analytics Dashboard")
-        choices[str(idx)] = {"type": "Stats"}
-        idx += 1
-
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  📖  View Study Journal (MongoDB Brain)")
-        choices[str(idx)] = {"type": "Journal"}
-        idx += 1
-
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  💡  View Exam Cheat Sheet (Traps & Reminders)")
-        choices[str(idx)] = {"type": "CheatSheet"}
-        idx += 1
-
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  🔄  Update Study Plan & Recalibrate Pacing")
-        choices[str(idx)] = {"type": "UpdatePlan"}
-        idx += 1
-
-        console.print(f"  [bold cyan]{idx}.[/bold cyan]  ❌  Quit  [dim](or type q anywhere)[/dim]")
-        choices[str(idx)] = {"type": "Quit"}
-
-        console.print()
-        console.print("[dim]  Type a [bold]number[/bold] to navigate, or just [bold]start typing[/bold] to chat with Coach![/dim]")
-        console.print()
-
+        console.print("[dim]Type 1-3 to navigate, or start typing to chat directly with your Coach![/dim]")
+        
         try:
-            choice_raw = Prompt.ask("\n  [bold blue]❯[/bold blue]").strip()
+            choice_raw = Prompt.ask("\n[bold blue]Coach ❯[/bold blue]").strip()
         except (KeyboardInterrupt, EOFError):
             break
+
+        if not choice_raw:
+            continue
 
         if choice_raw.lower() in EXIT_COMMANDS:
             break
 
-        choice_key = choice_raw.lower()
-        if choice_key in choices:
-            selected = choices[choice_key]
-        elif choice_raw: # Hybrid intercept
-            run_free_chat_session(choice_raw)
-            continue
-        else:
-            continue
-
-        if selected.get("type") in ("Review", "Learn"):
-            idx_selected = agenda.index(selected)
-            items_to_run = [selected] + agenda[idx_selected + 1:]
-            for item in items_to_run:
-                if item.get("type") not in ("Review", "Learn"):
-                    continue
-                cont = run_teach_session(item)
-                if not cont:
-                    break
-
-        elif selected.get("type") == "BossFight":
-            console.print(Panel(selected["desc"], title="👾 Boss Fight!", border_style="red"))
+        if choice_raw == "1":
+            # 1. Run due reviews first if any
+            if due_reviews:
+                console.print(Rule("[bold yellow]🚨 Pop Quiz Time! 🚨[/bold yellow]"))
+                console.print(Panel(
+                    "It's time for a quick Spaced-Repetition review of past topics before we start the daily agenda.",
+                    border_style="yellow", box=box.ROUNDED
+                ))
+                if Confirm.ask("  Start 5-question Pop Quiz now?"):
+                    run_practice_questions("Spaced Repetition", due_reviews, num=5, is_mock=True)
+                    console.print("\n  [bold green]Great job! Let's get to today's agenda.[/bold green]")
+                    time.sleep(2)
+            
+            # 2. Run the main daily agenda items
+            if agenda:
+                for item in agenda:
+                    if item.get("type") in ("Review", "Learn"):
+                        cont = run_teach_session(item)
+                        if not cont:
+                            break
+                    elif item.get("type") == "BossFight":
+                        console.print(Panel(item["desc"], title="👾 Boss Fight!", border_style="red"))
+                        try:
+                            Prompt.ask("\n  Press Enter when ready to start the boss fight...")
+                        except (KeyboardInterrupt, EOFError):
+                            break
+                        all_keys = []
+                        for s_item in planner.load_syllabus():
+                            all_keys.extend(s_item.get("bank_topic_keys", []))
+                        score = run_practice_questions(item["topic"], list(set(all_keys)), num=10, is_mock=True)
+                        if score is not None and score >= 7:
+                            planner.mark_boss_complete(USER_ID, item["boss_level"])
+                            console.print(f"\n  [bold green]🏆 Boss Defeated! You may now proceed to the next topics.[/bold green]")
+                        else:
+                            console.print(f"\n  [bold red]❌ Boss Defeated You! You need 7/10 to pass. Try again tomorrow.[/bold red]")
+                        try:
+                            ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+                        except (KeyboardInterrupt, EOFError):
+                            break
+            else:
+                console.print("[green]  You have completed all agenda items for today! Great job.[/green]")
+                
+        elif choice_raw == "2":
+            run_library_submenu()
+            
+        elif choice_raw == "3":
             try:
-                Prompt.ask("\n  Press Enter when ready to start the boss fight...")
-            except (KeyboardInterrupt, EOFError):
+                run_settings_submenu(profile, status)
+            except SystemExit:
                 break
                 
-            all_keys = []
-            for item in planner.load_syllabus():
-                all_keys.extend(item.get("bank_topic_keys", []))
-            
-            score = run_practice_questions(selected["topic"], list(set(all_keys)), num=10, is_mock=True)
-            if score is not None and score >= 7:
-                planner.mark_boss_complete(USER_ID, selected["boss_level"])
-                console.print(f"\n  [bold green]🏆 Boss Defeated! You may now proceed to the next topics.[/bold green]")
-            else:
-                console.print(f"\n  [bold red]❌ Boss Defeated You! You need 7/10 to pass. Try again tomorrow.[/bold red]")
-            try:
-                ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return, or type a question to chat[/dim]")
-                if ans.strip() and ans.strip().lower() not in EXIT_COMMANDS:
-                    run_free_chat_session(ans.strip())
-            except (KeyboardInterrupt, EOFError):
-                break
-
-        elif selected.get("type") == "Plan":
-            show_plan_preview(profile["study_calendar"], planner.calculate_days_left(profile.get("exam_date")))
-            try:
-                ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return, or type a question to chat[/dim]")
-                if ans.strip() and ans.strip().lower() not in EXIT_COMMANDS:
-                    run_free_chat_session(ans.strip())
-            except (KeyboardInterrupt, EOFError):
-                break
-
-        elif selected.get("type") == "Syllabus":
-            show_syllabus_status()
-
-        elif selected.get("type") == "Mock":
-            pep = coach.get_mock_exam_pep_talk()
-            console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
-            try:
-                Prompt.ask("\n  Press Enter when ready...")
-            except (KeyboardInterrupt, EOFError):
-                break
-            all_keys = []
-            for item in planner.load_syllabus():
-                all_keys.extend(item.get("bank_topic_keys", []))
-            run_practice_questions("Full Mock", list(set(all_keys)), num=60, is_mock=True)
-
-        elif selected.get("type") == "TimedMock":
-            pep = coach.get_mock_exam_pep_talk()
-            console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
-            try:
-                Prompt.ask("\n  Press Enter when ready...")
-            except (KeyboardInterrupt, EOFError):
-                break
-            all_keys = []
-            for item in planner.load_syllabus():
-                all_keys.extend(item.get("bank_topic_keys", []))
-            start_time = time.time()
-            score = run_practice_questions("Timed Mock Exam", list(set(all_keys)), num=20, is_mock=True)
-            elapsed_time = time.time() - start_time
-            minutes, seconds = divmod(int(elapsed_time), 60)
-            
-            console.print(f"\n  [bold cyan]⏱️ Time Taken: {minutes}m {seconds}s[/bold cyan]")
-            console.print(f"  [dim]Target: ~28m (1.4m per question)[/dim]")
-            
-            try:
-                ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return, or type a question to chat[/dim]")
-                if ans.strip() and ans.strip().lower() not in EXIT_COMMANDS:
-                    run_free_chat_session(ans.strip())
-            except (KeyboardInterrupt, EOFError):
-                break
-
-        elif selected.get("type") == "Locked":
-            console.print(Panel(
-                f"[yellow]Master [bold]{status['unlock_threshold_percent']}%[/bold] of the syllabus first.\n"
-                f"Current: [bold]{status['mastery_percent']}%[/bold]  |  "
-                f"[bold]{status['total_topics'] - status['mastered_count']}[/bold] topics remaining.",
-                title="🔒 Locked", border_style="red"
-            ))
-            try:
-                Prompt.ask("  Press Enter to continue")
-            except (KeyboardInterrupt, EOFError):
-                break
-
-        elif selected.get("type") == "Stats":
-            show_analytics()
-
-        elif selected.get("type") == "Scenario":
-            run_scenario_simulator()
-
-        elif selected.get("type") == "Journal":
-            show_study_journal()
-
-        elif selected.get("type") == "CheatSheet":
-            show_exam_traps()
-
-        elif selected.get("type") == "UpdatePlan":
-            recalibrate_study_plan()
-
-        elif selected.get("type") == "Quit":
-            break
+        else: # Hybrid intercept (Direct Q&A chat)
+            run_free_chat_session(choice_raw)
 
     exit_message()
 
