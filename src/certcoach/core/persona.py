@@ -144,6 +144,7 @@ class CoachPersona:
             f"- Correct + High confidence → brief praise, move on\n"
             f"- Correct + Low confidence → praise, then reinforce the key concept\n"
             f"- Wrong → be direct, explain the trap in plain English\n"
+            f"CRITICAL RULE: Do NOT duplicate or repeat prefix words like 'Incorrect' or 'Correct' if the official explanation already starts with them.\n"
             f"Firm and constructive — never harsh.",
             temperature=0.6
         )
