@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 import uuid
 from datetime import datetime
@@ -18,12 +19,31 @@ if not MONGO_URI:
         f.write(f"\nMONGO_URI={MONGO_URI}\n")
     print(f"Saved configuration to {ENV_PATH}\n")
 
-client = MongoClient(MONGO_URI)
-db = client["certcoach_db"]
+client = None
+db = None
+questions_col = None
+profiles_col = None
+attempts_col = None
+connection_error = None
 
-questions_col = db["questions"]
-profiles_col = db["user_profiles"]
-attempts_col = db["user_attempts"]
+try:
+    client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+    db = client["certcoach_db"]
+    questions_col = db["questions"]
+    profiles_col = db["user_profiles"]
+    attempts_col = db["user_attempts"]
+except Exception as e:
+    connection_error = e
+
+def check_connection():
+    if connection_error is not None:
+        print(f"\n⚠️  MongoDB Connection/Configuration Error: {connection_error}")
+        print("Could not connect to MongoDB. This usually happens due to:")
+        print("  1. Network or DNS resolution timeouts (especially with mongodb+srv:// Atlas URIs)")
+        print("  2. Missing internet access or a local server downtime")
+        print("  3. An incorrect connection string in your .env file")
+        print(f"\nPlease verify your network/database connection or update your connection string at:\n  {ENV_PATH}\n")
+        sys.exit(1)
 
 
 # --- QUESTION BANK ---

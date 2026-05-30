@@ -681,7 +681,31 @@ def show_syllabus_status():
         )
 
     from rich.console import Group
-    elements = [table]
+    elements = []
+    
+    # Audit reference documentation files
+    audit = planner.audit_documentation_files()
+    if audit["incomplete"] or audit["empty"]:
+        alert_lines = ["[bold yellow]⚠️  Missing Syllabus Reference Documentation Files:[/bold yellow]\n"]
+        
+        for item in audit["incomplete"]:
+            missing_str = ", ".join(f"[bold red]{f}[/bold red]" for f in item["missing"])
+            alert_lines.append(f"  • [cyan]Topic #{item['id']}[/cyan] ({item['topic']}) is missing: {missing_str}")
+            
+        for item in audit["empty"]:
+            alert_lines.append(f"  • [red]Topic #{item['id']}[/red] ({item['topic']}) has no markdown reference files mapped")
+            
+        alert_lines.append("\n[dim]Please add these missing files to [bold cyan]data/raw_markdowns/[/bold cyan] to enable fully grounded RAG teaching.[/dim]")
+        
+        missing_panel = Panel(
+            "\n".join(alert_lines),
+            title="[bold yellow]📂 Reference Files Audit Alert[/bold yellow]",
+            border_style="yellow", box=box.ROUNDED
+        )
+        elements.append(missing_panel)
+        elements.append(Text("\n"))
+        
+    elements.append(table)
     if status["gap_topics"]:
         elements.append(Panel(
             "\n".join(f"  [red]✗[/red] {t}" for t in status["gap_topics"]),
@@ -899,6 +923,7 @@ def show_exam_traps():
 # ---------------------------------------------------------------------------
 
 def main_menu():
+    database.check_connection()
     run_onboarding()
 
     database.update_streak(USER_ID)
