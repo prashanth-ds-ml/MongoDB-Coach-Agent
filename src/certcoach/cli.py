@@ -45,6 +45,29 @@ def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 
+def get_weight_style(weight: str, compact: bool = False) -> tuple[str, str]:
+    """Returns (color_style, label) resolved dynamically for semantic and percentage weights."""
+    if not weight:
+        return "white", "—"
+    if weight == "High":
+        return "red", "H" if compact else "High"
+    if weight == "Medium":
+        return "yellow", "M" if compact else "Medium"
+    if weight == "Low":
+        return "green", "L" if compact else "Low"
+    if "%" in weight:
+        try:
+            val = float(weight.replace("%", "").strip())
+            if val >= 15.0:
+                return "red", weight
+            if val >= 8.0:
+                return "yellow", weight
+            return "green", weight
+        except Exception:
+            pass
+    return "white", weight
+
+
 def ask(prompt_text: str, choices: list = None) -> str:
     """
     Wrapper around Prompt.ask that handles exit/back commands globally.
@@ -275,18 +298,17 @@ def show_plan_preview(calendar: list, total_days: int):
     table.add_column("Topic", min_width=36)
     table.add_column("Weight", width=8, justify="center")
 
-    weight_color = {"High": "red", "Medium": "yellow", "Low": "green"}
     phase_color = {"Study": "cyan", "Mock & Revision": "magenta"}
 
     for item in calendar:
-        wc = weight_color.get(item["exam_weight"], "white")
+        w_style, w_lbl = get_weight_style(item.get("exam_weight", ""), compact=False)
         pc = phase_color.get(item["phase"], "white")
         table.add_row(
             str(item["day_num"]),
             item["date"],
             f"[{pc}]{item['phase']}[/{pc}]",
             item["topic"],
-            f"[{wc}]{item['exam_weight']}[/{wc}]" if item["exam_weight"] else "",
+            f"[{w_style}]{w_lbl}[/{w_style}]" if w_lbl != "—" else "",
         )
 
     from rich.console import Group
@@ -763,13 +785,13 @@ def show_syllabus_status():
     table.add_column("Acc.", width=6, justify="right")
     table.add_column("Status", width=12, justify="center")
 
-    wc = {"High": "red", "Medium": "yellow", "Low": "green"}
     for s in status["status_list"]:
         acc_col = "green" if s["accuracy"] >= 80 else "yellow" if s["accuracy"] >= 50 else "red"
+        w_style, w_lbl = get_weight_style(s.get("exam_weight", ""), compact=True)
         table.add_row(
             str(s["id"]),
             s["topic"],
-            f"[{wc.get(s['exam_weight'],'white')}]{s['exam_weight'][0]}[/]",
+            f"[{w_style}]{w_lbl}[/{w_style}]",
             "[green]✓[/green]" if s["has_questions"] else "[red]✗[/red]",
             str(s["attempts"]),
             f"[{acc_col}]{s['accuracy']}%[/]" if s["attempts"] > 0 else "—",
