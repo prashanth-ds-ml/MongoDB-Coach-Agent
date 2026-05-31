@@ -95,17 +95,33 @@ certcoach
 
 If you want to re-ingest raw syllabus files or seed your local MongoDB with practice questions, use these scripts:
 
-1. **Clean Markdown Reference Files**:
+0. **Cache Official MongoDB Docs Markdown**:
+   Downloads direct `.md` versions of pages listed in MongoDB's `llms.txt` into `data/mongodb_docs/`, with a manifest for source URL, markdown URL, local path, status, hash, and fetch time. Use this as the broad source corpus before mapping pages to a specific exam syllabus:
+   ```bash
+   python src/scripts/utils/mongodb_docs_md_scraper.py --count-only
+   python src/scripts/utils/mongodb_docs_md_scraper.py --dry-run
+   python src/scripts/utils/mongodb_docs_md_scraper.py --limit 25
+   python src/scripts/utils/mongodb_docs_md_scraper.py --workers 4
+   python src/scripts/utils/mongodb_docs_md_scraper.py --workers 8 --delay 0.01 --progress-every 500 --manifest-every 100
+   python src/scripts/utils/mongodb_docs_md_scraper.py --include "/docs/manual/" --include "/docs/languages/python/"
+   ```
+1. **Map Cached Docs to the Active Syllabus**:
+   Resolve the curated official pages for the MongoDB Associate Python Developer syllabus, then copy the resolved docs into one folder per syllabus topic under `data/mongodb_docs/syllabus_mapped/associate_python_developer/` with a mapping manifest for citations:
+   ```bash
+   python src/scripts/utils/resolve_associate_python_developer_docs.py
+   python src/scripts/utils/map_mongodb_docs_to_syllabus.py
+   ```
+2. **Clean Markdown Reference Files**:
    Strips boilerplate headings, formats HTML tables, and outputs cleaned text under `data/cleaned_markdowns/`:
    ```bash
    python src/scripts/utils/clean_markdown.py
    ```
-2. **Index RAG Vector DB**:
+3. **Index RAG Vector DB**:
    Chunks and indexes the prefixed reference documents into Chroma DB:
    ```bash
    python src/scripts/utils/knowledge_base_indexer.py
    ```
-3. **Seed MongoDB Question Bank**:
+4. **Seed MongoDB Question Bank**:
    Parses the question datasets and seeds your local database:
    ```bash
    python src/scripts/seed_mongodb.py

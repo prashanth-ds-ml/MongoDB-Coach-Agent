@@ -5,7 +5,7 @@
         "subtopics": ["BSON Data Types", "Document structure", "Collections vs Tables"],
         "question_keywords": ["bson", "document", "collection", "field", "objectid", "schema", "flexible"],
         "md_files": [],
-        "exam_weight": "Low",
+        "exam_weight": "8%",
         "in_question_bank": true,
         "bank_topic_keys": ["BSON Data Types", "General"]
     },
@@ -22,8 +22,8 @@
     {
         "id": 3,
         "topic": "CRUD Operations - Read",
-        "subtopics": ["find()", "findOne()", "Projections", "Cursors", "sort/limit/skip"],
-        "question_keywords": ["find", "findone", "projection", "cursor", "sort", "limit", "skip", "countdocuments"],
+        "subtopics": ["find()", "findOne()", "Projections", "Cursors", "sort/limit/skip", "countDocuments()"],
+        "question_keywords": ["find", "findone", "projection", "cursor", "sort", "limit", "skip", "countdocuments", "count"],
         "md_files": ["L2_01.md"],
         "exam_weight": "High",
         "in_question_bank": true,
@@ -32,8 +32,8 @@
     {
         "id": 4,
         "topic": "CRUD Operations - Update",
-        "subtopics": ["updateOne()", "updateMany()", "$set", "$push", "$inc", "upsert", "replaceOne()"],
-        "question_keywords": ["updateone", "updatemany", "$set", "$push", "$inc", "$unset", "upsert", "replaceone", "modifiedcount"],
+        "subtopics": ["replaceOne()", "updateOne()", "updateMany()", "$set", "$push", "$inc", "$unset", "upsert", "findAndModify"],
+        "question_keywords": ["updateone", "updatemany", "$set", "$push", "$inc", "$unset", "upsert", "replaceone", "findandmodify", "modifiedcount"],
         "md_files": [],
         "exam_weight": "High",
         "in_question_bank": true,
@@ -52,9 +52,9 @@
     {
         "id": 6,
         "topic": "Query Operators & MQL",
-        "subtopics": ["Comparison ($eq, $gt, $lt, $in, $nin)", "Logical ($and, $or, $not, $nor)", "Element ($exists, $type)"],
+        "subtopics": ["Comparison ($eq, $gt, $lt, $in, $nin)", "Logical ($and, $or, $not, $nor)", "Element ($exists, $type)", "Atlas Search query basics"],
         "question_keywords": ["$eq", "$gt", "$gte", "$lt", "$lte", "$in", "$nin", "$ne", "$and", "$or", "$not", "$nor", "$exists", "$type", "comparison", "operator"],
-        "md_files": ["L3_01.mc"],
+        "md_files": ["L3_01.md"],
         "exam_weight": "High",
         "in_question_bank": true,
         "bank_topic_keys": ["Finding Documents by Using Comparison Operators", "Finding Documents in a MongoDB Collection"]
@@ -82,8 +82,8 @@
     {
         "id": 9,
         "topic": "Indexes & Performance",
-        "subtopics": ["Single field indexes", "Compound indexes", "Multikey indexes", "explain()", "Covered queries"],
-        "question_keywords": ["index", "createindex", "compound", "multikey", "explain", "covered", "collscan", "ixscan", "hint"],
+        "subtopics": ["Single field indexes", "Compound indexes", "Multikey indexes", "Atlas Search indexes", "explain()", "COLLSCAN vs IXSCAN"],
+        "question_keywords": ["index", "createindex", "compound", "multikey", "search index", "explain", "covered", "collscan", "ixscan", "hint"],
         "md_files": [],
         "exam_weight": "High",
         "in_question_bank": true,
@@ -92,30 +92,30 @@
     {
         "id": 10,
         "topic": "Data Modeling",
-        "subtopics": ["Embedding vs Referencing", "Schema design patterns", "Anti-patterns", "One-to-Many relationships"],
+        "subtopics": ["Embedding vs Referencing", "Anti-patterns", "One-to-Many relationships"],
         "question_keywords": ["embedding", "referencing", "schema", "one-to-many", "anti-pattern", "denormalized", "normalized", "bucket", "outlier"],
         "md_files": [],
-        "exam_weight": "Medium",
+        "exam_weight": "4%",
         "in_question_bank": true,
         "bank_topic_keys": ["Schema Design"]
     },
     {
         "id": 11,
         "topic": "MongoDB Drivers & PyMongo",
-        "subtopics": ["Connection strings", "MongoClient", "CRUD with PyMongo", "Error handling"],
-        "question_keywords": ["pymongo", "mongoclient", "connection", "driver", "insert_one", "find_one", "update_one", "delete_one"],
+        "subtopics": ["PyMongo purpose", "Connection strings and URI components", "MongoClient", "Connection pooling", "CRUD with PyMongo", "Aggregation with PyMongo"],
+        "question_keywords": ["pymongo", "mongoclient", "connection", "connection pooling", "uri", "driver", "insert_one", "insert_many", "find_one", "find", "update_one", "update_many", "delete_one", "delete_many", "aggregate"],
         "md_files": [],
-        "exam_weight": "Medium",
+        "exam_weight": "18%",
         "in_question_bank": true,
         "bank_topic_keys": ["PyMongo Basics", "MongoDB Driver Methods", "Connection Management"]
     },
     {
         "id": 12,
-        "topic": "MongoDB Atlas & Operations",
-        "subtopics": ["Atlas Clusters", "Atlas Search", "Data Explorer", "Monitoring basics"],
-        "question_keywords": ["atlas", "cluster", "search", "data explorer", "monitoring", "cloud", "deployment"],
+        "topic": "Tools, Tooling & Atlas Search",
+        "subtopics": ["Load Atlas Sample Dataset", "Data Explorer document lookup", "Atlas Search indexes", "Atlas Search queries"],
+        "question_keywords": ["atlas", "sample dataset", "sample data", "search", "search index", "search query", "data explorer", "documents", "atlas ui"],
         "md_files": [],
-        "exam_weight": "Low",
+        "exam_weight": "2%",
         "in_question_bank": true,
         "bank_topic_keys": ["MongoDB Atlas", "Atlas Search"]
     }
