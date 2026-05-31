@@ -325,5 +325,69 @@ def test_run_practice_questions_clean_exit(mock_prompt_ask, mock_database, mock_
     assert score is None
 
 
+@patch("certcoach.core.planner.get_syllabus_status")
+@patch("certcoach.core.database.get_analytics")
+@patch("certcoach.core.database.get_user_profile")
+def test_calculate_readiness_metrics(mock_get_profile, mock_get_analytics, mock_get_status):
+    from certcoach.core import planner
+    
+    mock_get_status.return_value = {"mastery_percent": 50.0}
+    mock_get_analytics.return_value = {"total_attempts": 10, "correct_attempts": 8}
+    mock_get_profile.return_value = {
+        "study_calendar": [{"day_num": i} for i in range(10)],
+        "exam_date": None
+    }
+    
+    metrics = planner.calculate_readiness_metrics("user1")
+    
+    # 50.0 * 0.6 + 80.0 * 0.4 = 30.0 + 32.0 = 62.0%
+    assert metrics["current_readiness"] == 62.0
+    assert metrics["target_readiness"] == 80.0
+    assert metrics["pass_probability"] >= 0.0
+
+
+@patch("certcoach.core.planner.calculate_readiness_metrics")
+@patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.database.get_study_sessions")
+def test_get_study_plan_recommendation(mock_sessions, mock_get_profile, mock_metrics):
+    from certcoach.core import planner
+    
+    # Ahead of Schedule
+    mock_metrics.return_value = {"current_readiness": 75.0, "expected_readiness": 40.0}
+    mock_get_profile.return_value = {
+        "study_calendar": [{"day_num": i} for i in range(10)],
+        "exam_date": None
+    }
+    mock_sessions.return_value = []
+    
+    rec = planner.get_study_plan_recommendation("user1")
+    assert rec["status"] == "Ahead of Schedule"
+    
+    # Postpone Recommendation
+    mock_metrics.return_value = {"current_readiness": 30.0, "expected_readiness": 60.0}
+    with patch("certcoach.core.planner.calculate_days_left") as mock_days_left:
+        mock_days_left.return_value = 3
+        rec = planner.get_study_plan_recommendation("user1")
+        assert "postponement" in rec["recommendation"].lower()
+
+
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.Confirm.ask")
+def test_run_ai_question_wizard(mock_confirm, mock_prompt, mock_database):
+    from certcoach.cli import run_ai_question_wizard
+    
+    # Test quality analytics report viewing
+    mock_prompt.side_effect = ["2", ""] # Select View Quality report, then Press Enter
+    mock_database.get_questions_quality_analytics.return_value = [
+        {"question_text": "Q1", "topic": "CRUD", "attempts": 5, "success_rate": 20.0, "average_time": 10.0, "difficulty": "Hard", "flag": "Needs Review"}
+    ]
+    
+    with patch("certcoach.cli.print_paginated") as mock_print:
+        run_ai_question_wizard()
+        mock_print.assert_called_once()
+
+
+
 
 

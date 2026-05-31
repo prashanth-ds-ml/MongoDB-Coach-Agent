@@ -24,6 +24,8 @@ db = None
 questions_col = None
 profiles_col = None
 attempts_col = None
+study_sessions_col = None
+draft_questions_col = None
 connection_error = None
 
 try:
@@ -32,6 +34,8 @@ try:
     questions_col = db["questions"]
     profiles_col = db["user_profiles"]
     attempts_col = db["user_attempts"]
+    study_sessions_col = db["user_study_sessions"]
+    draft_questions_col = db["draft_questions"]
 except Exception as e:
     connection_error = e
 
@@ -242,3 +246,176 @@ def update_streak(user_id: str):
         "streak_days": current_streak,
         "last_login_date": today_date.isoformat()
     })
+
+
+# --- STUDY SESSION TRACKING ---
+
+def save_study_session(user_id: str, start_time: datetime, end_time: datetime, duration: float, topics_covered: list, questions_attempted: int, accuracy: float):
+    """Log a complete study session into MongoDB."""
+    session = {
+        "user_id": user_id,
+        "start_time": start_time.isoformat() if hasattr(start_time, "isoformat") else str(start_time),
+        "end_time": end_time.isoformat() if hasattr(end_time, "isoformat") else str(end_time),
+        "duration": duration,  # in minutes
+        "topics_covered": topics_covered,
+        "questions_attempted": questions_attempted,
+        "accuracy": accuracy,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    study_sessions_col.insert_one(session)
+
+
+def get_study_sessions(user_id: str) -> list:
+    """Retrieve all study sessions logged by a user."""
+    return list(study_sessions_col.find({"user_id": user_id}))
+
+
+# --- AI QUESTION GENERATION BANK MANAGEMENT ---
+
+def save_draft_question(mcq_data: dict) -> str:
+    """Saves a draft AI-generated question awaiting user validation."""
+    q_id = str(uuid.uuid4())
+    draft = {
+        "_id": q_id,
+        "topic": mcq_data.get("topic", "General"),
+        "difficulty": mcq_data.get("difficulty", "Medium"),
+        "scenario": mcq_data.get("scenario", ""),
+        "question": mcq_data.get("question", ""),
+        "options": mcq_data.get("options", []),
+        "correct_answer": mcq_data.get("correct_answer", ""),
+        "trap_analysis": mcq_data.get("trap_analysis", "No specific trap."),
+        "explanation": mcq_data.get("explanation", ""),
+        "citation_source": mcq_data.get("citation_source", ""),
+        "created_at": datetime.utcnow().isoformat()
+    }
+    draft_questions_col.insert_one(draft)
+    return q_id
+
+
+def get_draft_questions() -> list:
+    """Retrieve all pending draft questions."""
+    return list(draft_questions_col.find({}))
+
+
+def approve_draft_question(draft_id: str) -> bool:
+    """Moves a draft question to the production bank after running duplicate check."""
+    draft = draft_questions_col.find_one({"_id": draft_id})
+    if not draft:
+        return False
+
+    # Duplicate check based on question text
+    existing = questions_col.find_one({"question_text": draft["question"]})
+    if existing:
+        draft_questions_col.delete_one({"_id": draft_id})
+        return False
+
+    # Convert draft to standard Ultimate Schema
+    rich_question = {
+        "_id": draft["_id"],
+        "metadata": {
+            "topic": draft["topic"],
+            "difficulty": draft["difficulty"],
+            "citation_source": draft["citation_source"],
+            "created_at": datetime.utcnow().isoformat()
+        },
+        "context": {
+            "scenario_description": draft["scenario"],
+            "database_info": ""
+        },
+        "question_text": draft["question"],
+        "options": [],
+        "global_metrics": {
+            "total_attempts": 0,
+            "correct_attempts": 0,
+            "times_seen": 0,
+            "times_correct": 0,
+            "times_incorrect": 0,
+            "average_time_seconds": 0.0
+        }
+    }
+
+    letters = ['A', 'B', 'C', 'D']
+    for idx, opt_text in enumerate(draft["options"]):
+        is_correct = (opt_text.strip() == draft["correct_answer"].strip())
+        is_trap = False
+        trap_analysis = draft.get("trap_analysis", "")
+        feedback = draft.get("explanation", "")
+
+        if not is_correct and trap_analysis and letters[idx] in trap_analysis:
+            is_trap = True
+            feedback = trap_analysis
+
+        rich_question["options"].append({
+            "option_letter": letters[idx],
+            "code_snippet": opt_text,
+            "is_correct": is_correct,
+            "is_trap": is_trap,
+            "feedback": feedback
+        })
+
+    questions_col.insert_one(rich_question)
+    draft_questions_col.delete_one({"_id": draft_id})
+    return True
+
+
+# --- QUESTION EXPOSURE & QUALITY TRACKING ---
+
+def update_question_exposure(question_id: str, is_correct: bool, elapsed_seconds: float):
+    """Increment seen/correct counts and calculate rolling response time averages."""
+    q = questions_col.find_one({"_id": question_id})
+    if not q:
+        return
+
+    metrics = q.get("global_metrics", {})
+    times_seen = metrics.get("times_seen", 0) + 1
+    times_correct = metrics.get("times_correct", 0) + (1 if is_correct else 0)
+    times_incorrect = metrics.get("times_incorrect", 0) + (0 if is_correct else 1)
+
+    prev_avg = metrics.get("average_time_seconds", 0.0)
+    new_avg = prev_avg + (elapsed_seconds - prev_avg) / times_seen
+
+    questions_col.update_one(
+        {"_id": question_id},
+        {"$set": {
+            "global_metrics.total_attempts": times_seen,
+            "global_metrics.correct_attempts": times_correct,
+            "global_metrics.times_seen": times_seen,
+            "global_metrics.times_correct": times_correct,
+            "global_metrics.times_incorrect": times_incorrect,
+            "global_metrics.average_time_seconds": new_avg
+        }}
+    )
+
+
+def get_questions_quality_analytics() -> list:
+    """Analyzes success rates and flags questions that are too easy or too hard."""
+    all_qs = list(questions_col.find({}))
+    results = []
+    for q in all_qs:
+        metrics = q.get("global_metrics", {})
+        attempts = metrics.get("times_seen", 0)
+        correct = metrics.get("times_correct", 0)
+        avg_time = metrics.get("average_time_seconds", 0.0)
+
+        success_rate = (correct / attempts * 100) if attempts > 0 else 100.0
+        difficulty = "Medium"
+        flag = "Balanced"
+        if attempts >= 3:
+            if success_rate >= 95.0:
+                difficulty = "Easy"
+                flag = "Likely Too Easy"
+            elif success_rate <= 30.0:
+                difficulty = "Hard"
+                flag = "Needs Review (Very Hard)"
+
+        results.append({
+            "id": q["_id"],
+            "question_text": q.get("question_text", "")[:60] + "...",
+            "topic": q.get("metadata", {}).get("topic", "General"),
+            "attempts": attempts,
+            "success_rate": round(success_rate, 1),
+            "average_time": round(avg_time, 1),
+            "difficulty": difficulty,
+            "flag": flag
+        })
+    return results

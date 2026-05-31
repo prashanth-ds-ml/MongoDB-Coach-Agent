@@ -232,6 +232,89 @@ def get_syllabus_status(user_id: str) -> dict:
     }
 
 
+def calculate_readiness_metrics(user_id: str) -> dict:
+    """Estimates Current Readiness, Expected Readiness, and Pass Probability."""
+    status = get_syllabus_status(user_id)
+    mastery_percent = status.get("mastery_percent", 0.0) if hasattr(status, "get") else 0.0
+    if not isinstance(mastery_percent, (int, float)):
+        mastery_percent = 0.0
+    
+    analytics = database.get_analytics(user_id)
+    total_attempts = analytics.get("total_attempts", 0) if hasattr(analytics, "get") else 0
+    if not isinstance(total_attempts, (int, float)):
+        total_attempts = 0
+    correct_attempts = analytics.get("correct_attempts", 0) if hasattr(analytics, "get") else 0
+    if not isinstance(correct_attempts, (int, float)):
+        correct_attempts = 0
+    overall_accuracy = (correct_attempts / max(1, total_attempts)) * 100
+    
+    current_readiness = (mastery_percent * 0.6) + (overall_accuracy * 0.4)
+    target_readiness = 80.0
+    
+    # Expected Readiness based on calendar days passed
+    profile = database.get_user_profile(user_id)
+    calendar = profile.get("study_calendar", []) if hasattr(profile, "get") else []
+    total_days = len(calendar) if calendar else 30
+    days_left = calculate_days_left(profile.get("exam_date") if hasattr(profile, "get") else None)
+    days_passed = max(0, total_days - days_left)
+    
+    expected_readiness = (days_passed / max(1, total_days)) * target_readiness
+    expected_readiness = min(target_readiness, max(0.0, expected_readiness))
+    
+    # Pass probability bounded [0, 99]%
+    ratio = current_readiness / max(1.0, target_readiness)
+    pass_probability = ratio * ratio * 100
+    if current_readiness >= 85.0:
+        pass_probability = min(99.0, max(90.0, pass_probability))
+    else:
+        pass_probability = min(99.0, max(0.0, pass_probability * 0.8))
+        
+    return {
+        "current_readiness": round(current_readiness, 1),
+        "expected_readiness": round(expected_readiness, 1),
+        "target_readiness": target_readiness,
+        "pass_probability": round(pass_probability, 1)
+    }
+
+
+def get_study_plan_recommendation(user_id: str) -> dict:
+    """Adapts coaching strategy based on progress vs study calendar pacing."""
+    metrics = calculate_readiness_metrics(user_id)
+    current = metrics.get("current_readiness", 0.0) if hasattr(metrics, "get") else 0.0
+    expected = metrics.get("expected_readiness", 0.0) if hasattr(metrics, "get") else 0.0
+    
+    profile = database.get_user_profile(user_id)
+    days_left = calculate_days_left(profile.get("exam_date") if hasattr(profile, "get") else None)
+    calendar = profile.get("study_calendar", []) if hasattr(profile, "get") else []
+    total_days = len(calendar) if calendar else 30
+    days_passed = max(0, total_days - days_left)
+    
+    sessions = database.get_study_sessions(user_id)
+    total_sessions_logged = len(sessions)
+    
+    # Estimate missed study sessions
+    missed_sessions_count = max(0, days_passed - total_sessions_logged)
+    
+    status = "On Track"
+    recommendation = "Maintain your current daily pacing. You are on track to pass."
+    
+    if days_left <= 5 and current < 50.0:
+        status = "Behind Schedule"
+        recommendation = f"Current Readiness: {current:.0f}%, Days Remaining: {days_left}. Based on your current performance, writing the exam is not recommended. Suggested postponement: 7-10 days."
+    elif missed_sessions_count >= 3 or current < expected - 10.0:
+        status = "Behind Schedule"
+        recommendation = f"You missed {missed_sessions_count} study sessions. Current readiness is below target. Recommendation: Increase study time."
+    elif current >= expected + 5.0 and days_left >= 2:
+        status = "Ahead of Schedule"
+        recommendation = f"You are progressing faster than expected. Estimated completion: {days_left} days. Recommendation: Reserve final 2 days for revision and mock exams."
+        
+    return {
+        "status": status,
+        "recommendation": recommendation,
+        "missed_sessions": missed_sessions_count
+    }
+
+
 def get_due_review_topics(user_id: str) -> list:
     user_attempts = database.get_user_attempts(user_id)
     
@@ -269,6 +352,11 @@ def get_due_review_topics(user_id: str) -> list:
 def generate_daily_agenda(user_id: str) -> list:
     status = get_syllabus_status(user_id)
     due_reviews = get_due_review_topics(user_id)
+    
+    # Check Exam Day Mode (Readiness >= 85%)
+    readiness_data = calculate_readiness_metrics(user_id)
+    exam_day_mode = readiness_data["current_readiness"] >= 85.0
+    
     agenda = []
 
     # 1. Anki Spaced Repetition Review
@@ -288,36 +376,49 @@ def generate_daily_agenda(user_id: str) -> list:
             })
             break  # Only one review per day for pacing
 
-    # 2. Next uncompleted topic from syllabus
-    if status["next_topic"]:
-        nt = status["next_topic"]
-        if not any(a["topic"] == nt["topic"] for a in agenda):
-            agenda.append({
-                "type": "Learn",
-                "topic": nt["topic"],
-                "bank_keys": nt.get("bank_topic_keys", [nt["topic"]]),
-                "subtopics": nt.get("subtopics", []),
-                "question_keywords": nt.get("question_keywords", []),
-                "md_files": nt.get("md_files", []),
-                "desc": f"📘 Topic #{nt['id']} in official syllabus",
-            })
+    # 2. Daily Track (Learn vs revision Mock based on Exam Day Mode)
+    if not exam_day_mode:
+        if status["next_topic"]:
+            nt = status["next_topic"]
+            if not any(a["topic"] == nt["topic"] for a in agenda):
+                agenda.append({
+                    "type": "Learn",
+                    "topic": nt["topic"],
+                    "bank_keys": nt.get("bank_topic_keys", [nt["topic"]]),
+                    "subtopics": nt.get("subtopics", []),
+                    "question_keywords": nt.get("question_keywords", []),
+                    "md_files": nt.get("md_files", []),
+                    "desc": f"📘 Topic #{nt['id']} in official syllabus",
+                })
+    else:
+        # Exam Day Mode: avoid new topics, focus entirely on mixed mocks/revision
+        agenda.append({
+            "type": "Review",
+            "topic": "Mixed Mock Exam / Weak Area Revision",
+            "bank_keys": list(set(k for item in status["status_list"] for k in item["bank_keys"])),
+            "subtopics": [],
+            "question_keywords": [],
+            "md_files": [],
+            "desc": "🏆 Exam Day Mode Revision: Mixed Mock Exam & Weak Domain Recall"
+        })
 
     # 3. Domain Boss Fight (if mastered % 3 == 0)
-    mastered_count = status["mastered_count"]
-    profile = database.get_user_profile(user_id)
-    beaten_bosses = profile.get("progress", {}).get("beaten_bosses", [])
-    
-    if mastered_count > 0 and mastered_count % 3 == 0:
-        boss_level = mastered_count // 3
-        if boss_level not in beaten_bosses:
-            agenda.append({
-                "type": "BossFight",
-                "topic": f"Domain Boss Fight: Level {boss_level}",
-                "boss_level": boss_level,
-                "desc": "👾 Defeat the Boss to proceed to the next domain! (10 timed questions)",
-            })
-            # Prevent learning next topic until boss is defeated
-            agenda = [a for a in agenda if a["type"] != "Learn"]
+    if not exam_day_mode:
+        mastered_count = status["mastered_count"]
+        profile = database.get_user_profile(user_id)
+        beaten_bosses = profile.get("progress", {}).get("beaten_bosses", [])
+        
+        if mastered_count > 0 and mastered_count % 3 == 0:
+            boss_level = mastered_count // 3
+            if boss_level not in beaten_bosses:
+                agenda.append({
+                    "type": "BossFight",
+                    "topic": f"Domain Boss Fight: Level {boss_level}",
+                    "boss_level": boss_level,
+                    "desc": "👾 Defeat the Boss to proceed to the next domain! (10 timed questions)",
+                })
+                # Prevent learning next topic until boss is defeated
+                agenda = [a for a in agenda if a["type"] != "Learn"]
 
     return agenda
 
