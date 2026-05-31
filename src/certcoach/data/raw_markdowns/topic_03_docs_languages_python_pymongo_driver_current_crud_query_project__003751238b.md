@@ -1,0 +1,174 @@
+> Source: https://www.mongodb.com/docs/languages/python/pymongo-driver/current/crud/query/project/
+> Fetch method: direct_markdown
+
+# Specify Fields To Return
+
+## Overview
+
+In this guide, you can learn how to specify which fields to return from a read operation by using a **projection**. A projection is a document that specifies which fields MongoDB returns from a query.
+
+### Sample Data
+
+The examples in this guide use the `sample_restaurants.restaurants` collection from the [Atlas sample datasets](https://www.mongodb.com/docs/atlas/sample-data/). To learn how to create a free MongoDB Atlas cluster and load the sample datasets, see the [Get Started with PyMongo](https://www.mongodb.com/docs/languages/python/pymongo-driver/get-started/#std-label-pymongo-get-started) guide.
+
+## Projection Types
+
+You can use a projection to specify which fields to include in a return document, or to specify which fields to exclude. You cannot combine inclusion and exclusion statements in a single projection, unless you are excluding the `_id` field.
+
+### Specify Fields to Include
+
+Use the following syntax to specify the fields to include in the result:
+
+```json
+{ "<Field Name>": 1 }
+```
+
+The following example uses the `find()` method to find all restaurants with the `name` field value of `"Emerald Pub"`. It then uses a projection to return only the `name`, `cuisine`, and `borough` fields in the returned documents. Select the Synchronous or Asynchronous tab to see the corresponding code:
+
+<Tabs>
+
+<Tab name="Synchronous">
+
+```python
+results = restaurants.find({ "name" : "Emerald Pub"}, {"name": 1, "cuisine": 1, "borough": 1})
+
+for restaurant in results:
+    print(restaurant)
+```
+
+```
+{'_id': ObjectId('...'), 'borough': 'Manhattan', 'cuisine': 'American', 'name': 'Emerald Pub'}
+{'_id': ObjectId('...'), 'borough': 'Queens', 'cuisine': 'American', 'name': 'Emerald Pub'}
+```
+
+</Tab>
+
+<Tab name="Asynchronous">
+
+```python
+results = restaurants.find({ "name" : "Emerald Pub"}, {"name": 1, "cuisine": 1, "borough": 1})
+
+async for restaurant in results:
+    print(restaurant)
+```
+
+```
+{'_id': ObjectId('...'), 'borough': 'Manhattan', 'cuisine': 'American', 'name': 'Emerald Pub'}
+{'_id': ObjectId('...'), 'borough': 'Queens', 'cuisine': 'American', 'name': 'Emerald Pub'}
+```
+
+</Tab>
+
+</Tabs>
+
+When you use a projection to specify fields to include in the return document, the `_id` field is also included by default. All other fields are implicitly excluded. To remove the `_id` field from the return document, you must [explicitly exclude it](https://www.mongodb.com/docs/languages/python/pymongo-driver/crud/query/project/#std-label-pymongo-project-remove-id).
+
+### Exclude the `_id` Field
+
+When specifying fields to include, you can also exclude the `_id` field from the returned document.
+
+The following example performs the same query as the preceding example, but excludes the `_id` field from the projection. Select the Synchronous or Asynchronous tab to see the corresponding code:
+
+<Tabs>
+
+<Tab name="Synchronous">
+
+```python
+results = restaurants.find({ "name" : "Emerald Pub"}, {"_id": 0, "name": 1, "cuisine": 1, "borough": 1})
+
+for restaurant in results:
+    print(restaurant)
+```
+
+```
+{'borough': 'Manhattan', 'cuisine': 'American', 'name': 'Emerald Pub'}
+{'borough': 'Queens', 'cuisine': 'American', 'name': 'Emerald Pub'}
+```
+
+</Tab>
+
+<Tab name="Asynchronous">
+
+```python
+results = restaurants.find({ "name" : "Emerald Pub"}, {"_id": 0, "name": 1, "cuisine": 1, "borough": 1})
+
+async for restaurant in results:
+    print(restaurant)
+```
+
+```
+{'borough': 'Manhattan', 'cuisine': 'American', 'name': 'Emerald Pub'}
+{'borough': 'Queens', 'cuisine': 'American', 'name': 'Emerald Pub'}
+```
+
+</Tab>
+
+</Tabs>
+
+### Specify Fields to Exclude
+
+Use the following syntax to specify the fields to exclude from the result:
+
+```json
+{ "<Field Name>": 0 }
+```
+
+The following example uses the `find()` method to find all restaurants with the `name` field value of `"Emerald Pub"`. It then uses a projection to exclude the `grades` and `address` fields from the returned documents. Select the Synchronous or Asynchronous tab to see the corresponding code:
+
+<Tabs>
+
+<Tab name="Synchronous">
+
+```python
+results = restaurants.find({ "name" : "Emerald Pub"}, {"grades": 0, "address": 0} )
+
+for restaurant in results:
+    print(restaurant)
+```
+
+```
+{'_id': ObjectId('...'), 'borough': 'Manhattan', 'cuisine': 'American', 'name': 'Emerald Pub', 'restaurant_id': '40367329'}
+{'_id': ObjectId('...'), 'borough': 'Queens', 'cuisine': 'American',
+'name': 'Emerald Pub', 'restaurant_id': '40668598'}
+```
+
+</Tab>
+
+<Tab name="Asynchronous">
+
+```python
+results = restaurants.find({ "name" : "Emerald Pub"}, {"grades": 0, "address": 0} )
+
+async for restaurant in results:
+    print(restaurant)
+```
+
+```
+{'_id': ObjectId('...'), 'borough': 'Manhattan', 'cuisine': 'American', 'name': 'Emerald Pub', 'restaurant_id': '40367329'}
+{'_id': ObjectId('...'), 'borough': 'Queens', 'cuisine': 'American',
+'name': 'Emerald Pub', 'restaurant_id': '40668598'}
+```
+
+</Tab>
+
+</Tabs>
+
+When you use a projection to specify which fields to exclude, any unspecified fields are implicitly included in the return document.
+
+## Troubleshooting
+
+The following sections describe errors you might see when using projections.
+
+### 'Cannot Do Exclusion on Field <field> in Inclusion Projection'
+
+The driver returns an `OperationFailure` with this message if you attempt to include and exclude fields in a single projection. Ensure that your projection specifies only fields to include or fields to exclude.
+
+## Additional Information
+
+To learn more about projections, see the [Project Fields guide](https://www.mongodb.com/docs/manual/tutorial/project-fields-from-query-results/) in the MongoDB Server manual.
+
+### API Documentation
+
+To learn more about any of the methods or types discussed in this guide, see the following API Documentation:
+
+- [find()](https://pymongo.readthedocs.io/en/4.17.0/api/pymongo/collection.html#pymongo.collection.Collection.find)
