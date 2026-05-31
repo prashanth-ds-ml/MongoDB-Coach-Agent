@@ -32,74 +32,127 @@ def save_manifest(manifest: dict):
         print(f"Warning: Could not save extraction manifest: {e}")
 
 def check_vision_model_loaded() -> bool:
-    """Verifies if the 'llava' vision model is pulled and available in Ollama."""
+    """Verifies if any supported vision model (glm-ocr or llava) is pulled and available in Ollama."""
+    return get_available_vision_model() is not None
+
+def get_available_vision_model() -> str:
+    """Returns 'glm-ocr' if present, fallback to 'llava' if present, otherwise None."""
     try:
         models_list = ollama.list()
-        for m in models_list.get("models", []):
-            if "llava" in m.get("name", ""):
-                return True
+        models = getattr(models_list, "models", [])
+        model_names = [getattr(m, "model", "") for m in models]
+        
+        # Prioritize glm-ocr
+        for name in model_names:
+            if "glm-ocr" in name:
+                return "glm-ocr"
+                
+        # Fallback to llava
+        for name in model_names:
+            if "llava" in name:
+                return "llava"
     except Exception:
         pass
-    return False
+    return None
 
 def extract_question_from_image(image_path: str) -> dict:
     """
     Extracts question, options, correct answer, and explanation from a screenshot.
-    Uses 'llava' local vision model and enforces the strict Question Generation Rulebook.
+    Uses a robust Double-Pass Pipeline:
+    - Pass 1: Multimodal vision model (prioritizing glm-ocr, fallback to llava) extracts the raw textual content.
+    - Pass 2: High-accuracy model (qwen2.5:7b) parses, structures, validates, and builds
+              the detailed 6-part explanation strictly adhering to the Question Generation Rulebook.
     """
-    prompt = (
-        "You are CertCoach, an expert MongoDB Certification Instructor.\n"
-        "Extract the MongoDB multiple-choice question from this screenshot.\n\n"
-        "STRICT QUESTION GENERATION RULES:\n"
-        "1. Identify the question text, code snippets, and 4 multiple-choice options (labeled A, B, C, D).\n"
-        "2. Identify the single correct option based on standard MongoDB functionality.\n"
-        "3. Map this question to one of these exact syllabus topics:\n"
-        "   - MongoDB Overview & The Document Model\n"
-        "   - CRUD Operations - Create\n"
-        "   - CRUD Operations - Read (Basic & Cursor)\n"
-        "   - CRUD Operations - Update\n"
-        "   - CRUD Operations - Delete\n"
-        "   - Query Operators (L2/L3/L5)\n"
-        "   - Querying Arrays & Subdocuments\n"
-        "   - Aggregation Framework\n"
-        "   - Indexes & Performance\n"
-        "   - Data Modeling\n"
-        "   - MongoDB Drivers & PyMongo\n"
-        "   - Tools, Tooling & Atlas Search\n"
-        "4. Compose a comprehensive explanation following the 6-part structure:\n"
-        "   - Correct Answer: [Letter and exact syntax]\n"
-        "   - Why Correct: [Brief detailed rationale]\n"
-        "   - Why Other Options Are Wrong: [Teardown of each incorrect option]\n"
-        "   - Exam Trap: [Common misconception warning]\n"
-        "   - Memory Hook: [Short mnemonic or conceptual rule]\n"
-        "   - Follow-Up Practice Recommendation: [Doc citation suggestion]\n\n"
-        "Return the output strictly in a valid JSON structure (no markdown wrapper, no extra text) matching this schema:\n"
-        "{\n"
-        "  \"topic\": \"Syllabus Topic String\",\n"
-        "  \"difficulty\": \"Easy\" | \"Medium\" | \"High\",\n"
-        "  \"question\": \"The clear prompt text.\",\n"
-        "  \"options\": [\n"
-        "    \"Option A text or code\",\n"
-        "    \"Option B text or code\",\n"
-        "    \"Option C text or code\",\n"
-        "    \"Option D text or code\"\n"
-        "  ],\n"
-        "  \"correct_answer\": \"Option A text or code matching exactly\",\n"
-        "  \"trap_analysis\": \"The detailed 6-part explanation template here\"\n"
-        "}"
+    vision_model = get_available_vision_model()
+    if not vision_model:
+        print("  [!] Error: No vision model ('glm-ocr' or 'llava') is available in Ollama.")
+        return None
+
+    pass1_prompt = (
+        "You are an expert OCR and text extractor assistant.\n"
+        "Look at this screenshot and extract the multiple choice question exactly as written.\n"
+        "Identify:\n"
+        "- The main question prompt\n"
+        "- Any code blocks or snippets\n"
+        "- The options (A, B, C, D) with their contents\n"
+        "- The correct answer (or identify which one is correct if indicated)\n"
+        "- Any explanation or notes if visible\n\n"
+        "Do not worry about JSON formatting or database schemas. Just output the extracted details in clear, structured Markdown."
     )
 
     try:
-        response = ollama.chat(
+        print(f"  -> Pass 1: Running local vision OCR...")
+        response_pass1 = ollama.chat(
             model='llava',
             messages=[{
                 'role': 'user',
-                'content': prompt,
+                'content': pass1_prompt,
                 'images': [image_path]
             }],
             options={"temperature": 0.1}
         )
-        content = response.get("message", {}).get("content", "").strip()
+        raw_ocr_text = response_pass1.get("message", {}).get("content", "").strip()
+        
+        if not raw_ocr_text:
+            print("  [!] Pass 1 returned empty text.")
+            return None
+            
+        print(f"  -> Pass 2: Structuring and validating question against the Rulebook...")
+        
+        pass2_prompt = (
+            "You are CertCoach, an expert MongoDB Certification Instructor.\n"
+            "You will take the raw OCR text extracted from an exam screenshot and format it into a "
+            "perfect multiple-choice question matching the official syllabus and strict quality guidelines.\n\n"
+            f"RAW EXTRACTED OCR TEXT:\n"
+            f"```\n{raw_ocr_text}\n```\n\n"
+            "STRICT QUALITY & PEDAGOGICAL RULES:\n"
+            "1. Enforce exactly 4 options: A, B, C, D. If the raw text lacks 4 options, construct plausible distractors.\n"
+            "2. Identify the single correct option based on standard MongoDB functionality.\n"
+            "3. Map the question to one of these exact syllabus topics:\n"
+            "   - MongoDB Overview & The Document Model\n"
+            "   - CRUD Operations - Create\n"
+            "   - CRUD Operations - Read (Basic & Cursor)\n"
+            "   - CRUD Operations - Update\n"
+            "   - CRUD Operations - Delete\n"
+            "   - Query Operators (L2/L3/L5)\n"
+            "   - Querying Arrays & Subdocuments\n"
+            "   - Aggregation Framework\n"
+            "   - Indexes & Performance\n"
+            "   - Data Modeling\n"
+            "   - MongoDB Drivers & PyMongo\n"
+            "   - Tools, Tooling & Atlas Search\n"
+            "4. Construct a high-fidelity explanation strictly in the following 6-part structure:\n"
+            "   - Correct Answer: [Letter and exact syntax]\n"
+            "   - Why Correct: [Detailed developer rationale]\n"
+            "   - Why Other Options Are Wrong: [Teardown of each incorrect option]\n"
+            "   - Exam Trap: [Common student misconception warning]\n"
+            "   - Memory Hook: [Short conceptual mnemonic or rule]\n"
+            "   - Follow-Up Practice Recommendation: [Doc citation suggestion]\n\n"
+            "Return the output strictly in a valid JSON structure (no markdown wrapper, no extra text) matching this schema:\n"
+            "{\n"
+            "  \"topic\": \"Syllabus Topic String\",\n"
+            "  \"difficulty\": \"Easy\" | \"Medium\" | \"High\",\n"
+            "  \"question\": \"The clear prompt text.\",\n"
+            "  \"options\": [\n"
+            "    \"Option A text or code\",\n"
+            "    \"Option B text or code\",\n"
+            "    \"Option C text or code\",\n"
+            "    \"Option D text or code\"\n"
+            "  ],\n"
+            "  \"correct_answer\": \"Option text or code matching the correct choice exactly\",\n"
+            "  \"trap_analysis\": \"The detailed 6-part explanation template here\"\n"
+            "}"
+        )
+        
+        response_pass2 = ollama.chat(
+            model='qwen2.5:7b',
+            messages=[{
+                'role': 'user',
+                'content': pass2_prompt
+            }],
+            options={"temperature": 0.1}
+        )
+        content = response_pass2.get("message", {}).get("content", "").strip()
         
         # Strip markdown json blocks if present
         if content.startswith("```"):
@@ -109,6 +162,7 @@ def extract_question_from_image(image_path: str) -> dict:
                 
         mcq_data = json.loads(content)
         return mcq_data
+        
     except Exception as e:
         print(f"Error during vision extraction on {os.path.basename(image_path)}: {e}")
         return None
@@ -124,8 +178,8 @@ def process_pics_qa(limit: int = None, dry_run: bool = False):
         return
         
     if not check_vision_model_loaded() and not dry_run:
-        print("\n[!] Local vision model 'llava' is not loaded in Ollama.")
-        print("Please run 'ollama pull llava' in your terminal and verify it via 'ollama list' before running extraction.\n")
+        print("\n[!] No local vision model ('glm-ocr' or 'llava') is loaded in Ollama.")
+        print("Please run 'ollama pull glm-ocr' or 'ollama pull llava' in your terminal and verify it via 'ollama list' before running extraction.\n")
         return
 
     images = [f for f in os.listdir(IMAGE_DIR) if f.lower().endswith((".png", ".jpg", ".jpeg"))]
