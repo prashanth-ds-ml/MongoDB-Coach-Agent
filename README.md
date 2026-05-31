@@ -2,7 +2,7 @@
 
 CertCoach is a local, AI-driven learning and study companion designed to help developers master the syllabus and clear the **MongoDB Associate Python Developer Certification** in one go.
 
-Using a local Ollama instance (`gemma4:e4b`), an interactive console interface, Spaced Repetition quiz cycles, a vector knowledge base (Chroma DB), and strict document-grounded RAG, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
+Using a local Ollama instance (`qwen2.5:7b`), an interactive console interface, Spaced Repetition quiz cycles, a vector knowledge base (Chroma DB), and strict document-grounded RAG, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
 
 ---
 
@@ -23,7 +23,7 @@ Using a local Ollama instance (`gemma4:e4b`), an interactive console interface, 
 - **Core**: Python 3.10+
 - **Database**: MongoDB (Question Bank, Attempts, Streaks, User Profiles)
 - **Vector Search / RAG**: Chroma DB (Knowledge base indexed with descriptive raw markdowns)
-- **Local Intelligence**: Ollama (`gemma4:e4b` model)
+- **Local Intelligence**: Ollama (`qwen2.5:7b` model)
 - **User Interface**: `rich` (glassmorphism panels, tables, line-by-line keyboard scroll pagers)
 
 ---
@@ -41,7 +41,7 @@ Ensure you have the following installed on your machine:
 ### 2. Pull the Coach Model
 Before launching, make sure the local LLM model is pulled and ready in Ollama:
 ```bash
-ollama pull gemma4:e4b
+ollama pull qwen2.5:7b
 ```
 *(You can customize the model inside your environment configurations).*
 
@@ -76,7 +76,7 @@ Setup your global configuration variables:
 2. Add a `.env` file inside that directory with your local Ollama connection details:
    ```env
    LOCAL_LLM_URL=http://localhost:11434
-   MODEL=gemma4:e4b
+   MODEL=qwen2.5:7b
    ```
 
 ---
@@ -87,7 +87,7 @@ To start the interactive learning CLI, simply run the globally registered entry 
 ```bash
 certcoach
 ```
-*(On your very first launch, CertCoach will guide you through onboarding and prompt you to input your MongoDB connection URI (e.g. `mongodb://localhost:27017`). Setup is saved automatically).*
+*(On your very first launch, CertCoach will guide you through onboarding. You will be prompted to enter your MongoDB connection URI and your target exam date in `YYYY-MM-DD` format. Setup is saved automatically).*
 
 ---
 
