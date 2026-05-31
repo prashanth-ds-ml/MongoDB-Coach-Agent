@@ -14,7 +14,7 @@
         "topic": "CRUD Operations - Create",
         "subtopics": ["insertOne()", "insertMany()", "_id and ObjectId"],
         "question_keywords": ["insertone", "insertmany", "insert", "_id", "objectid", "acknowledged", "insertedid"],
-        "md_files": ["L1_01.md", "L1_02.md"],
+        "md_files": ["CRUD_Create_L1_01.md", "CRUD_Create_L1_02.md"],
         "exam_weight": "High",
         "in_question_bank": true,
         "bank_topic_keys": ["CRUD Operations"]
@@ -24,7 +24,7 @@
         "topic": "CRUD Operations - Read",
         "subtopics": ["find()", "findOne()", "Projections", "Cursors", "sort/limit/skip", "countDocuments()"],
         "question_keywords": ["find", "findone", "projection", "cursor", "sort", "limit", "skip", "countdocuments", "count"],
-        "md_files": ["L2_01.md"],
+        "md_files": ["CRUD_Read_L2_01.md"],
         "exam_weight": "High",
         "in_question_bank": true,
         "bank_topic_keys": ["CRUD Operations", "Finding Documents in a MongoDB Collection"]
@@ -54,7 +54,7 @@
         "topic": "Query Operators & MQL",
         "subtopics": ["Comparison ($eq, $gt, $lt, $in, $nin)", "Logical ($and, $or, $not, $nor)", "Element ($exists, $type)", "Atlas Search query basics"],
         "question_keywords": ["$eq", "$gt", "$gte", "$lt", "$lte", "$in", "$nin", "$ne", "$and", "$or", "$not", "$nor", "$exists", "$type", "comparison", "operator"],
-        "md_files": ["L3_01.md"],
+        "md_files": ["Query_Operators_L3_01.md", "Query_Operators_L2_02.md", "Query_Operators_L5_01.md"],
         "exam_weight": "High",
         "in_question_bank": true,
         "bank_topic_keys": ["Finding Documents by Using Comparison Operators", "Finding Documents in a MongoDB Collection"]
@@ -64,7 +64,7 @@
         "topic": "Querying Arrays & Embedded Documents",
         "subtopics": ["$elemMatch", "dot notation", "Array size queries"],
         "question_keywords": ["$elemmatch", "array", "dot notation", "embedded", "nested", "$size", "$all"],
-        "md_files": [],
+        "md_files": ["Query_Arrays_L4_01.md", "Query_Arrays_L4_02.md"],
         "exam_weight": "High",
         "in_question_bank": true,
         "bank_topic_keys": ["Querying on Array Elements in MongoDB"]
