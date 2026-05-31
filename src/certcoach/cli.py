@@ -614,7 +614,8 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
 
 
 def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: bool = False, question_keywords: list = None) -> int | None:
-    clear()
+    if is_mock:
+        clear()
 
     # Gather questions filtered by topic + keyword relevance
     questions = []
@@ -748,7 +749,8 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                 raise SystemExit
 
     # Result summary
-    clear()
+    if is_mock:
+        clear()
     pct = score / len(questions) * 100
     col = "green" if pct >= 80 else "yellow" if pct >= 60 else "red"
     console.print(Rule("[bold]Results[/bold]"))
