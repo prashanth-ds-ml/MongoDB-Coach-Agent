@@ -18,6 +18,7 @@ dependencies = [
 [project.scripts]
 certcoach = "certcoach.cli:main_menu"
 ag = "antigravity_cli.cli:main"
+certcoach-extract = "certcoach.core.image_extractor:process_pics_qa"
 
 [tool.setuptools.packages.find]
 where = ["src"]
