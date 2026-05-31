@@ -101,9 +101,11 @@ def test_main_menu_option_routing(mock_settings, mock_library, mock_prompt_ask, 
 @patch("certcoach.cli.Confirm.ask")
 @patch("certcoach.cli.ask")
 def test_recalibrate_study_plan(mock_ask, mock_confirm, mock_planner, mock_database, mock_console):
+    import datetime
     from certcoach.cli import recalibrate_study_plan
     
-    mock_ask.side_effect = ["30", "2"]
+    future_date = (datetime.datetime.utcnow() + datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+    mock_ask.side_effect = [future_date, "2"]
     mock_confirm.return_value = False
     
     mock_database.get_user_profile.return_value = {

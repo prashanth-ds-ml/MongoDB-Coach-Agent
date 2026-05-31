@@ -132,18 +132,20 @@ def run_onboarding():
 
     # --- Ask exam date ---
     while True:
-        days_str = ask("[bold]How many days from today is your MongoDB exam?[/bold] (e.g. 30)")
-        if days_str == "__back__":
+        date_str = ask("[bold]Enter your MongoDB exam date (YYYY-MM-DD):[/bold]")
+        if date_str == "__back__":
             continue
         try:
-            days = int(days_str)
-            if days < 1:
-                raise ValueError
+            exam_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            if exam_date <= today:
+                console.print("[red]The exam date must be in the future (after today).[/red]")
+                continue
+            delta = exam_date - datetime.datetime.utcnow()
+            days = max(1, delta.days)
             break
         except ValueError:
-            console.print("[red]Please enter a valid number greater than 0.[/red]")
-
-    exam_date = datetime.datetime.utcnow() + datetime.timedelta(days=days)
+            console.print("[red]Please enter a valid date in YYYY-MM-DD format (e.g. 2026-06-30).[/red]")
     
     # --- Ask experience level ---
     console.print()
@@ -1095,18 +1097,22 @@ def recalibrate_study_plan():
     ))
     console.print()
     
-    # Ask for days remaining
+    # Ask for exam date
     while True:
-        days_str = ask("[bold]How many days from today is your updated MongoDB exam date?[/bold] (e.g. 30)")
-        if days_str == "__back__":
+        date_str = ask("[bold]Enter your updated MongoDB exam date (YYYY-MM-DD):[/bold]")
+        if date_str == "__back__":
             return
         try:
-            days = int(days_str)
-            if days < 1:
-                raise ValueError
+            exam_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+            today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            if exam_date <= today:
+                console.print("[red]The exam date must be in the future (after today).[/red]")
+                continue
+            delta = exam_date - datetime.datetime.utcnow()
+            days = max(1, delta.days)
             break
         except ValueError:
-            console.print("[red]Please enter a valid number greater than 0.[/red]")
+            console.print("[red]Please enter a valid date in YYYY-MM-DD format (e.g. 2026-06-30).[/red]")
             
     # Ask experience level
     console.print()
