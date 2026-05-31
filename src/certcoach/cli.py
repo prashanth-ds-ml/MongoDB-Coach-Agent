@@ -576,7 +576,10 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
             correct_snippet = opt.get("code_snippet", "")
             official_explanation = opt.get("feedback", "")
         else:
-            wrong_snippets.append(f"  - [bold yellow]{opt.get('option_letter')})[/bold yellow] `{opt.get('code_snippet', '')}`: Incorrect casing, parameter, or operator usage.")
+            feedback = opt.get("feedback", "").strip()
+            if not feedback:
+                feedback = "Incorrect casing, parameter, or operator usage."
+            wrong_snippets.append(f"  - [bold yellow]{opt.get('option_letter')})[/bold yellow] `{opt.get('code_snippet', '')}`: {feedback}")
 
     trap_desc = q_item.get("metadata", {}).get("trap_analysis", "")
     if not trap_desc:
