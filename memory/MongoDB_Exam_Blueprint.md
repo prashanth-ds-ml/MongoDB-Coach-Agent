@@ -1,49 +1,39 @@
-# MongoDB Exam Blueprint (Source: User Input)
+# MongoDB Exam Blueprint (Source: Local PDF Cross-Check)
 
-This document outlines the definitive, examinable structure for the CertCoach platform, derived from an official study guide and supplemented by the user's explicit curriculum mapping. This structure dictates content extraction, question generation, and module grouping.
+This document outlines the definitive examinable structure for the CertCoach platform, cross-checked against `data/Resources/UpdatedMongodDBAssociateDeveloperExamGuide.docx3.pdf` and the extracted `data/Primary_Exam_Guide.md`. This structure dictates content extraction, question generation, and module grouping for the MongoDB Associate Developer exam, with Python-specific driver material for Section 6.
 
-## 📚 Core Domains & Content Mapping
+## Core Domains & Content Mapping
 
-**1. MongoDB Basics / Document Model**
+**1. MongoDB Overview and the Document Model (8%)**
 *   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Key Topics:** BSON vs JSON, `_id` field, Embedded documents, Arrays, Dot notation, Document size limits.
+*   **Key Topics:** BSON value types, document shape flexibility, collections containing differently shaped documents.
 
-**2. CRUD Operations**
+**2. CRUD (51%)**
 *   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Important Operators:** `$set`, `$unset`, `$inc`, `$push`, `$pull`
-*   **Query Operators:** `$eq`, `$gt`, `$lt`, `$in`, `$and`, `$or`, `$exists`
+*   **Important Operations:** insert commands, full-document replacement, `$set`, upsert, multi-document update, `findAndModify`, delete expressions.
+*   **Query Coverage:** equality constraints, equality on array fields, relational operators, `$in`, `$elemMatch`, logical operators, sort and limit, projection, cursor iteration, count operations.
+*   **Search and Aggregation Coverage:** search index command, search query, aggregation with `$match`, `$group`, `$lookup`, and `$out`.
 
-**3. Querying Arrays and Embedded Documents**
+**3. Indexes (17%)**
 *   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Key Concepts:** Dot notation, `$elemMatch`, Array indexes.
+*   **Important Topics:** choosing indexes for collection scans, array-field indexes, compound indexes for sort, counting existing indexes, index trade-offs, explain plan outputs such as collection scan versus index scan.
 
-**4. Projection**
+**4. Data Modeling (4%)**
 *   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Important Concepts:** Including fields, excluding fields, projection rules.
+*   **Important Topics:** embedded versus linked relationships, identifying anti-patterns.
 
-**5. Sorting, Limiting, Counting**
+**5. Tools and Tooling (2%)**
 *   **Source Paths:** `data/Primary_Exam_Guide.md`
+*   **Important Topics:** loading Atlas Sample Dataset and using Data Explorer to find a document.
 
-**6. Indexes**
+**6. Drivers - Python / PyMongo (18%)**
 *   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Important Topics:** single field index, compound index, multikey index, index usage.
+*   **Important Topics:** PyMongo driver purpose, application connection flow, MongoClient URI components, connection pooling, Python syntax for insert/update/delete/find operations, aggregation pipeline syntax, differences between MQL syntax and Aggregation Framework syntax.
 
-**7. Aggregation Framework**
-*   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Common Pipeline Stages:** `$match`, `$group`, `$project`, `$sort`, `$limit`, `$unwind`, `$lookup`
-
-**8. Transactions**
-*   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Key Concepts:** ACID, multi-document transactions, session usage.
-
-**9. Python Driver (PyMongo)**
-*   **Source Paths:** `data/Primary_Exam_Guide.md`
-*   **Important Topics:** `MongoClient`, `insert_one()`, `insert_many()`, `find()`, `update_one()`, `delete_one()`, `aggregation` with `aggregate()`.
-
-## 📝 Exam Structure Summary
+## Exam Structure Summary
 *   **Total Questions:** ~53
 *   **Time Limit:** 75 minutes
-*   **Format:** Multiple Choice
-*   **Main Focus Areas (Weighting Guide):** CRUD, Indexing, Aggregation, Data Modeling, PyMongo usage.
+*   **Format:** Multiple Choice and Multiple Response
+*   **Main Focus Areas:** CRUD, Indexing, Drivers/PyMongo, Document Model, Data Modeling, Tools/Data Explorer.
 
-**Action Item:** This blueprint must guide all future content generation, ensuring every piece of material generated targets one of these specific areas.
+**Action Item:** This blueprint must guide all future content generation. Transactions should not be treated as a standalone Associate Developer exam domain unless a newer guide explicitly adds them.

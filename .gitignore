@@ -16,6 +16,9 @@ env/
 # ChromaDB
 chroma_db/
 
+# Generated MongoDB docs source cache
+data/mongodb_docs/
+
 # IDEs and Editors
 .vscode/
 .idea/
