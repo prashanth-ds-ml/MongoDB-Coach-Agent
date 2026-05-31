@@ -70,7 +70,7 @@ class CoachPersona:
             md_context = "CRITICAL: No official reference material is loaded for this topic in the syllabus."
 
         context_section = (
-            f"\n\nReference material (use for accuracy):\n```\n{md_context[:2500]}\n```"
+            f"\n\nReference material (use for accuracy):\n```\n{md_context[:25000]}\n```"
             if md_context else ""
         )
         return self._call(

@@ -66,7 +66,7 @@ class CoachPersona:
     def explain_topic(self, topic: str, subtopics: list, md_context: str = "") -> str:
         subtopics_str = "\n".join(f"  - {s}" for s in subtopics)
         context_section = (
-            f"\n\nReference material (use for accuracy):\n```\n{md_context[:2500]}\n```"
+            f"\n\nReference material (use for accuracy):\n```\n{md_context[:25000]}\n```"
             if md_context else ""
         )
         return self._call(
