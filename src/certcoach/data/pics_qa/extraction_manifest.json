@@ -1,0 +1,27 @@
+{
+    "Screenshot 2025-12-14 090435.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T15:35:39.984484",
+        "question_id": "7a62b8f0-1b37-4d45-a9ab-81e62f526ee1"
+    },
+    "Screenshot 2025-12-14 092109.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T15:36:55.388060",
+        "question_id": "09fc5851-973c-4847-a02e-a8c35a0038c7"
+    },
+    "Screenshot 2025-12-14 092156.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T15:43:29.025019",
+        "question_id": "b077a760-c5fb-4073-b267-d8872d228fba"
+    },
+    "Screenshot 2025-12-14 095943.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T15:45:01.649182",
+        "question_id": "0d8c223a-4f7f-4827-b2f6-a1ab97456786"
+    },
+    "Screenshot 2025-12-14 100050.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T15:46:39.272921",
+        "question_id": "4fefdb15-8259-4ca4-ab23-47c1bbf65385"
+    }
+}
