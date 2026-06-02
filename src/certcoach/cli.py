@@ -382,6 +382,7 @@ def run_teach_session(agenda_item: dict):
         if active_subtopic:
             planner.mark_subtopic_complete(USER_ID, topic, active_subtopic)
             console.print(f"\n  [bold green]🏆 Concept '{active_subtopic}' marked as complete![/bold green]")
+            show_cumulative_cheat_sheet_checkpoint(topic, active_subtopic)
             
             # Check if the topic itself was marked complete
             profile = database.get_user_profile(USER_ID)
@@ -1782,20 +1783,7 @@ def show_exam_traps():
         if ts.get("is_mastered") and ts.get("topic") not in completed:
             completed.append(ts.get("topic"))
             
-    traps_map = {
-        "MongoDB Overview & The Document Model": "• [bold cyan]Topic 1: Overview & Document Model[/bold cyan]\n  - BSON maximum document size is strictly [bold red]16MB[/bold red]. Use GridFS for larger files.\n  - Key names are case-sensitive and have strict null/dot character restrictions.",
-        "CRUD Operations - Create": "• [bold cyan]Topic 2: CRUD - Create[/bold cyan]\n  - `insertOne()` returns an object containing `acknowledged: true` and `insertedId`. It does NOT return the document itself.\n  - If you omit `_id`, the driver automatically assigns a 12-byte `ObjectId`.",
-        "CRUD Operations - Read": "• [bold cyan]Topic 3: CRUD - Read[/bold cyan]\n  - Projections: You cannot mix inclusion (1) and exclusion (0) in a single projection, except for the `_id` field (e.g. `{name: 1, _id: 0}` is valid, but `{name: 1, age: 0}` is INVALID).\n  - Chained cursor methods (`.sort()`, `.limit()`, `.skip()`) are executed in a fixed priority order (Sort -> Skip -> Limit) regardless of code order.",
-        "CRUD Operations - Update": "• [bold cyan]Topic 4: CRUD - Update[/bold cyan]\n  - `updateOne()` requires atomic operators (like `$set` or `$push`). Using replacements without operators requires `replaceOne()`.",
-        "CRUD Operations - Delete": "• [bold cyan]Topic 5: CRUD - Delete[/bold cyan]\n  - `deleteOne()` only deletes the [bold yellow]first[/bold yellow] matching document. Use `deleteMany()` for bulk deletes.",
-        "Query Operators & MQL": "• [bold cyan]Topic 6: Query Operators & MQL[/bold cyan]\n  - Implicit Array Matching: Querying `{tags: 'database'}` matches any document where the array `tags` contains `'database'`. You do not need to wrap it in array brackets.\n  - Comparison operators evaluate types based on standard BSON Type Bracketing collation order.",
-        "Querying Arrays & Embedded Documents": "• [bold cyan]Topic 7: Querying Arrays & Embedded Docs[/bold cyan]\n  - `$elemMatch` matches documents where at least one array element satisfies [bold yellow]all[/bold yellow] specified query conditions. Without `$elemMatch`, conditions can match separate elements.\n  - Nested dot-notation paths (e.g., `'address.city'`) MUST be enclosed in quotes.",
-        "Aggregation Framework": "• [bold cyan]Topic 8: Aggregation Framework[/bold cyan]\n  - Always place `$match` as early as possible in your pipeline to take advantage of indexes and optimize memory usage.",
-        "Indexes & Performance": "• [bold cyan]Topic 9: Indexes & Performance[/bold cyan]\n  - Compound Indexes: An index on `{a: 1, b: 1, c: 1}` supports queries on `{a}`, `{a, b}`, and `{a, b, c}`, but cannot support queries on `{b}` or `{c}` alone (Prefix rule).\n  - Covered Queries: All query fields and projected fields must be index keys, and the `_id` field must be explicitly excluded (`_id: 0`).",
-        "Data Modeling": "• [bold cyan]Topic 10: Data Modeling[/bold cyan]\n  - Embedding is preferred for low cardinality (1-to-few). Referencing is preferred for high cardinality (1-to-many) to prevent breaching the 16MB document size ceiling.",
-        "MongoDB Drivers & PyMongo": "• [bold cyan]Topic 11: Drivers & PyMongo[/bold cyan]\n  - Method Casings: PyMongo uses `snake_case` (e.g. `insert_one()`, `find_one()`), while mongosh uses `camelCase` (e.g. `insertOne()`, `findOne()`).",
-        "MongoDB Atlas & Operations": "• [bold cyan]Topic 12: MongoDB Atlas & Operations[/bold cyan]\n  - Free Tier: M0 tier clusters are limited to 512MB storage and do not support VPC Peering or advanced backup routines."
-    }
+    traps_map = get_exam_traps_map()
     
     active_traps = []
     for topic_name, trap_text in traps_map.items():
@@ -1829,6 +1817,48 @@ def show_exam_traps():
         Prompt.ask("\n  [dim]Press Enter to return to menu[/dim]")
     except (KeyboardInterrupt, EOFError):
         raise SystemExit
+
+
+def get_exam_traps_map() -> dict:
+    return {
+        "MongoDB Overview & The Document Model": "• [bold cyan]Topic 1: Overview & Document Model[/bold cyan]\n  - BSON maximum document size is strictly [bold red]16MB[/bold red]. Use GridFS for larger files.\n  - Key names are case-sensitive. Avoid dots (`.`), null characters, and ambiguous naming conventions in field names.",
+        "CRUD Operations - Create": "• [bold cyan]Topic 2: CRUD - Create[/bold cyan]\n  - `insertOne()` returns an object containing `acknowledged: true` and `insertedId`. It does NOT return the document itself.\n  - If you omit `_id`, the driver automatically assigns a 12-byte `ObjectId`.",
+        "CRUD Operations - Read": "• [bold cyan]Topic 3: CRUD - Read[/bold cyan]\n  - Projections: You cannot mix inclusion (1) and exclusion (0) in a single projection, except for the `_id` field (e.g. `{name: 1, _id: 0}` is valid, but `{name: 1, age: 0}` is INVALID).\n  - Chained cursor methods (`.sort()`, `.limit()`, `.skip()`) are executed in a fixed priority order (Sort -> Skip -> Limit) regardless of code order.",
+        "CRUD Operations - Update": "• [bold cyan]Topic 4: CRUD - Update[/bold cyan]\n  - `updateOne()` requires atomic operators (like `$set` or `$push`). Using replacements without operators requires `replaceOne()`.",
+        "CRUD Operations - Delete": "• [bold cyan]Topic 5: CRUD - Delete[/bold cyan]\n  - `deleteOne()` only deletes the [bold yellow]first[/bold yellow] matching document. Use `deleteMany()` for bulk deletes.",
+        "Query Operators & MQL": "• [bold cyan]Topic 6: Query Operators & MQL[/bold cyan]\n  - Implicit Array Matching: Querying `{tags: 'database'}` matches any document where the array `tags` contains `'database'`. You do not need to wrap it in array brackets.\n  - Comparison operators evaluate types based on standard BSON Type Bracketing collation order.",
+        "Querying Arrays & Embedded Documents": "• [bold cyan]Topic 7: Querying Arrays & Embedded Docs[/bold cyan]\n  - `$elemMatch` matches documents where at least one array element satisfies [bold yellow]all[/bold yellow] specified query conditions. Without `$elemMatch`, conditions can match separate elements.\n  - Nested dot-notation paths (e.g., `'address.city'`) MUST be enclosed in quotes.",
+        "Aggregation Framework": "• [bold cyan]Topic 8: Aggregation Framework[/bold cyan]\n  - Always place `$match` as early as possible in your pipeline to take advantage of indexes and optimize memory usage.",
+        "Indexes & Performance": "• [bold cyan]Topic 9: Indexes & Performance[/bold cyan]\n  - Compound Indexes: An index on `{a: 1, b: 1, c: 1}` supports queries on `{a}`, `{a, b}`, and `{a, b, c}`, but cannot support queries on `{b}` or `{c}` alone (Prefix rule).\n  - Covered Queries: All query fields and projected fields must be index keys, and the `_id` field must be explicitly excluded (`_id: 0`).",
+        "Data Modeling": "• [bold cyan]Topic 10: Data Modeling[/bold cyan]\n  - Embedding is preferred for low cardinality (1-to-few). Referencing is preferred for high cardinality (1-to-many) to prevent breaching the 16MB document size ceiling.",
+        "MongoDB Drivers & PyMongo": "• [bold cyan]Topic 11: Drivers & PyMongo[/bold cyan]\n  - Method Casings: PyMongo uses `snake_case` (e.g. `insert_one()`, `find_one()`), while mongosh uses `camelCase` (e.g. `insertOne()`, `findOne()`).",
+        "Tools, Tooling & Atlas Search": "• [bold cyan]Topic 12: Tools, Tooling & Atlas Search[/bold cyan]\n  - Free Tier: M0 tier clusters are limited to 512MB storage and do not support VPC Peering or advanced backup routines.\n  - Atlas Search requires search indexes; standard collection indexes are not the same thing."
+    }
+
+
+def show_cumulative_cheat_sheet_checkpoint(topic: str, completed_concept: str):
+    profile = database.get_user_profile(USER_ID)
+    progress = profile.get("progress", {})
+    completed_subtopics = progress.get("completed_subtopics", {}).get(topic, [])
+    topic_item = next((item for item in planner.load_syllabus() if item["topic"] == topic), None)
+    all_subtopics = topic_item.get("subtopics", []) if topic_item else []
+    remaining = [s for s in all_subtopics if s not in completed_subtopics]
+    traps_map = get_exam_traps_map()
+    trap_text = traps_map.get(topic, "No topic cheat sheet is mapped yet.")
+
+    completed_lines = "\n".join(f"  - [green]{s}[/green]" for s in completed_subtopics) or "  - [dim]None yet[/dim]"
+    remaining_lines = "\n".join(f"  - [yellow]{s}[/yellow]" for s in remaining) or "  - [green]All concepts complete[/green]"
+
+    console.print()
+    console.print(Panel(
+        f"[bold]Completed concept:[/bold] {completed_concept}\n\n"
+        f"[bold cyan]Covered in this topic[/bold cyan]\n{completed_lines}\n\n"
+        f"[bold yellow]Still remaining[/bold yellow]\n{remaining_lines}\n\n"
+        f"[bold magenta]Cumulative Cheat Sheet[/bold magenta]\n{trap_text}",
+        title="[bold cyan]Concept Checkpoint[/bold cyan]",
+        border_style="cyan",
+        box=box.ROUNDED
+    ))
 
 
 def recalibrate_study_plan():

@@ -181,6 +181,64 @@ def test_get_syllabus_status_skipping(mock_load_syllabus, mock_get_profile, mock
         planner.DATA_DIR = original_data_dir
 
 
+@patch("certcoach.core.database.get_analytics")
+@patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.planner.load_syllabus")
+def test_get_syllabus_status_does_not_skip_uncompleted_concepts(mock_load_syllabus, mock_get_profile, mock_get_analytics, tmp_path):
+    from certcoach.core import planner
+
+    original_data_dir = planner.DATA_DIR
+    try:
+        planner.DATA_DIR = str(tmp_path)
+        raw_dir = tmp_path / "raw_markdowns"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        (raw_dir / "present.md").write_text("grounded content", encoding="utf-8")
+
+        mock_get_profile.return_value = {
+            "progress": {
+                "completed_subtopics": {
+                    "Topic 1": ["Concept A"]
+                },
+                "completed_topics": []
+            }
+        }
+        mock_get_analytics.return_value = {
+            "topic_stats": [
+                {"topic": "Topic 1 Bank", "attempts": 5, "correct": 5}
+            ]
+        }
+        mock_load_syllabus.return_value = [
+            {
+                "id": 1,
+                "topic": "Topic 1",
+                "subtopics": ["Concept A", "Concept B"],
+                "md_files": ["present.md"],
+                "bank_topic_keys": ["Topic 1 Bank"],
+                "in_question_bank": True,
+            },
+            {
+                "id": 2,
+                "topic": "Topic 2",
+                "subtopics": ["Concept C"],
+                "md_files": ["present.md"],
+                "bank_topic_keys": ["Topic 2 Bank"],
+                "in_question_bank": True,
+            },
+        ]
+
+        status = planner.get_syllabus_status("test_user")
+
+        assert status["mastered_count"] == 0
+        assert status["next_topic"]["topic"] == "Topic 1"
+        first = status["status_list"][0]
+        assert first["accuracy"] == 100.0
+        assert first["concept_coverage"] == 50.0
+        assert first["uncompleted_subtopics"] == ["Concept B"]
+        assert not first["is_mastered"]
+    finally:
+        planner.DATA_DIR = original_data_dir
+
+
 @patch("certcoach.cli.console")
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.planner")
@@ -555,6 +613,36 @@ def test_show_exam_traps_unlocked_ordered(mock_planner, mock_database, mock_cons
         assert t3_idx != -1
         assert t1_idx < t3_idx
         mock_prompt_ask.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_cumulative_cheat_sheet_checkpoint_shows_completed_and_remaining(mock_planner, mock_database, mock_console):
+    from certcoach.cli import show_cumulative_cheat_sheet_checkpoint
+
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_subtopics": {
+                "MongoDB Overview & The Document Model": ["BSON Data Types"]
+            }
+        }
+    }
+    mock_planner.load_syllabus.return_value = [
+        {
+            "topic": "MongoDB Overview & The Document Model",
+            "subtopics": ["BSON Data Types", "Document structure", "Collections vs Tables"],
+        }
+    ]
+
+    show_cumulative_cheat_sheet_checkpoint("MongoDB Overview & The Document Model", "BSON Data Types")
+
+    panel = next(call[0][0] for call in mock_console.print.call_args_list if call[0] and hasattr(call[0][0], "renderable"))
+    rendered = str(panel.renderable)
+    assert "Concept Checkpoint" in panel.title
+    assert "BSON Data Types" in rendered
+    assert "Document structure" in rendered
+    assert "Cumulative Cheat Sheet" in rendered
 
 
 @patch("certcoach.core.planner.get_syllabus_status")

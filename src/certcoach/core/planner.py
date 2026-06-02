@@ -162,6 +162,7 @@ def get_syllabus_status(user_id: str) -> dict:
     analytics = database.get_analytics(user_id)
     profile = database.get_user_profile(user_id)
     completed = set(profile.get("progress", {}).get("completed_topics", []))
+    completed_subtopics_map = profile.get("progress", {}).get("completed_subtopics", {})
 
     topic_perf = {ts["topic"]: ts for ts in analytics.get("topic_stats", [])}
 
@@ -184,7 +185,16 @@ def get_syllabus_status(user_id: str) -> dict:
             correct_attempts += perf.get("correct", 0)
 
         accuracy = (correct_attempts / total_attempts * 100) if total_attempts > 0 else 0
-        is_mastered = syllabus_topic in completed or (total_attempts >= 3 and accuracy >= 80)
+        subtopics = item.get("subtopics", [])
+        completed_subtopics = completed_subtopics_map.get(syllabus_topic, [])
+        uncompleted_subtopics = [s for s in subtopics if s not in completed_subtopics]
+        concept_coverage = (len(completed_subtopics) / len(subtopics) * 100) if subtopics else 100
+        # Do not let quiz analytics skip syllabus concepts. Analytics informs readiness;
+        # mastery requires explicit coverage of every mapped concept.
+        is_mastered = (
+            (bool(subtopics) and not uncompleted_subtopics)
+            or (not subtopics and syllabus_topic in completed)
+        )
 
         has_questions = item.get("in_question_bank", False)
         if not has_questions:
@@ -207,6 +217,9 @@ def get_syllabus_status(user_id: str) -> dict:
             "topic": syllabus_topic,
             "exam_weight": item.get("exam_weight", "Medium"),
             "subtopics": item.get("subtopics", []),
+            "completed_subtopics": completed_subtopics,
+            "uncompleted_subtopics": uncompleted_subtopics,
+            "concept_coverage": round(concept_coverage, 1),
             "question_keywords": item.get("question_keywords", []),
             "md_files": item.get("md_files", []),
             "bank_keys": bank_keys,
