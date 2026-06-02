@@ -874,7 +874,140 @@ def test_exam_simulator_autosaver_resume(mock_confirm_ask, mock_prompt_ask, mock
     assert mock_database.clear_active_exam.call_count == 1
 
 
+def test_streak_freeze_retention_and_decrement():
+    from certcoach.core import database
+    from datetime import datetime, timedelta
+    
+    mock_profile = {
+        "_id": "local_user_1",
+        "streak_days": 5,
+        "last_login_date": (datetime.utcnow().date() - timedelta(days=2)).isoformat(),
+        "progress": {"streak_freezes": 2}
+    }
+    
+    with patch("certcoach.core.database.get_user_profile", return_value=mock_profile), \
+         patch("certcoach.core.database.update_user_profile") as mock_update_profile, \
+         patch("rich.console.Console.print") as mock_print:
+         
+        database.update_streak("local_user_1")
+        
+        # Verify that streak freezes decremented to 1 and is updated
+        assert mock_update_profile.call_count >= 1
+        # The update call to user profile includes progress with decremented streak_freezes
+        first_call_args = mock_update_profile.call_args_list[0][0][1]
+        assert first_call_args["progress"]["streak_freezes"] == 1
+        
+        # The final call updates the streak to be retained (5) and sets today as last login
+        second_call_args = mock_update_profile.call_args_list[1][0][1]
+        assert second_call_args["streak_days"] == 5
+        assert second_call_args["last_login_date"] == datetime.utcnow().date().isoformat()
+        
+        # Verify announcement printed
+        mock_print.assert_called_once()
+        assert "Streak Freeze Active!" in mock_print.call_args[0][0]
 
+
+def test_award_streak_freeze_capped():
+    from certcoach.core import database
+    
+    # Case 1: Under cap (freezes = 1) -> should succeed and increment to 2
+    mock_profile_1 = {
+        "_id": "local_user_1",
+        "progress": {"streak_freezes": 1}
+    }
+    with patch("certcoach.core.database.get_user_profile", return_value=mock_profile_1), \
+         patch("certcoach.core.database.update_user_profile") as mock_update_profile:
+        res = database.award_streak_freeze("local_user_1")
+        assert res is True
+        mock_update_profile.assert_called_once_with("local_user_1", {"progress": {"streak_freezes": 2}})
+        
+    # Case 2: At cap (freezes = 3) -> should fail and return False
+    mock_profile_2 = {
+        "_id": "local_user_1",
+        "progress": {"streak_freezes": 3}
+    }
+    with patch("certcoach.core.database.get_user_profile", return_value=mock_profile_2), \
+         patch("certcoach.core.database.update_user_profile") as mock_update_profile:
+        res = database.award_streak_freeze("local_user_1")
+        assert res is False
+        mock_update_profile.assert_not_called()
+
+
+@patch("certcoach.core.database.MongoClient")
+@patch("certcoach.core.database.open", create=True)
+@patch("os.path.exists", return_value=True)
+def test_update_database_connection(mock_exists, mock_open, mock_mongo_client):
+    from certcoach.core import database
+    
+    # Mocking env files read/write
+    mock_file = MagicMock()
+    mock_file.readlines.return_value = ["MONGO_URI=mongodb://old_uri\n", "MODEL=qwen\n"]
+    mock_open.return_value.__enter__.return_value = mock_file
+    
+    mock_client_instance = MagicMock()
+    mock_mongo_client.return_value = mock_client_instance
+    
+    res = database.update_database_connection("mongodb://new_uri")
+    
+    assert res is True
+    assert database.MONGO_URI == "mongodb://new_uri"
+    # Ensure write was called with updated MONGO_URI
+    write_calls = mock_file.writelines.call_args_list
+    assert len(write_calls) > 0
+    written_lines = write_calls[0][0][0]
+    assert any("MONGO_URI=mongodb://new_uri\n" in line for line in written_lines)
+    # Ensure server selection ping was invoked to verify connection
+    mock_client_instance.admin.command.assert_called_with("ping")
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_casing_contrast_sheet(mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import show_casing_contrast_sheet
+    
+    with patch("certcoach.cli.print_paginated") as mock_print_paginated:
+        show_casing_contrast_sheet()
+        mock_print_paginated.assert_called_once()
+        mock_prompt_ask.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.Prompt.ask")
+def test_practice_questions_awards_freeze(mock_prompt_ask, mock_coach, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+    
+    def mock_get_random(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False):
+        prefix = difficulty or "Any"
+        return [
+            {
+                "_id": f"{prefix.lower()}_{i}",
+                "question_text": f"{prefix} Q{i}",
+                "metadata": {"topic": topic, "difficulty": prefix},
+                "options": [{"option_letter": "A", "code_snippet": "c1", "is_correct": True, "feedback": "good"}],
+            }
+            for i in range(limit)
+        ]
+
+    mock_database.get_random_questions.side_effect = mock_get_random
+    mock_database.award_streak_freeze.return_value = True
+    mock_coach.get_answer_feedback.return_value = "Mocked feedback response."
+    
+    # 5/5 score on 5-question practice quiz
+    mock_prompt_ask.side_effect = ["A", "H", ""] * 5
+    
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic 1", ["Topic 1"], num=5, is_mock=False)
+        
+    assert score == 5
+    mock_database.award_streak_freeze.assert_called_once_with("local_user_1")
+    # Verify streak freeze announcement printed
+    printed_text = "\n".join(
+        str(call[0][0]) for call in mock_console.print.call_args_list if call[0]
+    )
+    assert "earned a Streak Freeze token" in printed_text
 
 
 

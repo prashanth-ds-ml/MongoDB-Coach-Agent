@@ -1213,7 +1213,15 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
     if is_mock:
         time_limit = num * 90
-        return run_exam_simulator(topic, questions, time_limit)
+        score = run_exam_simulator(topic, questions, time_limit)
+        if score is not None:
+            pct = score / len(questions) * 100
+            if pct >= 85:
+                awarded = database.award_streak_freeze(USER_ID)
+                if awarded:
+                    console.print("\n[bold yellow]❄️ Congratulations! You earned a Streak Freeze token (high mock score of >=85%).[/bold yellow]")
+                    time.sleep(2)
+        return score
 
     score = 0
     label = "Mini-Mock" if is_mock else "Practice"
@@ -1320,6 +1328,12 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         console.print("  [yellow]Decent, but review the explanations above before moving on.[/yellow]")
     else:
         console.print("  [red]Below 60% — Coach will schedule a review session tomorrow.[/red]")
+
+    if not is_mock and len(questions) == 5 and score == 5:
+        awarded = database.award_streak_freeze(USER_ID)
+        if awarded:
+            console.print("\n[bold yellow]❄️ Congratulations! You earned a Streak Freeze token (perfect 5/5 score).[/bold yellow]")
+            time.sleep(2)
 
     return score
 
@@ -1842,6 +1856,83 @@ def run_timed_mock():
     except (KeyboardInterrupt, EOFError):
         return
 
+
+def show_casing_contrast_sheet():
+    """Renders a beautiful side-by-side comparative table of mongosh vs PyMongo casings."""
+    clear()
+    console.print(Rule("[bold cyan]💻 Lexical Casing Contrast Sheet (mongosh vs PyMongo)[/bold cyan]"))
+    console.print()
+    console.print(Panel(
+        "Standard syllabus topics strictly enforce [bold cyan]mongosh camelCase[/bold cyan] method names.\n"
+        "Python Driver/PyMongo topics require [bold yellow]PyMongo snake_case[/bold yellow] method names.\n"
+        "Here is a side-by-side comparative reference to help you avoid casing traps on the exam.",
+        title="📝 Casing Standard", border_style="cyan", box=box.ROUNDED
+    ))
+    console.print()
+    
+    table = Table(box=box.DOUBLE, header_style="bold blue", show_lines=True)
+    table.add_column("mongosh (camelCase)", style="cyan", justify="left")
+    table.add_column("PyMongo (snake_case)", style="yellow", justify="left")
+    table.add_column("Key Differences & Traps", style="white", justify="left")
+    
+    table.add_row(
+        "insertOne()",
+        "insert_one()",
+        "Inserts a single document. PyMongo accepts a dictionary directly."
+    )
+    table.add_row(
+        "insertMany()",
+        "insert_many()",
+        "Inserts an array of documents (mongosh) or a list of dictionaries (PyMongo)."
+    )
+    table.add_row(
+        "findOne()",
+        "find_one()",
+        "Returns a single document. If no document matches, returns null (mongosh) or None (PyMongo)."
+    )
+    table.add_row(
+        "find()",
+        "find()",
+        "Returns a cursor. Cursors must be iterated to retrieve results in both environments."
+    )
+    table.add_row(
+        "updateOne()",
+        "update_one()",
+        "Requires update operators (e.g., $set). Passing raw documents is an exam trap!"
+    )
+    table.add_row(
+        "updateMany()",
+        "update_many()",
+        "Updates multiple matching documents. Requires update operators."
+    )
+    table.add_row(
+        "deleteOne()",
+        "delete_one()",
+        "Deletes a single matching document."
+    )
+    table.add_row(
+        "deleteMany()",
+        "delete_many()",
+        "Deletes all documents matching the filter."
+    )
+    table.add_row(
+        "replaceOne()",
+        "replace_one()",
+        "Replaces a single document. Accepts ONLY raw documents. Update operators ($set) are BANNED."
+    )
+    table.add_row(
+        "createIndex()",
+        "create_index()",
+        "mongosh: createIndex({'field': 1})\nPyMongo: create_index([('field', 1)]) — uses a list of tuples!"
+    )
+    
+    print_paginated(table, title="Lexical Casing Contrast Sheet")
+    try:
+        Prompt.ask("\n  [dim]Press Enter to return to Library menu[/dim]")
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+
 def run_library_submenu():
     while True:
         console.print("\n  [bold blue]📖 Reference Library & Progress[/bold blue]")
@@ -1850,7 +1941,8 @@ def run_library_submenu():
         console.print("    [bold cyan]b.[/bold cyan] 💡 View Exam Cheat Sheet (Traps & Reminders)")
         console.print("    [bold cyan]c.[/bold cyan] 📚 Syllabus Coverage & Gap Report")
         console.print("    [bold cyan]d.[/bold cyan] 📊 Performance Analytics Dashboard")
-        console.print("    [bold cyan]e.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]e.[/bold cyan] 💻 View Lexical Casing Contrast Sheet (mongosh vs PyMongo)")
+        console.print("    [bold cyan]f.[/bold cyan] ⬅️  Back to Main Menu")
         console.print()
         
         try:
@@ -1866,7 +1958,9 @@ def run_library_submenu():
             show_syllabus_status()
         elif ans == "d":
             show_analytics()
-        elif ans in ("e", "back", "b", "q"):
+        elif ans == "e":
+            show_casing_contrast_sheet()
+        elif ans in ("f", "back", "b", "q"):
             break
 
 
@@ -2225,6 +2319,7 @@ def run_settings_submenu(profile, status):
         console.print("    [bold cyan]g.[/bold cyan] 🧠 Show Loaded AI Models & Free Memory (VRAM)")
         console.print("    [bold cyan]h.[/bold cyan] ❌ Quit CertCoach")
         console.print("    [bold cyan]i.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]j.[/bold cyan] 💾 Reconfigure MongoDB Connection URI")
         console.print()
         
         try:
@@ -2261,6 +2356,16 @@ def run_settings_submenu(profile, status):
             raise SystemExit
         elif ans in ("i", "back", "b"):
             break
+        elif ans == "j":
+            new_uri = Prompt.ask("\n  Enter your new MongoDB Connection URI").strip()
+            if new_uri:
+                with console.status("[dim]🔄 Hot-swapping MongoDB connection...[/dim]", spinner="dots"):
+                    success = database.update_database_connection(new_uri)
+                if success:
+                    console.print("[green]  ✔ Connection successfully updated and verified.[/green]")
+                else:
+                    console.print("[red]  ❌ Failed to connect using new URI. Check your network or connection string.[/red]")
+                time.sleep(2)
 
 
 
@@ -2335,6 +2440,7 @@ def main_menu():
         status = planner.get_syllabus_status(USER_ID)
         agenda = planner.generate_daily_agenda(USER_ID)
         streak = profile.get("streak_days", 1)
+        streak_freezes = profile.get("progress", {}).get("streak_freezes", 0)
 
         agenda_desc = "None"
         if agenda:
@@ -2379,7 +2485,7 @@ def main_menu():
         exam_day_badge = " [bold gold]🏆 EXAM DAY MODE ACTIVE[/bold gold] |" if exam_day_mode else ""
         
         # Sleek horizontally consolidated Status Bar
-        console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
+        console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] (❄️ Freezes: [bold blue]{streak_freezes}[/bold blue]) | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
         console.print(f"📈 [bold cyan]Readiness[/bold cyan]: [bold green]{current_readiness:.1f}%[/bold green] (Expected: {expected_readiness:.1f}%) | 🎲 [bold yellow]Pass Probability[/bold yellow]: {pass_probability:.1f}% |{exam_day_badge}")
         console.print("━"*80)
         console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}{skipped_badge}")

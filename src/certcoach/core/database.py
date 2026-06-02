@@ -203,7 +203,7 @@ def get_user_profile(user_id: str):
             "streak_days": 0,
             "last_login_date": None,
             "study_preference": {"hours_per_week": 10},
-            "progress": {"completed_topics": [], "current_agenda": []},
+            "progress": {"completed_topics": [], "current_agenda": [], "streak_freezes": 0},
             "created_at": datetime.utcnow().isoformat()
         }
         profiles_col.insert_one(profile)
@@ -246,6 +246,14 @@ def update_streak(user_id: str):
         pass # Already counted today
     elif last_login == today_date - timedelta(days=1):
         current_streak += 1
+    elif last_login == today_date - timedelta(days=2) and profile.get("progress", {}).get("streak_freezes", 0) > 0:
+        # Streak freeze active! Decrement freeze balance and preserve current streak
+        progress = profile.get("progress", {})
+        progress["streak_freezes"] = progress.get("streak_freezes", 0) - 1
+        update_user_profile(user_id, {"progress": progress})
+        from rich.console import Console
+        console = Console()
+        console.print("\n[bold yellow]❄️ Streak Freeze Active! Your streak has been preserved.[/bold yellow]")
     else:
         current_streak = 1
 
@@ -460,3 +468,71 @@ def get_active_exam(user_id: str) -> dict | None:
 def clear_active_exam(user_id: str):
     """Deletes any cached unfinished exam state upon finalization or deliberate quit."""
     db["active_exam_state"].delete_one({"_id": user_id})
+
+
+def award_streak_freeze(user_id: str) -> bool:
+    """Awards a streak freeze token, capped at a maximum of 3 active tokens."""
+    profile = get_user_profile(user_id)
+    progress = profile.get("progress", {})
+    current_freezes = progress.get("streak_freezes", 0)
+    if current_freezes < 3:
+        progress["streak_freezes"] = current_freezes + 1
+        update_user_profile(user_id, {"progress": progress})
+        return True
+    return False
+
+
+def update_database_connection(new_uri: str) -> bool:
+    """Rewrites the .env files, closes the active client, and re-establishes the connection."""
+    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, draft_questions_col, MONGO_URI, connection_error
+    
+    os.environ["MONGO_URI"] = new_uri
+    MONGO_URI = new_uri
+    
+    # Update global config and local .env files
+    env_paths = [ENV_PATH, os.path.join(os.getcwd(), ".env")]
+    for path in env_paths:
+        if os.path.exists(path):
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    lines = f.readlines()
+                replaced = False
+                new_lines = []
+                for line in lines:
+                    if line.strip().startswith("MONGO_URI="):
+                        new_lines.append(f"MONGO_URI={new_uri}\n")
+                        replaced = True
+                    else:
+                        new_lines.append(line)
+                if not replaced:
+                    if new_lines and not new_lines[-1].endswith("\n"):
+                        new_lines.append("\n")
+                    new_lines.append(f"MONGO_URI={new_uri}\n")
+                with open(path, "w", encoding="utf-8") as f:
+                    f.writelines(new_lines)
+            except Exception as e:
+                print(f"[!] Error writing to {path}: {e}")
+                
+    # Close old client
+    if client is not None:
+        try:
+            client.close()
+        except Exception:
+            pass
+            
+    # Try connecting
+    try:
+        new_client = MongoClient(new_uri, serverSelectionTimeoutMS=5000)
+        new_client.admin.command("ping")
+        client = new_client
+        db = client["certcoach_db"]
+        questions_col = db["questions"]
+        profiles_col = db["user_profiles"]
+        attempts_col = db["user_attempts"]
+        study_sessions_col = db["user_study_sessions"]
+        draft_questions_col = db["draft_questions"]
+        connection_error = None
+        return True
+    except Exception as e:
+        connection_error = e
+        return False
