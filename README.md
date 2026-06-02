@@ -99,6 +99,43 @@ certcoach
 
 ---
 
+## 🎓 Study Quick-Start Workflow (Day 1 Guide)
+
+If you are a beginner, follow this step-by-step workflow to configure memory, seed your database, and start studying in under 5 minutes:
+
+### Step 1: Force Clear Stuck VRAM Memory
+Open PowerShell (as Administrator or normal user) and run this to terminate any stuck background LLM runners:
+```powershell
+taskkill /f /im ollama.exe
+```
+
+### Step 2: Launch Ollama App Cleanly
+Search for "Ollama" in your Windows Start menu to start the application, or execute:
+```powershell
+start-process "C:\Users\prash\AppData\Local\Programs\Ollama\ollama app.exe"
+```
+
+### Step 3: Seed Your MongoDB Question Bank
+Seed the entire Topic 1 question bank (Concepts A, B, and C) sequentially using the optimized, memory-safe seeder command:
+```bash
+.venv\Scripts\python scratch/populate_stage_by_stage.py 1
+```
+*(Give it 30-60 seconds on the very first prompt to load model weights into empty VRAM. Once loaded, it will output and ingest the questions rapidly).*
+
+### Step 4: Launch the Coach CLI
+Launch your study Coach:
+```bash
+certcoach
+```
+
+### Step 5: Begin Your Diagnostic Test
+During onboarding, select `Yes` when prompted to take the 10-question Diagnostic Test. This allows CertCoach to evaluate your current knowledge, automatically skip topics you already know, and build a highly personalized day-by-day calendar.
+
+### Step 6: Follow the Daily Agenda
+Select `Option 1` from the main menu to start studying today's scheduled concept. Read the Coach's lesson, ask follow-up questions, and score $\ge 80\%$ on the follow-up quiz to mark the concept complete and unlock your next daily agenda item.
+
+---
+
 ## 📊 Ingestion & Seeding Pipelines
 
 CertCoach includes a highly optimized, memory-safe, and doc-grounded question seeding pipeline:
