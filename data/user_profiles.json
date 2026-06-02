@@ -209,7 +209,7 @@
                 "date_iso": "2026-05-08",
                 "phase": "Study",
                 "topic_id": 12,
-                "topic": "MongoDB Atlas & Operations",
+                "topic": "Tools, Tooling & Atlas Search",
                 "subtopics": [
                     "Atlas Clusters",
                     "Atlas Search",

@@ -18,7 +18,7 @@ Using a local Ollama instance (`qwen2.5-coder:7b`), an interactive console inter
   - **Delayed Review Mode**: Scrutinizes incorrect answers under a graded scorecard presenting comprehensive **6-Part Explanations**.
   - **Crash-Resilient Autosaver**: Automatically persists active exam state on every single question transition to survive crashes.
 - **🧹 Startup VRAM Memory Manager**: Automatically scans and detects active models in graphics memory at launch, prompting to unload them (`keep_alive=0`) to clear VRAM space and prevent model weight-loading lag.
-- **📚 Syllabus Gap & Coverage Auditor**: Audits official study documents and maps file coverage status directly in the CLI.
+- **📚 Syllabus Gap & Coverage Auditor**: Audits official study documents and maps file coverage status directly in the CLI using the canonical 12-topic syllabus map and concept checkpoints.
 - **💻 Scenario Simulator (Apply Mode)**: Generates and evaluates real-world coding/modeling scenarios tailored to the MongoDB exam.
 - **🔒 Gated Mock Exams**: Locks the timed and full mock exams (60 questions) until you master at least 70% of the syllabus.
 
