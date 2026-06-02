@@ -10,6 +10,7 @@ import os
 import time
 import datetime
 import random
+import re
 
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -535,6 +536,33 @@ def run_scenario_simulator():
 # PRACTICE QUESTIONS
 # ---------------------------------------------------------------------------
 
+def clean_option_text(option_letter: str, option_text: str) -> str:
+    """Remove a duplicated leading option label such as 'A)' or 'B.' from stored option text."""
+    text = str(option_text or "").strip()
+    letter = re.escape(str(option_letter or "").strip())
+    if not letter:
+        return text
+    return re.sub(rf"^{letter}\s*[\).:-]\s*", "", text, count=1, flags=re.IGNORECASE).strip()
+
+
+def clean_feedback_for_role(feedback: str, is_correct: bool) -> str:
+    """Avoid displaying stale/generated feedback that contradicts the option's stored role."""
+    text = str(feedback or "").strip()
+    if not text:
+        return (
+            "This matches the question bank's marked correct answer."
+            if is_correct
+            else "This option is not marked correct in the question bank."
+        )
+
+    lowered = text.lower()
+    if is_correct and lowered.startswith(("incorrect", "wrong", "not correct")):
+        return "This matches the question bank's marked correct answer. The stored feedback for this item needs editorial review."
+    if not is_correct and lowered.startswith(("correct", "yes", "right")):
+        return "This option is not marked correct in the question bank. The stored feedback for this item needs editorial review."
+    return text
+
+
 def format_explanation_template(correct_option_letter: str, q_item: dict) -> str:
     """Restructures a question explanation into a strict 6-part template."""
     options = q_item.get("options", [])
@@ -543,14 +571,14 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
     official_explanation = ""
 
     for opt in options:
+        letter = opt.get("option_letter", "?")
+        snippet = clean_option_text(letter, opt.get("code_snippet", ""))
         if opt.get("is_correct"):
-            correct_snippet = opt.get("code_snippet", "")
-            official_explanation = opt.get("feedback", "")
+            correct_snippet = snippet
+            official_explanation = clean_feedback_for_role(opt.get("feedback", ""), True)
         else:
-            feedback = opt.get("feedback", "").strip()
-            if not feedback:
-                feedback = "Incorrect casing, parameter, or operator usage."
-            wrong_snippets.append(f"  - [bold yellow]{opt.get('option_letter')})[/bold yellow] `{opt.get('code_snippet', '')}`: {feedback}")
+            feedback = clean_feedback_for_role(opt.get("feedback", ""), False)
+            wrong_snippets.append(f"  - [bold yellow]{letter})[/bold yellow] `{snippet}`: {feedback}")
 
     trap_desc = q_item.get("metadata", {}).get("trap_analysis", "")
     if not trap_desc:
@@ -1288,7 +1316,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         for opt in q.get("options", []):
             letter = opt.get("option_letter", "?")
             valid_options.append(letter.upper())
-            console.print(f"    [bold yellow]{letter})[/bold yellow]  {opt.get('code_snippet', '')}")
+            console.print(f"    [bold yellow]{letter})[/bold yellow]  {clean_option_text(letter, opt.get('code_snippet', ''))}")
 
         console.print()
         
@@ -1353,9 +1381,13 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
         if idx < len(questions) - 1:
             try:
-                Prompt.ask("\n  [dim]Enter for next / q to quit[/dim]")
+                next_action = Prompt.ask("\n  [dim]Enter for next / q to quit / back to return[/dim]", default="")
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit
+            if next_action.strip().lower() in EXIT_COMMANDS or next_action.strip().lower() == "back":
+                console.print("[yellow]  Exiting practice session...[/yellow]")
+                time.sleep(1)
+                return None
 
     # Result summary
     if is_mock:

@@ -357,6 +357,64 @@ def test_run_practice_questions_allows_option_b_answer(mock_coach, mock_prompt_a
     mock_database.save_attempt.assert_called_once()
 
 
+def test_format_explanation_template_strips_labels_and_sanitizes_feedback():
+    from certcoach.cli import format_explanation_template
+
+    q = {
+        "metadata": {"topic": "BSON Data Types"},
+        "options": [
+            {"option_letter": "A", "code_snippet": "A) String", "is_correct": False, "feedback": "Correct. This stale feedback is wrong."},
+            {"option_letter": "B", "code_snippet": "B) Array", "is_correct": True, "feedback": "Incorrect. This stale feedback is wrong."},
+        ],
+    }
+
+    explanation = format_explanation_template("B", q)
+
+    assert "Option B (`Array`)" in explanation
+    assert "`A) String`" not in explanation
+    assert "`String`" in explanation
+    assert "stored feedback for this item needs editorial review" in explanation
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.coach")
+def test_run_practice_questions_next_prompt_q_exits(mock_coach, mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    mock_database.get_random_questions.return_value = [
+        {
+            "_id": "q1",
+            "question_text": "Question 1",
+            "options": [
+                {"option_letter": "A", "code_snippet": "A) Yes", "is_correct": True, "feedback": "Correct."},
+                {"option_letter": "B", "code_snippet": "B) No", "is_correct": False, "feedback": "Incorrect."},
+            ],
+            "metadata": {"topic": "Topic A"},
+            "context": {},
+        },
+        {
+            "_id": "q2",
+            "question_text": "Question 2",
+            "options": [
+                {"option_letter": "A", "code_snippet": "A) Yes", "is_correct": True, "feedback": "Correct."},
+                {"option_letter": "B", "code_snippet": "B) No", "is_correct": False, "feedback": "Incorrect."},
+            ],
+            "metadata": {"topic": "Topic A"},
+            "context": {},
+        },
+    ]
+    mock_prompt_ask.side_effect = ["A", "H", "q"]
+    mock_coach.get_answer_feedback.return_value = "Good."
+
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=2, is_mock=False)
+
+    assert score is None
+    assert mock_database.save_attempt.call_count == 1
+
+
 @patch("certcoach.core.planner.get_syllabus_status")
 @patch("certcoach.core.database.get_analytics")
 @patch("certcoach.core.database.get_user_profile")

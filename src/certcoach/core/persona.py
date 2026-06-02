@@ -190,6 +190,8 @@ class CoachPersona:
             f"CRITICAL RULES:\n"
             f"- You MUST answer STRICTLY based on the Reference material provided above. Do NOT use external web search.\n"
             f"- If the Reference material is missing or does not cover the concept, state: 'This is not covered in my official docs.' and do not make up any content.\n"
+            f"- Do NOT invent invalid-syntax traps. For example, quoted field names containing hyphens are not automatically invalid in MongoDB; only call something invalid when the reference material supports that exact claim.\n"
+            f"- Prefer exam traps based on documented behavior: BSON type choice, `_id` behavior, flexible document structure, array matching semantics, dot notation, and Shell vs PyMongo syntax differences.\n"
             f"- Use beautiful markdown formatting, code highlights, and tables if helpful.\n"
             f"- CRITICAL FORMATTING: All text, headings, list items, and code blocks must be strictly left-aligned standard Markdown. Do NOT center headers or text manually. Do NOT pad lines with leading spaces or tabs to center them. Any manual space padding ruins the terminal border and word wrapping layout.\n"
             f"- End with: 'Type your answer or ask any questions.'",
