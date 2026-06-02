@@ -52,13 +52,15 @@ def check_connection():
 
 # --- QUESTION BANK ---
 
-def get_random_questions(topic=None, limit=10, subtopic_keywords=None):
+def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False):
     """
-    Fetch questions filtered by topic, then narrowed by subtopic keywords.
+    Fetch questions filtered by topic, then narrowed by subtopic keywords and optionally difficulty.
     """
     query = {}
     if topic:
         query["metadata.topic"] = {"$regex": f"^{topic}$", "$options": "i"}
+    if difficulty:
+        query["metadata.difficulty"] = {"$regex": f"^{difficulty}$", "$options": "i"}
 
     questions = list(questions_col.find(query))
     
@@ -75,9 +77,14 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None):
 
         keyword_filtered = [q for q in questions if _matches(q)]
 
-        # Only use keyword-filtered set if it has enough questions
-        if len(keyword_filtered) >= min(3, limit):
+        if strict_keywords:
             questions = keyword_filtered
+        else:
+            # Only use keyword-filtered set if it has enough questions
+            if len(keyword_filtered) >= min(3, limit):
+                questions = keyword_filtered
+            elif len(keyword_filtered) >= 1:
+                questions = keyword_filtered
 
     random.shuffle(questions)
     return questions[:limit]
@@ -419,3 +426,37 @@ def get_questions_quality_analytics() -> list:
             "flag": flag
         })
     return results
+
+
+def save_active_exam(user_id: str, topic: str, questions: list, user_answers: list, flagged: list, elapsed: float):
+    """Saves the current state of an in-progress timed exam for crash resilience and resumption."""
+    clean_questions = []
+    for q in questions:
+        q_copy = dict(q)
+        if "_id" in q_copy:
+            q_copy["_id"] = str(q_copy["_id"])
+        clean_questions.append(q_copy)
+        
+    db["active_exam_state"].replace_one(
+        {"_id": user_id},
+        {
+            "_id": user_id,
+            "topic": topic,
+            "questions": clean_questions,
+            "user_answers": user_answers,
+            "flagged": flagged,
+            "elapsed": elapsed,
+            "timestamp": datetime.utcnow().isoformat()
+        },
+        upsert=True
+    )
+
+
+def get_active_exam(user_id: str) -> dict | None:
+    """Retrieves any saved unfinished exam state."""
+    return db["active_exam_state"].find_one({"_id": user_id})
+
+
+def clear_active_exam(user_id: str):
+    """Deletes any cached unfinished exam state upon finalization or deliberate quit."""
+    db["active_exam_state"].delete_one({"_id": user_id})

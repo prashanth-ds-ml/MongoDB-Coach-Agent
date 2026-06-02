@@ -298,7 +298,7 @@ def test_run_teach_session_skipping_and_practice_jump(mock_practice, mock_prompt
     called_subtopics = [call[0][1] for call in mock_coach.explain_topic.call_args_list]
     assert "Subtopic C" not in called_subtopics
     
-    mock_practice.assert_called_with("Topic A", ["Topic A"], question_keywords=["subtopic"], num=5, is_mock=False)
+    mock_practice.assert_called_with("Topic: Topic A", ["Topic A"], question_keywords=["subtopic"], num=5, is_mock=False, concepts=["Subtopic B"])
 
 
 @patch("certcoach.cli.console")
@@ -334,7 +334,7 @@ def test_calculate_readiness_metrics(mock_get_profile, mock_get_analytics, mock_
     from certcoach.core import planner
     
     mock_get_status.return_value = {"mastery_percent": 50.0}
-    mock_get_analytics.return_value = {"total_attempts": 10, "correct_attempts": 8}
+    mock_get_analytics.return_value = {"total_attempts": 30, "correct_attempts": 24}
     mock_get_profile.return_value = {
         "study_calendar": [{"day_num": i} for i in range(10)],
         "exam_date": None
@@ -388,6 +388,492 @@ def test_run_ai_question_wizard(mock_confirm, mock_prompt, mock_database):
     with patch("certcoach.cli.print_paginated") as mock_print:
         run_ai_question_wizard()
         mock_print.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_show_exam_traps_locked(mock_planner, mock_database, mock_console):
+    from certcoach.cli import show_exam_traps
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_topics": []
+        }
+    }
+    mock_planner.get_syllabus_status.return_value = {
+        "status_list": []
+    }
+    
+    with patch("certcoach.cli.print_paginated") as mock_print_paginated, \
+         patch("certcoach.cli.Prompt.ask") as mock_prompt_ask:
+        
+        show_exam_traps()
+        
+        mock_print_paginated.assert_called_once()
+        args, kwargs = mock_print_paginated.call_args
+        group = args[0]
+        # Verify locked text is present in the rendered group elements
+        locked_found = False
+        for child in group.renderables:
+            plain_text = getattr(child, "plain", str(child))
+            if "🔒 Exam Cheat Sheet Locked" in plain_text or "Locked" in plain_text:
+                locked_found = True
+                break
+        assert locked_found
+        mock_prompt_ask.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_show_exam_traps_unlocked_ordered(mock_planner, mock_database, mock_console):
+    from certcoach.cli import show_exam_traps
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_topics": [
+                "CRUD Operations - Read",
+                "MongoDB Overview & The Document Model"
+            ]
+        }
+    }
+    mock_planner.get_syllabus_status.return_value = {
+        "status_list": []
+    }
+    
+    with patch("certcoach.cli.print_paginated") as mock_print_paginated, \
+         patch("certcoach.cli.Prompt.ask") as mock_prompt_ask:
+        
+        show_exam_traps()
+        
+        mock_print_paginated.assert_called_once()
+        args, kwargs = mock_print_paginated.call_args
+        group = args[0]
+        
+        rendered_texts = [getattr(child, "plain", str(child)) for child in group.renderables]
+        
+        # Verify the traps are rendered in syllabus order:
+        # Overview & The Document Model (Topic 1) should be before CRUD Operations - Read (Topic 3)
+        t1_idx = -1
+        t3_idx = -1
+        for idx, text in enumerate(rendered_texts):
+            if "Topic 1: Overview" in text:
+                t1_idx = idx
+            elif "Topic 3: CRUD - Read" in text:
+                t3_idx = idx
+        
+        assert t1_idx != -1
+        assert t3_idx != -1
+        assert t1_idx < t3_idx
+        mock_prompt_ask.assert_called_once()
+
+
+@patch("certcoach.core.planner.get_syllabus_status")
+@patch("certcoach.core.database.get_user_profile")
+def test_generate_daily_agenda_no_mastery_skips_spaced_rep(mock_get_profile, mock_get_status):
+    from certcoach.core import planner
+    
+    mock_get_profile.return_value = {"progress": {"completed_topics": []}}
+    mock_get_status.return_value = {
+        "mastered_count": 0,
+        "next_topic": {"id": 1, "topic": "Topic 1", "md_files": ["f1.md"]},
+        "status_list": [
+            {
+                "topic": "Topic 1",
+                "bank_keys": ["Topic 1"],
+                "attempts": 2,
+                "accuracy": 30.0,
+                "is_mastered": False,
+                "md_files": ["f1.md"],
+                "subtopics": []
+            }
+        ]
+    }
+    
+    with patch("certcoach.core.planner.has_topic_documentation") as mock_has_doc, \
+         patch("certcoach.core.planner.calculate_readiness_metrics") as mock_metrics:
+        mock_has_doc.return_value = True
+        mock_metrics.return_value = {"current_readiness": 10.0}
+        
+        agenda = planner.generate_daily_agenda("user1")
+        
+        # Spaced repetition reviews should be skipped completely
+        assert not any(item["type"] == "Review" for item in agenda)
+
+
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_practice_questions_adaptive_selection(mock_prompt, mock_database):
+    from certcoach.cli import run_practice_questions
+    
+    # Mock database to return questions depending on difficulty argument
+    def mock_get_random(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False):
+        if difficulty == "Easy":
+            return [
+                {"_id": f"easy_{i}", "question_text": f"Easy Q {i}", "metadata": {"topic": topic, "difficulty": "Easy"}, "options": [{"option_letter": "A", "code_snippet": "ans", "is_correct": True}]}
+                for i in range(limit)
+            ]
+        elif difficulty == "Medium":
+            return [
+                {"_id": f"med_{i}", "question_text": f"Medium Q {i}", "metadata": {"topic": topic, "difficulty": "Medium"}, "options": [{"option_letter": "A", "code_snippet": "ans", "is_correct": True}]}
+                for i in range(limit)
+            ]
+        return []
+
+    mock_database.get_random_questions.side_effect = mock_get_random
+    mock_prompt.return_value = "q"  # Exit practice cleanly on first prompt
+    
+    with patch("time.sleep"):
+        run_practice_questions("Topic A", ["Topic A"], num=5, is_mock=False, concepts=["concept_x"])
+    
+    # Assert get_random_questions was called separately for Easy and Medium difficulties
+    mock_database.get_random_questions.assert_any_call(
+        topic="Topic A", limit=10, subtopic_keywords=None, difficulty="Easy", strict_keywords=True
+    )
+    mock_database.get_random_questions.assert_any_call(
+        topic="Topic A", limit=10, subtopic_keywords=None, difficulty="Medium", strict_keywords=True
+    )
+
+
+def test_clean_lesson_explanation_basic():
+    from certcoach.core.persona import clean_lesson_explanation
+    raw_lesson = """
+        1 Core Concept
+        BSON is a binary representation of JSON.
+        
+        ```
+            from pymongo import MongoClient
+            client = MongoClient()
+        ```
+        
+        2. Level-Based Breakdown
+        - For beginners: Analogies are great.
+        
+        3. Rich Examples (Do's & Don'ts)
+        ```
+            db.collection.insertOne({ _id: ObjectId() })
+        ```
+        
+        4. Micro-Challenge
+        Answer the challenge.
+    """
+    cleaned = clean_lesson_explanation(raw_lesson)
+    
+    assert "### 1. Core Concept" in cleaned
+    assert "### 2. Level-Based Breakdown" in cleaned
+    assert "### 3. Syntax & Code Examples (Do's & Don'ts)" in cleaned
+    assert "### 4. Micro-Challenge" in cleaned
+    
+    assert "```python" in cleaned
+    assert "from pymongo import MongoClient" in cleaned
+    assert "```javascript" in cleaned
+    assert "db.collection.insertOne" in cleaned
+
+
+@patch("certcoach.core.planner.database")
+@patch("certcoach.core.planner.load_syllabus")
+def test_mark_subtopic_complete(mock_load_syllabus, mock_database):
+    from certcoach.core.planner import mark_subtopic_complete
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_subtopics": {
+                "Topic 1": ["Concept A"]
+            },
+            "completed_topics": []
+        }
+    }
+    
+    mock_load_syllabus.return_value = [
+        {
+            "id": 1,
+            "topic": "Topic 1",
+            "subtopics": ["Concept A", "Concept B"]
+        }
+    ]
+    
+    mark_subtopic_complete("user123", "Topic 1", "Concept B")
+    
+    calls = mock_database.update_user_profile.call_args_list
+    assert len(calls) > 0
+    args, kwargs = calls[-1]
+    profile_updates = args[1]
+    progress = profile_updates["progress"]
+    assert "Concept B" in progress["completed_subtopics"]["Topic 1"]
+    assert "Topic 1" in progress["completed_topics"]
+
+
+@patch("certcoach.core.planner.database")
+@patch("certcoach.core.planner.get_syllabus_status")
+def test_generate_daily_agenda_concept_level(mock_status, mock_database):
+    from certcoach.core.planner import generate_daily_agenda
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_subtopics": {
+                "Topic 1": ["Concept A"]
+            }
+        }
+    }
+    
+    mock_status.return_value = {
+        "mastered_count": 0,
+        "next_topic": {
+            "id": 1,
+            "topic": "Topic 1",
+            "subtopics": ["Concept A", "Concept B", "Concept C"],
+            "bank_topic_keys": ["Topic 1"]
+        },
+        "status_list": []
+    }
+    
+    with patch("certcoach.core.planner.calculate_readiness_metrics") as mock_metrics:
+        mock_metrics.return_value = {"current_readiness": 10.0}
+        
+        agenda = generate_daily_agenda("user123")
+        
+        learn_item = next(item for item in agenda if item["type"] == "Learn")
+        assert learn_item["active_subtopic"] == "Concept B"
+        assert learn_item["subtopics"] == ["Concept B"]
+        assert "Concept: Concept B" in learn_item["desc"]
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_concept_completion(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+    
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_confirm_ask.return_value = False
+    mock_practice.return_value = 5
+    
+    agenda_item = {
+        "topic": "Topic A",
+        "active_subtopic": "Concept X",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    
+    mock_coach.explain_topic.return_value = "### 1. Core Concept\nExplanation\nType your answer or ask any questions."
+    mock_prompt_ask.side_effect = ["next", "n"]
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "completed_topics": []
+        }
+    }
+    
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+        
+    mock_planner.mark_subtopic_complete.assert_called_once_with("local_user_1", "Topic A", "Concept X")
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.Confirm.ask")
+def test_exam_simulator_navigation_and_review(mock_confirm_ask, mock_prompt_ask, mock_planner, mock_database, mock_console):
+    from certcoach.cli import run_exam_simulator
+    
+    mock_questions = [
+        {
+            "_id": "q1",
+            "question_text": "Question 1",
+            "options": [
+                {"option_letter": "A", "code_snippet": "opt A1", "is_correct": True},
+                {"option_letter": "B", "code_snippet": "opt B1", "is_correct": False},
+                {"option_letter": "C", "code_snippet": "opt C1", "is_correct": False},
+                {"option_letter": "D", "code_snippet": "opt D1", "is_correct": False}
+            ],
+            "metadata": {"topic": "Topic A"}
+        },
+        {
+            "_id": "q2",
+            "question_text": "Question 2",
+            "options": [
+                {"option_letter": "A", "code_snippet": "opt A2", "is_correct": False},
+                {"option_letter": "B", "code_snippet": "opt B2", "is_correct": True},
+                {"option_letter": "C", "code_snippet": "opt C2", "is_correct": False},
+                {"option_letter": "D", "code_snippet": "opt D2", "is_correct": False}
+            ],
+            "metadata": {"topic": "Topic A"}
+        }
+    ]
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_topics": []},
+        "readiness_history": []
+    }
+    mock_planner.calculate_readiness_metrics.return_value = {"current_readiness": 50.0}
+    
+    mock_prompt_ask.side_effect = [
+        "A",        # Answer Q1, auto-advances to Q2
+        "R",        # Toggle Flag on Q2
+        "P",        # Go Prev (moves back to Q1)
+        "2",        # Jump to Q2
+        "S",        # Open Summary Grid
+        "R",        # Summary Grid Action: Resume
+        "S",        # Open Summary Grid again
+        "F",        # Summary Grid Action: Finalize
+        "1",        # Post-Exam Review Action: View Q1 explanation
+        "",         # Single Q explanation review: Exit back to grid
+        "B"         # Post-Exam Review Action: Back to main menu
+    ]
+    mock_confirm_ask.side_effect = [
+        True,       # Confirm finalize
+        True        # Confirm finalize from summary grid
+    ]
+    
+    with patch("time.sleep"):
+        score = run_exam_simulator("Test Mock", mock_questions, time_limit=300)
+        
+    assert score == 1
+    assert mock_database.save_attempt.call_count == 2
+    assert mock_database.update_question_exposure.call_count == 2
+    assert mock_database.save_study_session.call_count == 1
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.Confirm.ask")
+def test_exam_simulator_timer_expiration(mock_confirm_ask, mock_prompt_ask, mock_planner, mock_database, mock_console):
+    from certcoach.cli import run_exam_simulator
+    
+    mock_questions = [
+        {
+            "_id": "q1",
+            "question_text": "Question 1",
+            "options": [
+                {"option_letter": "A", "code_snippet": "opt A1", "is_correct": True},
+                {"option_letter": "B", "code_snippet": "opt B1", "is_correct": False},
+                {"option_letter": "C", "code_snippet": "opt C1", "is_correct": False},
+                {"option_letter": "D", "code_snippet": "opt D1", "is_correct": False}
+            ],
+            "metadata": {"topic": "Topic A"}
+        }
+    ]
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_topics": []},
+        "readiness_history": []
+    }
+    mock_planner.calculate_readiness_metrics.return_value = {"current_readiness": 50.0}
+    
+    mock_prompt_ask.side_effect = ["B"]
+    
+    with patch("time.sleep"):
+        score = run_exam_simulator("Test Mock", mock_questions, time_limit=-1)
+        
+    assert score == 0
+    assert mock_database.save_attempt.call_count == 1
+    assert mock_database.save_study_session.call_count == 1
+
+
+def test_validate_lexical_syntax_guard():
+    from certcoach.cli import validate_lexical_syntax_guard
+    
+    # 1. Standard topic - mongosh syntax - should pass
+    ok, err = validate_lexical_syntax_guard(
+        "CRUD Operations - Create",
+        "Which command inserts a document?",
+        ["db.coll.insertOne({x: 1})", "db.coll.insertMany([])"]
+    )
+    assert ok is True
+    
+    # 2. Standard topic - contains PyMongo snake_case - should fail
+    ok, err = validate_lexical_syntax_guard(
+        "CRUD Operations - Create",
+        "Which command inserts a document?",
+        ["db.coll.insert_one({x: 1})", "db.coll.insertOne({x: 1})"]
+    )
+    assert ok is False
+    assert "contains PyMongo snake_case method" in err
+    
+    # 3. Python topic - contains PyMongo snake_case - should pass
+    ok, err = validate_lexical_syntax_guard(
+        "MongoDB Drivers & PyMongo",
+        "How do you insert a document in PyMongo?",
+        ["client.db.coll.insert_one({'x': 1})", "client.db.coll.insertOne()"]
+    )
+    assert ok is True
+    
+    # 4. Python topic - lacks PyMongo snake_case - should fail
+    ok, err = validate_lexical_syntax_guard(
+        "MongoDB Drivers & PyMongo",
+        "How do you query documents?",
+        ["client.db.coll.find()", "client.db.coll.aggregate()"]
+    )
+    assert ok is False
+    assert "lacks PyMongo snake_case driver syntax" in err
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.Confirm.ask")
+def test_exam_simulator_autosaver_resume(mock_confirm_ask, mock_prompt_ask, mock_planner, mock_database, mock_console):
+    from certcoach.cli import run_exam_simulator
+    
+    mock_questions = [
+        {
+            "_id": "q1",
+            "question_text": "Question 1",
+            "options": [
+                {"option_letter": "A", "code_snippet": "opt A1", "is_correct": True},
+                {"option_letter": "B", "code_snippet": "opt B1", "is_correct": False}
+            ],
+            "metadata": {"topic": "Topic A"}
+        }
+    ]
+    
+    mock_database.get_active_exam.return_value = {
+        "topic": "Test Mock",
+        "timestamp": "2026-06-01 12:00:00",
+        "user_answers": ["A"],
+        "flagged": [True],
+        "elapsed": 120.0,
+        "questions": mock_questions
+    }
+    
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_topics": []},
+        "readiness_history": []
+    }
+    mock_planner.calculate_readiness_metrics.return_value = {"current_readiness": 50.0}
+    
+    mock_confirm_ask.side_effect = [
+        True,  # Confirm resume exam
+        True,  # Confirm finalize from summary grid
+        True   # Finalize confirm dialog
+    ]
+    mock_prompt_ask.side_effect = [
+        "S",   # Command input
+        "F",   # Summary grid action
+        "B"    # Exit review grid
+    ]
+    
+    with patch("time.sleep"):
+        score = run_exam_simulator("Test Mock", mock_questions, time_limit=300)
+        
+    assert score == 1
+    assert mock_database.get_active_exam.call_count == 1
+    assert mock_database.save_active_exam.call_count >= 1
+    assert mock_database.clear_active_exam.call_count == 1
+
+
 
 
 

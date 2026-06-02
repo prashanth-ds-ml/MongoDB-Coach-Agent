@@ -266,6 +266,9 @@ def run_teach_session(agenda_item: dict):
             console.print(f"  [dim]• '{subtopic}' is not covered in reference documents. Skipping...[/dim]")
             continue
             
+        from certcoach.core.persona import clean_lesson_explanation
+        explanation = clean_lesson_explanation(explanation)
+            
         explained_subtopics.append(subtopic)
         panel = Panel(
             Markdown(explanation, code_theme="monokai"),
@@ -310,6 +313,10 @@ def run_teach_session(agenda_item: dict):
             chat_history = memory_manager.load_active_history()
             with console.status("[dim]🤖 CertCoach is thinking...[/dim]", spinner="dots"):
                 answer = coach.handle_followup(topic, user_input, chat_history)
+            
+            from certcoach.core.persona import clean_lesson_explanation
+            answer = clean_lesson_explanation(answer)
+                
             memory_manager.log_interaction("assistant", answer)
             chat_history = memory_manager.load_active_history()
 
@@ -346,17 +353,35 @@ def run_teach_session(agenda_item: dict):
     ))
     time.sleep(1)
 
-    score = run_practice_questions(topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=False)
+    # Look up syllabus topic ID for dynamic presentation
+    syllabus = planner.load_syllabus()
+    topic_item = next((item for item in syllabus if item["topic"] == topic), None)
+    topic_id_str = f"Topic {topic_item['id']}" if topic_item else "Topic"
+    header_topic = f"{topic_id_str}: {topic}"
+
+    score = run_practice_questions(header_topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=False, concepts=explained_subtopics)
 
     # ---- 4. MINI MOCK OFFER ----
     console.print()
     if Confirm.ask("  Want a quick [bold]5-question Mini-Mock[/bold] on this topic (no coaching, just speed)?"):
-        run_practice_questions(topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=True)
+        run_practice_questions(header_topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=True, concepts=explained_subtopics)
 
-    # Mark mastered if good score
+    # Mark mastered/completed if good score
     if score is not None and score >= 4:
-        planner.mark_topic_complete(USER_ID, topic)
-        console.print(f"\n  [bold green]🏆 '{topic}' marked as mastered![/bold green]")
+        active_subtopic = agenda_item.get("active_subtopic")
+        if active_subtopic:
+            planner.mark_subtopic_complete(USER_ID, topic, active_subtopic)
+            console.print(f"\n  [bold green]🏆 Concept '{active_subtopic}' marked as complete![/bold green]")
+            
+            # Check if the topic itself was marked complete
+            profile = database.get_user_profile(USER_ID)
+            completed_topics = profile.get("progress", {}).get("completed_topics", [])
+            if topic in completed_topics:
+                console.print(f"  [bold green]🎉 All concepts complete! Topic '{topic}' marked as mastered![/bold green]")
+        else:
+            planner.mark_topic_complete(USER_ID, topic)
+            console.print(f"\n  [bold green]🏆 '{topic}' marked as mastered![/bold green]")
+
 
     try:
         ans = Prompt.ask("\n  [bold]Ready for the next agenda item?[/bold] (Y/n)", choices=["y", "n", "yes", "no", "q"]).lower()
@@ -516,54 +541,684 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
     return explanation_text
 
 
-def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: bool = False, question_keywords: list = None) -> int | None:
+def format_cell(idx: int, ans: str | None, is_flagged: bool) -> str:
+    flag_str = "[bold yellow]★[/bold yellow]" if is_flagged else ""
+    if ans:
+        return f"{flag_str}[bold green]{ans}[/bold green]"
+    elif is_flagged:
+        return f"{flag_str} "
+    else:
+        return "[dim]·[/dim]"
+
+
+def format_review_cell(idx: int, ans: str | None, is_correct: bool, is_flagged: bool) -> str:
+    flag_str = "[bold yellow]★[/bold yellow]" if is_flagged else ""
+    if ans is None:
+        return f"{flag_str}[bold red]❌[/bold red]"
+    elif is_correct:
+        return f"{flag_str}[bold green]✅ {ans}[/bold green]"
+    else:
+        return f"{flag_str}[bold red]❌ {ans}[/bold red]"
+
+
+def render_summary_grid(questions: list, user_answers: list, flagged: list) -> Table:
+    table = Table(box=box.SIMPLE, show_header=False)
+    cols = 10
+    for _ in range(cols):
+        table.add_column(justify="left", width=11)
+        
+    row_cells = []
+    for idx in range(len(questions)):
+        ans = user_answers[idx]
+        is_flagged = flagged[idx]
+        cell_text = format_cell(idx, ans, is_flagged)
+        row_cells.append(f"[bold cyan]Q{idx+1:02d}:[/bold cyan] {cell_text}")
+        
+        if len(row_cells) == cols:
+            table.add_row(*row_cells)
+            row_cells = []
+    if row_cells:
+        while len(row_cells) < cols:
+            row_cells.append("")
+        table.add_row(*row_cells)
+    return table
+
+
+def run_summary_grid_menu(questions: list, user_answers: list, flagged: list, current_idx: int) -> int:
+    while True:
+        clear()
+        console.print(Rule("[bold cyan]📊 Exam Summary Grid[/bold cyan]"))
+        console.print()
+        
+        grid_table = render_summary_grid(questions, user_answers, flagged)
+        console.print(Panel(grid_table, title="📋 Question Status Board", border_style="cyan", padding=(1, 2)))
+        
+        answered = sum(1 for ans in user_answers if ans is not None)
+        unanswered = len(questions) - answered
+        review_count = sum(1 for f in flagged if f)
+        
+        console.print(f"  Answered: [green]{answered}[/green] | Unanswered: [yellow]{unanswered}[/yellow] | Flagged: [bold yellow]★ {review_count}[/bold yellow]")
+        console.print()
+        console.print("  [bold]Actions:[/bold]")
+        console.print(f"    • Enter a question number [bold][1-{len(questions)}][/bold] to go directly to that question")
+        console.print("    • Type [bold]R[/bold] to resume exam at your current question")
+        console.print("    • Type [bold]F[/bold] to finalize and submit the exam")
+        console.print()
+        
+        try:
+            act = Prompt.ask("  [bold blue]Summary Grid ❯[/bold blue]").strip().upper()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+            
+        if act == "R":
+            return current_idx
+        elif act == "F":
+            unanswered_count = sum(1 for ans in user_answers if ans is None)
+            if unanswered_count > 0:
+                console.print(f"\n  [bold yellow]⚠️ Warning: You have {unanswered_count} unanswered question(s).[/bold yellow]")
+            if Confirm.ask("  [bold green]Are you sure you want to finalize and submit your exam?[/bold green]"):
+                return -99
+            else:
+                continue
+        elif act.isdigit():
+            val = int(act)
+            if 1 <= val <= len(questions):
+                return val - 1
+            else:
+                console.print(f"[red]  Invalid number. Enter a number between 1 and {len(questions)}.[/red]")
+                time.sleep(1)
+
+
+def run_post_exam_review(questions: list, user_answers: list, flagged: list, score: int):
+    correctness = []
+    correct_options = []
+    for idx, q in enumerate(questions):
+        correct_opt = None
+        for opt in q.get("options", []):
+            if opt.get("is_correct"):
+                correct_opt = opt
+                break
+        correct_options.append(correct_opt)
+        ans = user_answers[idx]
+        if ans and correct_opt and ans == correct_opt.get("option_letter", "").upper():
+            correctness.append(True)
+        else:
+            correctness.append(False)
+            
+    while True:
+        clear()
+        console.print(Rule("[bold cyan]🏁 Post-Exam Review Summary[/bold cyan]"))
+        console.print()
+        
+        grid_table = Table(box=box.SIMPLE, show_header=False)
+        cols = 10
+        for _ in range(cols):
+            grid_table.add_column(justify="left", width=11)
+            
+        row_cells = []
+        for idx in range(len(questions)):
+            ans = user_answers[idx]
+            is_flagged = flagged[idx]
+            is_correct = correctness[idx]
+            cell_text = format_review_cell(idx, ans, is_correct, is_flagged)
+            row_cells.append(f"[bold cyan]Q{idx+1:02d}:[/bold cyan] {cell_text}")
+            
+            if len(row_cells) == cols:
+                grid_table.add_row(*row_cells)
+                row_cells = []
+        if row_cells:
+            while len(row_cells) < cols:
+                row_cells.append("")
+            grid_table.add_row(*row_cells)
+            
+        console.print(Panel(grid_table, title="🏆 Detailed Question Scoring Grid", border_style="cyan", padding=(1, 2)))
+        
+        pct = (score / len(questions)) * 100
+        col = "green" if pct >= 80 else "yellow" if pct >= 60 else "red"
+        console.print(f"  Final Score: [{col}][bold]{score}/{len(questions)}  ({pct:.1f}%)[/bold][/{col}]")
+        console.print()
+        console.print("  [bold]Actions:[/bold]")
+        console.print(f"    • Enter a question number [bold][1-{len(questions)}][/bold] to review its scenario, answers, and 6-part explanation")
+        console.print("    • Type [bold]B[/bold] to return to the Main Menu")
+        console.print()
+        
+        try:
+            act = Prompt.ask("  [bold blue]Review ❯[/bold blue]").strip().upper()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+            
+        if act in ("B", "BACK", "Q", "QUIT"):
+            break
+        elif act.isdigit():
+            val = int(act)
+            if 1 <= val <= len(questions):
+                show_single_question_review(questions, user_answers, correctness, correct_options, val - 1)
+            else:
+                console.print(f"[red]  Invalid number. Enter a number between 1 and {len(questions)}.[/red]")
+                time.sleep(1)
+
+
+def show_single_question_review(questions: list, user_answers: list, correctness: list, correct_options: list, q_idx: int):
+    while True:
+        clear()
+        q = questions[q_idx]
+        ans = user_answers[q_idx]
+        is_correct = correctness[q_idx]
+        correct_opt = correct_options[q_idx]
+        
+        console.print(Rule(f"[bold cyan]🔍 Question {q_idx + 1}/{len(questions)} Review[/bold cyan]"))
+        console.print()
+        
+        if is_correct:
+            console.print("  [bold green]✅ You answered CORRECTLY[/bold green]")
+        else:
+            console.print(f"  [bold red]❌ You answered INCORRECTLY[/bold red] (Selected: [bold red]{ans or 'None'}[/bold red] | Correct: [bold green]{correct_opt.get('option_letter') if correct_opt else 'A'}[/bold green])")
+        console.print()
+        
+        context = q.get("context", {})
+        if context.get("scenario_description"):
+            console.print(Panel(context["scenario_description"], title="📋 Scenario", border_style="dim", box=box.ROUNDED, padding=(0, 1)))
+            
+        console.print(Panel(f"[bold]{q.get('question_text', '')}[/bold]", border_style="bright_black", box=box.ROUNDED, padding=(0, 2)))
+        
+        for opt in q.get("options", []):
+            letter = opt.get("option_letter", "?")
+            snippet = opt.get("code_snippet", "")
+            if letter == ans and is_correct:
+                console.print(f"    [bold green]✅ {letter})  {snippet}  [Your Answer - Correct][/bold green]")
+            elif letter == ans:
+                console.print(f"    [bold red]❌ {letter})  {snippet}  [Your Answer - Wrong][/bold red]")
+            elif opt.get("is_correct"):
+                console.print(f"    [bold green]   {letter})  {snippet}  [Correct Answer][/bold green]")
+            else:
+                console.print(f"    [bold yellow]   {letter})[/bold yellow]  {snippet}")
+                
+        console.print()
+        
+        templated_explanation = format_explanation_template(correct_opt.get("option_letter") if correct_opt else "A", q)
+        console.print(Panel(Markdown(templated_explanation, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
+        
+        console.print()
+        console.print("  [dim]Navigation: [Enter] back to review grid | [N]ext question | [P]rev question[/dim]")
+        
+        try:
+            act = Prompt.ask("  [bold blue]Navigation ❯[/bold blue]").strip().upper()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+            
+        if act in ("N", "NEXT"):
+            if q_idx < len(questions) - 1:
+                q_idx += 1
+            else:
+                console.print("[yellow]  Already at the last question.[/yellow]")
+                time.sleep(1)
+        elif act in ("P", "PREV", "PREVIOUS"):
+            if q_idx > 0:
+                q_idx -= 1
+            else:
+                console.print("[yellow]  Already at the first question.[/yellow]")
+                time.sleep(1)
+        else:
+            break
+
+
+def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | None:
+    current_idx = 0
+    user_answers = [None] * len(questions)
+    flagged = [False] * len(questions)
+    response_times = [0.0] * len(questions)
+    
+    start_time = time.time()
+    last_question_time = time.time()
+    
+    auto_submitted = False
+    
+    # --- AUTOSAVER RESUME PROMPT ---
+    try:
+        active_state = database.get_active_exam(USER_ID)
+        if active_state and active_state.get("topic") == topic:
+            console.print()
+            console.print(Panel(
+                f"[bold cyan]📋 Resume Unfinished Exam?[/bold cyan]\n\n"
+                f"We found an in-progress, autosaved session for '[bold]{topic}[/bold]'.\n"
+                f"Saved on: {active_state.get('timestamp')}\n"
+                f"Questions Answered: {sum(1 for a in active_state.get('user_answers', []) if a)}/{len(questions)}",
+                title="⚙️ CertCoach Autosaver", border_style="cyan"
+            ))
+            if Confirm.ask("  [bold green]Would you like to resume this session and continue where you left off?[/bold green]"):
+                user_answers = active_state.get("user_answers", user_answers)
+                flagged = active_state.get("flagged", flagged)
+                elapsed = active_state.get("elapsed", 0.0)
+                if active_state.get("questions") and len(active_state["questions"]) == len(questions):
+                    questions = active_state["questions"]
+                start_time = time.time() - elapsed
+                last_question_time = time.time()
+                console.print("[green]  ✔ Resumed session successfully.[/green]")
+                time.sleep(1.5)
+            else:
+                database.clear_active_exam(USER_ID)
+                console.print("[yellow]  Skipped resume. Starting a fresh exam session...[/yellow]")
+                time.sleep(1.5)
+    except Exception:
+        pass
+    # --- END AUTOSAVER RESUME PROMPT ---
+    
+    while True:
+        elapsed = time.time() - start_time
+        time_left = max(0.0, time_limit - elapsed)
+        
+        if time_left <= 0:
+            console.print("\n[bold red]⏱️ Time's up! The exam has been automatically submitted.[/bold red]")
+            time.sleep(2)
+            auto_submitted = True
+            break
+            
+        # Accumulate time spent on current question
+        now = time.time()
+        time_spent = now - last_question_time
+        response_times[current_idx] += time_spent
+        last_question_time = now
+        
+        # Autosave state
+        try:
+            database.save_active_exam(USER_ID, topic, questions, user_answers, flagged, elapsed)
+        except Exception:
+            pass
+            
+        clear()
+        
+        # Timing display
+        minutes, seconds = divmod(int(time_left), 60)
+        time_col = "red" if time_left < 300 else "yellow"
+        time_display = f"[{time_col}]⏱️ Time Left: {minutes:02d}:{seconds:02d}[/{time_col}]"
+        
+        # Dynamic pacing HUD alert
+        target_elapsed = (current_idx + 1) * 90
+        if elapsed > target_elapsed + 30:
+            pacing_display = " | Speed: [bold red]Behind Pacing (⚠️ SLOW)[/bold red]"
+        elif elapsed < target_elapsed - 30:
+            pacing_display = " | Speed: [bold green]Ahead of Pacing (FAST)[/bold green]"
+        else:
+            pacing_display = " | Speed: [bold green]On Track[/bold green]"
+            
+        console.print(Rule(f"[bold cyan]🏆 {topic} Simulator[/bold cyan]"))
+        console.print(f"  📋 Question [bold]{current_idx + 1}/{len(questions)}[/bold] | {time_display}{pacing_display}")
+        if flagged[current_idx]:
+            console.print("  [bold yellow]★ [REVIEW FLAGGED][/bold yellow]")
+        console.print()
+        
+        q = questions[current_idx]
+        context = q.get("context", {})
+        if context.get("scenario_description"):
+            console.print(Panel(context["scenario_description"], title="📋 Scenario", border_style="dim", box=box.ROUNDED, padding=(0, 1)))
+            
+        console.print(Panel(f"[bold]{q.get('question_text', '')}[/bold]", border_style="bright_black", box=box.ROUNDED, padding=(0, 2)))
+        
+        valid_options = []
+        for opt in q.get("options", []):
+            letter = opt.get("option_letter", "?")
+            valid_options.append(letter.upper())
+            snippet = opt.get("code_snippet", "")
+            
+            if user_answers[current_idx] == letter:
+                console.print(f"    [bold green]➜ {letter})  {snippet}  [Selected][/bold green]")
+            else:
+                console.print(f"    [bold yellow]   {letter})[/bold yellow]  {snippet}")
+                
+        console.print()
+        console.print(f"  [dim]Commands: [A/B/C/D] answer | [N]ext | [P]rev | [R]eview Flag | [S]ummary Grid | [1-{len(questions)}] jump | [F]inalize | [Q]uit[/dim]")
+        
+        try:
+            cmd = Prompt.ask("  [bold blue]Exam ❯[/bold blue]").strip()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+            
+        # Post-input time check
+        input_elapsed = time.time() - start_time
+        if input_elapsed >= time_limit:
+            console.print("\n[bold red]⏱️ Time's up! The exam has been automatically submitted.[/bold red]")
+            time.sleep(2)
+            auto_submitted = True
+            break
+            
+        if not cmd:
+            continue
+            
+        cmd_upper = cmd.upper()
+        if cmd_upper in EXIT_COMMANDS or cmd_upper in BACK_COMMANDS or cmd_upper == "Q":
+            if Confirm.ask("  [bold red]Are you sure you want to quit the exam? Active progress will be lost.[/bold red]"):
+                try:
+                    database.clear_active_exam(USER_ID)
+                except Exception:
+                    pass
+                return None
+            else:
+                continue
+                
+        if cmd_upper in ("A", "B", "C", "D"):
+            user_answers[current_idx] = cmd_upper
+            if current_idx < len(questions) - 1:
+                now = time.time()
+                response_times[current_idx] += (now - last_question_time)
+                current_idx += 1
+                last_question_time = now
+        elif cmd_upper in ("N", "NEXT"):
+            if current_idx < len(questions) - 1:
+                now = time.time()
+                response_times[current_idx] += (now - last_question_time)
+                current_idx += 1
+                last_question_time = now
+            else:
+                console.print("[yellow]  You are already at the last question.[/yellow]")
+                time.sleep(1)
+        elif cmd_upper in ("P", "PREV", "PREVIOUS"):
+            if current_idx > 0:
+                now = time.time()
+                response_times[current_idx] += (now - last_question_time)
+                current_idx -= 1
+                last_question_time = now
+            else:
+                console.print("[yellow]  You are already at the first question.[/yellow]")
+                time.sleep(1)
+        elif cmd_upper in ("R", "REVIEW", "FLAG"):
+            flagged[current_idx] = not flagged[current_idx]
+        elif cmd_upper in ("S", "SUMMARY", "GRID"):
+            now = time.time()
+            response_times[current_idx] += (now - last_question_time)
+            
+            res = run_summary_grid_menu(questions, user_answers, flagged, current_idx)
+            last_question_time = time.time()
+            
+            if res == -99:
+                break
+            else:
+                current_idx = res
+        elif cmd_upper in ("F", "FINALIZE", "SUBMIT"):
+            unanswered = sum(1 for ans in user_answers if ans is None)
+            if unanswered > 0:
+                console.print(f"\n  [bold yellow]⚠️ Warning: You have {unanswered} unanswered question(s).[/bold yellow]")
+            if Confirm.ask("  [bold green]Are you sure you want to finalize and submit your exam?[/bold green]"):
+                break
+        elif cmd.isdigit():
+            val = int(cmd)
+            if 1 <= val <= len(questions):
+                now = time.time()
+                response_times[current_idx] += (now - last_question_time)
+                current_idx = val - 1
+                last_question_time = now
+            else:
+                console.print(f"[red]  Invalid question number. Enter a number between 1 and {len(questions)}.[/red]")
+                time.sleep(1)
+        else:
+            console.print("[red]  Invalid command. Please try again.[/red]")
+            time.sleep(1)
+
+    score = 0
+    for idx, q in enumerate(questions):
+        correct_letter = "A"
+        is_correct = False
+        for opt in q.get("options", []):
+            if opt.get("is_correct"):
+                correct_letter = opt.get("option_letter", "A").upper()
+                break
+        ans = user_answers[idx]
+        if ans == correct_letter:
+            is_correct = True
+            score += 1
+            
+        q_topic = q.get("metadata", {}).get("topic", "General")
+        
+        database.save_attempt(USER_ID, str(q.get("_id", "unknown")), q_topic, ans or "—", is_correct, "High")
+        database.update_question_exposure(str(q.get("_id", "unknown")), is_correct, response_times[idx])
+        
+    session_start = datetime.datetime.fromtimestamp(start_time)
+    session_end = datetime.datetime.utcnow()
+    duration_minutes = (session_end - session_start).total_seconds() / 60.0
+    
+    covered_topics = list(set(q.get("metadata", {}).get("topic", "General") for q in questions))
+    session_accuracy = (score / len(questions)) * 100
+    
+    database.save_study_session(USER_ID, session_start, session_end, duration_minutes, covered_topics, len(questions), session_accuracy)
+    
+    try:
+        readiness_data_new = planner.calculate_readiness_metrics(USER_ID)
+        profile = database.get_user_profile(USER_ID)
+        history = profile.get("readiness_history", [])
+        today_str = datetime.date.today().isoformat()
+        history = [h for h in history if h.get("date") != today_str]
+        history.append({
+            "date": today_str,
+            "readiness": readiness_data_new["current_readiness"]
+        })
+        database.update_user_profile(USER_ID, {"readiness_history": history})
+    except Exception:
+        pass
+    try:
+        database.clear_active_exam(USER_ID)
+    except Exception:
+        pass
+        
+    run_post_exam_review(questions, user_answers, flagged, score)
+    return score
+
+
+def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: bool = False, question_keywords: list = None, concepts: list = None) -> int | None:
     if is_mock:
         clear()
 
     # Gather questions filtered by topic + keyword relevance
     questions = []
-    for key in bank_keys:
-        questions.extend(
-            database.get_random_questions(
-                topic=key,
-                limit=num * 2,  # fetch extra so keyword filter has room to narrow
-                subtopic_keywords=question_keywords
-            )
-        )
-
-    # Deduplicate
-    seen, unique = set(), []
-    for q in questions:
-        qt = q.get("question_text", "")
-        if qt not in seen:
-            seen.add(qt)
-            unique.append(q)
-
+    
     if not is_mock:
-        # Rate simplicity (lower score = simpler/beginner-friendly syntax question)
-        def get_simplicity_score(item: dict) -> float:
-            q_text = item.get("question_text", "")
-            has_scen = 1 if item.get("context", {}).get("scenario_description") else 0
-            adv_kws = ["replaceone", "updatemany", "deletemany", "projection", "cursor", "pipeline", "aggregate", "$match", "$group", "$lookup"]
-            hay = (q_text + " " + " ".join(opt.get("code_snippet", "") for opt in item.get("options", []))).lower()
-            adv_cnt = sum(1 for kw in adv_kws if kw in hay)
-            return len(q_text) + (has_scen * 200) + (adv_cnt * 100)
-
-        # Sort the entire pool so simple/beginner questions are at the front
-        unique.sort(key=get_simplicity_score)
-        questions = unique[:num]
+        # Standard practice starts with exactly 3 easy and 2 medium questions
+        easy_qs = []
+        medium_qs = []
+        for key in bank_keys:
+            easy_qs.extend(
+                database.get_random_questions(
+                    topic=key,
+                    limit=num * 2,
+                    subtopic_keywords=question_keywords,
+                    difficulty="Easy",
+                    strict_keywords=True
+                )
+            )
+            medium_qs.extend(
+                database.get_random_questions(
+                    topic=key,
+                    limit=num * 2,
+                    subtopic_keywords=question_keywords,
+                    difficulty="Medium",
+                    strict_keywords=True
+                )
+            )
+        
+        seen = set()
+        unique_easy = []
+        for q in easy_qs:
+            qt = q.get("question_text", "")
+            if qt not in seen:
+                seen.add(qt)
+                unique_easy.append(q)
+                
+        unique_medium = []
+        for q in medium_qs:
+            qt = q.get("question_text", "")
+            if qt not in seen:
+                seen.add(qt)
+                unique_medium.append(q)
+                
+        selected_easy = unique_easy[:3]
+        needed_easy = 3 - len(selected_easy)
+        
+        selected_medium = unique_medium[:2]
+        needed_medium = 2 - len(selected_medium)
+        
+        if needed_easy > 0 or needed_medium > 0:
+            fallback_qs = []
+            for key in bank_keys:
+                fallback_qs.extend(
+                    database.get_random_questions(
+                        topic=key,
+                        limit=num * 2,
+                        subtopic_keywords=question_keywords,
+                        strict_keywords=True
+                    )
+                )
+            unique_fallback = []
+            for q in fallback_qs:
+                qt = q.get("question_text", "")
+                if qt not in seen:
+                    seen.add(qt)
+                    unique_fallback.append(q)
+                    
+            if needed_easy > 0:
+                selected_easy.extend(unique_fallback[:needed_easy])
+                unique_fallback = unique_fallback[needed_easy:]
+            if needed_medium > 0:
+                selected_medium.extend(unique_fallback[:needed_medium])
+                
+        questions = selected_easy[:3] + selected_medium[:2]
     else:
+        # Mock/Anki/Spaced repetition uses general random pool
+        for key in bank_keys:
+            questions.extend(
+                database.get_random_questions(
+                    topic=key,
+                    limit=num * 2,
+                    subtopic_keywords=question_keywords
+                )
+            )
+            
+        # Deduplicate
+        seen, unique = set(), []
+        for q in questions:
+            qt = q.get("question_text", "")
+            if qt not in seen:
+                seen.add(qt)
+                unique.append(q)
         random.shuffle(unique)
         questions = unique[:num]
 
     if not questions:
-        console.print(f"[yellow]  No questions found for this topic yet. AI generation not available offline.[/yellow]")
-        time.sleep(2)
-        return None
+        # Instead of failing, let's automatically generate and save questions directly!
+        console.print(f"\n  [bold yellow]🤖 No pre-seeded questions found in the database for this topic.[/bold yellow]")
+        console.print(f"  [dim]Coach is automatically generating 5 high-fidelity exam questions on the fly...[/dim]")
+        
+        generated_count = 0
+        with console.status("[dim]🤖 Generating and seeding practice questions directly...[/dim]", spinner="dots"):
+            try:
+                from certcoach.core import quiz_generator
+                import sys
+                import os
+                # For bank_keys, let's use the first one
+                b_key = bank_keys[0] if bank_keys else topic
+                
+                # We try to generate up to 5 questions
+                for i in range(5):
+                    mcq = quiz_generator.generate_quiz_for_topic(b_key)
+                    if mcq and mcq.question and len(mcq.options) == 4:
+                        diff = "Easy" if i < 2 else "Medium" if i < 4 else "Hard"
+                        q_data = {
+                            "question_text": mcq.question,
+                            "options": [
+                                {
+                                    "option_letter": ['A', 'B', 'C', 'D'][idx],
+                                    "code_snippet": opt,
+                                    "is_correct": (opt == mcq.correct_answer),
+                                    "feedback": mcq.explanation if (opt == mcq.correct_answer) else mcq.trap_analysis
+                                }
+                                for idx, opt in enumerate(mcq.options)
+                            ],
+                            "metadata": {
+                                "topic": b_key,
+                                "difficulty": diff,
+                                "source": "AI_On_The_Fly"
+                            },
+                            "context": {
+                                "scenario_description": f"Real-world MongoDB operations in {b_key}."
+                            },
+                            "explanation": mcq.explanation,
+                            "trap_analysis": mcq.trap_analysis,
+                            "citation_source": mcq.citation_source
+                        }
+                        database.questions_col.insert_one(q_data)
+                        generated_count += 1
+            except Exception:
+                pass
+                
+        # If we failed to generate any questions via Ollama (e.g. offline), let's insert a beautiful pre-defined mock question!
+        if generated_count == 0:
+            b_key = bank_keys[0] if bank_keys else topic
+            q_fallback = {
+                "question_text": f"Which statement is true regarding the design or query mechanics of '{b_key}' in MongoDB?",
+                "options": [
+                    {
+                        "option_letter": "A",
+                        "code_snippet": "Queries on embedded fields can be indexed using standard single-field or compound indexes.",
+                        "is_correct": True,
+                        "feedback": "Correct. MongoDB allows indexing fields within embedded documents just like top-level fields."
+                    },
+                    {
+                        "option_letter": "B",
+                        "code_snippet": "All document queries must strictly run inside the MongoDB shell without index support.",
+                        "is_correct": False,
+                        "feedback": "Incorrect. Indexes are automatically utilized by the query optimizer."
+                    },
+                    {
+                        "option_letter": "C",
+                        "code_snippet": "Embedded document fields can never have index constraints like uniqueness.",
+                        "is_correct": False,
+                        "feedback": "Incorrect. Unique indexes can be defined on embedded fields as well."
+                    },
+                    {
+                        "option_letter": "D",
+                        "code_snippet": "MongoDB does not support standard query filtering on array fields.",
+                        "is_correct": False,
+                        "feedback": "Incorrect. Array fields are fully queryable and automatically support index lookup."
+                    }
+                ],
+                "metadata": {
+                    "topic": b_key,
+                    "difficulty": "Medium",
+                    "source": "Offline_Fallback"
+                },
+                "context": {
+                    "scenario_description": f"Auditing the structure and query optimization of {b_key}."
+                },
+                "explanation": "MongoDB allows query optimization, indexing, and advanced filtering on embedded fields and array fields seamlessly.",
+                "trap_analysis": "Distractor options suggest that indexing or array lookups are restricted, which represents poor design awareness.",
+                "citation_source": "Syllabus_Grounded_Core.md"
+            }
+            database.questions_col.insert_one(q_fallback)
+            generated_count = 1
+            
+        console.print(f"  [bold green]✔ Successfully seeded {generated_count} practice questions directly to the database![/bold green]")
+        time.sleep(1.5)
+        
+        # Re-fetch!
+        questions = []
+        for key in bank_keys:
+            questions.extend(database.get_random_questions(topic=key, limit=num * 2, subtopic_keywords=question_keywords))
+            
+        # Deduplicate
+        seen, unique = set(), []
+        for q in questions:
+            qt = q.get("question_text", "")
+            if qt not in seen:
+                seen.add(qt)
+                unique.append(q)
+        random.shuffle(unique)
+        questions = unique[:num]
+
+    if is_mock:
+        time_limit = num * 90
+        return run_exam_simulator(topic, questions, time_limit)
 
     score = 0
     label = "Mini-Mock" if is_mock else "Practice"
-    console.print(Rule(f"[bold cyan]{label}: {topic}[/bold cyan]"))
+    concepts_lbl = f" | Concepts: {', '.join(concepts)}" if (not is_mock and concepts) else ""
+    console.print(Rule(f"[bold cyan]{label}: {topic}{concepts_lbl}[/bold cyan]"))
 
     for idx, q in enumerate(questions):
         meta = q.get("metadata", {})
@@ -1065,9 +1720,11 @@ def show_exam_traps():
     
     if not active_traps:
         renderables.append(Text.from_markup(
-            "\n  [yellow]You haven't mastered any syllabus topics yet![/yellow]\n"
-            "  As you master topics through practice and daily agendas, their critical syntactic traps\n"
-            "  will unlock and populate this cheat sheet. Keep grinding! 💪\n"
+            "\n  [bold red]🔒 Exam Cheat Sheet Locked[/bold red]\n\n"
+            "  CertCoach exam traps and cheatsheets only unlock after you start mastering topics.\n"
+            "  Once you master at least [bold yellow]1 topic[/bold yellow] through practice or agenda quizzes,\n"
+            "  its respective critical traps will unlock and dynamically append here.\n\n"
+            "  Keep studying and grinding! 💪\n"
         ))
     else:
         renderables.append(Text.from_markup(
@@ -1212,10 +1869,42 @@ def run_library_submenu():
         elif ans in ("e", "back", "b", "q"):
             break
 
+
+def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> tuple[bool, str]:
+    """
+    Verifies casing rules:
+    - Standard topics must strictly use mongosh camelCase (insertOne, findOne, etc.) 
+      and avoid PyMongo snake_case driver methods.
+    - Python/Driver topics should compare or use PyMongo snake_case.
+    """
+    topic_lower = topic.lower()
+    is_driver = "pymongo" in topic_lower or "driver" in topic_lower or "topic 11" in topic_lower
+    
+    pymongo_methods = [
+        "insert_one", "insert_many", "find_one", "update_one", "update_many", 
+        "delete_one", "delete_many", "replace_one"
+    ]
+    
+    all_text = (question + " " + " ".join(options)).lower()
+    
+    if not is_driver:
+        for m in pymongo_methods:
+            if m.lower() in all_text:
+                return False, f"Standard topic contains PyMongo snake_case method: '{m}'. Standard topics must use mongosh camelCase (e.g. '{m.replace('_', '')[0].lower() + m.replace('_', '')[1:]}')."
+    else:
+        has_pymongo = any(m.lower() in all_text for m in pymongo_methods)
+        if not has_pymongo:
+            return False, "Driver topic lacks PyMongo snake_case driver syntax (e.g., insert_one, find_one)."
+            
+    return True, "Passed syntax guard."
+
+
 def run_ai_question_wizard():
+    from certcoach.core.persona import MODEL
     clear()
     console.print(Rule("[bold cyan]🤖 AI Question Bank Management Wizard[/bold cyan]"))
     console.print("  [dim]Workflow: Generate ➔ Validate ➔ Duplicate Check ➔ Save Draft ➔ Approve ➔ Add to Production Bank[/dim]\n")
+
     
     console.print("  [bold cyan]1.[/bold cyan] Generate & Approve New AI Questions (Interactive Wizard)")
     console.print("  [bold cyan]2.[/bold cyan] View Question Quality Analytics & Difficulty Flags")
@@ -1282,10 +1971,20 @@ def run_ai_question_wizard():
         time.sleep(0.5)
         
         # 3. Validate
-        with console.status("[dim]🧠 Phase 2/6 (Validate): Verifying structured constraints...[/dim]"):
+        with console.status("[dim]🧠 Phase 2/6 (Validate): Verifying structured constraints and casing rules...[/dim]"):
             is_valid = len(mcq.options) == 4 and mcq.correct_answer in mcq.options and mcq.question
-        if is_valid:
-            console.print("[green]  ✔ Phase 2/6 (Validate) Passed. All constraints matched.[/green]")
+            if is_valid:
+                syntax_ok, syntax_err = validate_lexical_syntax_guard(bank_key, mcq.question, mcq.options)
+            else:
+                syntax_ok = True
+                syntax_err = ""
+                
+        if is_valid and not syntax_ok:
+            console.print(f"[bold red]  ❌ Phase 2/6 (Validate) Failed Casing Guard: {syntax_err}[/bold red]")
+            time.sleep(4)
+            return
+        elif is_valid:
+            console.print("[green]  ✔ Phase 2/6 (Validate) Passed. All constraints and casing rules matched.[/green]")
         else:
             console.print("[red]  ❌ Phase 2/6 (Validate) Failed. Incomplete fields generated.[/red]")
             time.sleep(2)
@@ -1385,10 +2084,125 @@ def run_ai_question_wizard():
             )
             
         print_paginated(table, title="Question Quality Analytics")
+def run_model_manager():
+    import urllib.request
+    import urllib.error
+    import json
+    
+    clear()
+    console.print(Rule("[bold cyan]🧠 Local AI Model & Memory Manager[/bold cyan]"))
+    console.print("[dim]  View loaded models in VRAM/RAM and clear system memory to optimize speed.\n[/dim]")
+    
+    # 1. Fetch loaded models
+    loaded_models = []
+    ollama_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434").rstrip("/")
+    
+    try:
+        req = urllib.request.Request(f"{ollama_url}/api/ps", method="GET")
+        with urllib.request.urlopen(req, timeout=2.0) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            loaded_models = data.get("models", [])
+    except urllib.error.URLError:
+        console.print("[red]  ⚠️  Error: Could not connect to Ollama. Make sure Ollama is running (`ollama serve`).[/red]")
         try:
             Prompt.ask("\n  [dim]Press Enter to return[/dim]")
         except (KeyboardInterrupt, EOFError):
             pass
+        return
+    except Exception as e:
+        console.print(f"[red]  ⚠️  Unexpected error reading model status: {e}[/red]")
+        try:
+            Prompt.ask("\n  [dim]Press Enter to return[/dim]")
+        except (KeyboardInterrupt, EOFError):
+            pass
+        return
+
+    # Show active model configured
+    active_model = os.getenv("MODEL", "gemma4:e4b")
+    console.print(f"  Configured Active Model: [bold green]{active_model}[/bold green] (Ollama URL: {ollama_url})")
+    console.print()
+
+    if not loaded_models:
+        console.print(Panel(
+            "  [bold green]No models are currently loaded in RAM/VRAM memory.[/bold green]\n"
+            "  Models unload automatically after 5 minutes of inactivity in Ollama.",
+            title="🧠 Memory Status", border_style="green", box=box.ROUNDED
+        ))
+    else:
+        # Render a nice table of loaded models
+        table = Table(box=box.MINIMAL, header_style="bold blue")
+        table.add_column("Model Name", min_width=20)
+        table.add_column("Size on Disk", width=12, justify="right")
+        table.add_column("VRAM/RAM Usage", width=16, justify="right")
+        table.add_column("Format", width=10, justify="center")
+        
+        for m in loaded_models:
+            name = m.get("name", "Unknown")
+            size_gb = m.get("size", 0) / (1024**3)
+            vram_bytes = m.get("size_vram", 0)
+            vram_pct = (vram_bytes / max(1, m.get("size", 1))) * 100
+            
+            table.add_row(
+                name,
+                f"{size_gb:.2f} GB",
+                f"{vram_bytes / (1024**3):.2f} GB ({vram_pct:.0f}% VRAM)",
+                m.get("details", {}).get("format", "gguf")
+            )
+            
+        console.print(Panel(table, title="🧠 Active VRAM/RAM Memory Consumption", border_style="cyan"))
+        
+    console.print("\n  [bold]Actions:[/bold]")
+    console.print("    [bold cyan]1.[/bold cyan] 🗑️  Clear Memory / Unload All Models")
+    console.print("    [bold cyan]2.[/bold cyan] 🔄 Reload Configured Active Model")
+    console.print("    [bold cyan]3.[/bold cyan] ⬅️  Return to Settings")
+    console.print()
+    
+    try:
+        act = Prompt.ask("  [bold blue]Memory Manager ❯[/bold blue]", choices=["1", "2", "3"]).strip()
+    except (KeyboardInterrupt, EOFError):
+        return
+
+    if act == "1":
+        if not loaded_models:
+            console.print("[yellow]  No models to unload. VRAM memory is already clear.[/yellow]")
+            time.sleep(1.5)
+            return
+            
+        with console.status("[dim]🧠 Clearing VRAM system memory...[/dim]", spinner="dots"):
+            for m in loaded_models:
+                m_name = m.get("name")
+                if m_name:
+                    try:
+                        req_data = json.dumps({"model": m_name, "keep_alive": 0}).encode("utf-8")
+                        req = urllib.request.Request(
+                            f"{ollama_url}/api/generate",
+                            data=req_data,
+                            headers={"Content-Type": "application/json"},
+                            method="POST"
+                        )
+                        with urllib.request.urlopen(req, timeout=5.0) as resp:
+                            resp.read()
+                    except Exception:
+                        pass
+        console.print("[green]  ✔ Success! All models unloaded. System memory freed successfully.[/green]")
+        time.sleep(2)
+        
+    elif act == "2":
+        with console.status(f"[dim]🧠 Pre-loading active model '{active_model}' into memory...[/dim]", spinner="dots"):
+            try:
+                req_data = json.dumps({"model": active_model, "prompt": "", "keep_alive": "1h"}).encode("utf-8")
+                req = urllib.request.Request(
+                    f"{ollama_url}/api/generate",
+                    data=req_data,
+                    headers={"Content-Type": "application/json"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=15.0) as resp:
+                    resp.read()
+                console.print(f"[green]  ✔ Success! Active model '{active_model}' pre-loaded successfully. Teaching will be lightning fast![/green]")
+            except Exception as e:
+                console.print(f"[red]  ❌ Error loading model: {e}[/red]")
+        time.sleep(2)
 
 
 def run_settings_submenu(profile, status):
@@ -1408,8 +2222,9 @@ def run_settings_submenu(profile, status):
             
         console.print("    [bold cyan]e.[/bold cyan] 💻 Scenario Simulator (Apply Mode)")
         console.print("    [bold cyan]f.[/bold cyan] 🤖 AI Question Bank Management Wizard")
-        console.print("    [bold cyan]g.[/bold cyan] ❌ Quit CertCoach")
-        console.print("    [bold cyan]h.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]g.[/bold cyan] 🧠 Show Loaded AI Models & Free Memory (VRAM)")
+        console.print("    [bold cyan]h.[/bold cyan] ❌ Quit CertCoach")
+        console.print("    [bold cyan]i.[/bold cyan] ⬅️  Back to Main Menu")
         console.print()
         
         try:
@@ -1440,10 +2255,67 @@ def run_settings_submenu(profile, status):
             run_scenario_simulator()
         elif ans == "f":
             run_ai_question_wizard()
-        elif ans in ("g", "quit", "q"):
+        elif ans == "g":
+            run_model_manager()
+        elif ans in ("h", "quit", "q"):
             raise SystemExit
-        elif ans in ("h", "back", "b"):
+        elif ans in ("i", "back", "b"):
             break
+
+
+
+def clear_ollama_memory_on_startup():
+    """
+    Checks if any models are loaded on launch and asks the user
+    if they want to clear them to ensure a smooth, lag-free session.
+    """
+    import urllib.request
+    import urllib.error
+    import json
+    
+    ollama_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434").rstrip("/")
+    try:
+        req = urllib.request.Request(f"{ollama_url}/api/ps", method="GET")
+        with urllib.request.urlopen(req, timeout=1.5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+            loaded = data.get("models", [])
+            if not loaded:
+                return
+            
+            # Highlight loaded models
+            names = [m.get("name") for m in loaded if m.get("name")]
+            console.print()
+            console.print(Panel(
+                f"[yellow]⚠️  Notice: The following AI model(s) are currently active in system memory (VRAM):\n"
+                f"   • " + "\n   • ".join(names) + "\n\n"
+                f"Having other models loaded can cause Ollama weight-loading lag or out-of-memory errors.[/yellow]\n\n"
+                f"It is highly recommended to clear VRAM memory before starting.",
+                title="[bold yellow]🧠 Active Memory Alert[/bold yellow]",
+                border_style="yellow", box=box.ROUNDED
+            ))
+            
+            if Confirm.ask("  [bold cyan]Would you like to clear VRAM memory now?[/bold cyan]", default=True):
+                with console.status("[dim]🧠 Unloading active models and freeing VRAM...[/dim]", spinner="dots"):
+                    for m in loaded:
+                        m_name = m.get("name")
+                        if m_name:
+                            try:
+                                req_data = json.dumps({"model": m_name, "keep_alive": 0}).encode("utf-8")
+                                req_unload = urllib.request.Request(
+                                    f"{ollama_url}/api/generate",
+                                    data=req_data,
+                                    headers={"Content-Type": "application/json"},
+                                    method="POST"
+                                )
+                                with urllib.request.urlopen(req_unload, timeout=3.0) as resp:
+                                    resp.read()
+                            except Exception:
+                                pass
+                console.print("[green]  ✔ Success! Active models unloaded. System memory is now clear for CertCoach.[/green]\n")
+                time.sleep(2)
+    except Exception:
+        pass
+
 
 
 # ---------------------------------------------------------------------------
@@ -1452,6 +2324,7 @@ def run_settings_submenu(profile, status):
 
 def main_menu():
     database.check_connection()
+    clear_ollama_memory_on_startup()
     run_onboarding()
 
     database.update_streak(USER_ID)
@@ -1468,7 +2341,11 @@ def main_menu():
             first_item = agenda[0]
             agenda_desc = f"{first_item['topic']} ({first_item['desc']})"
             
-        due_reviews = planner.get_due_review_topics(USER_ID)
+        # Spaced-repetition due reviews are locked until the user masters at least 1 topic
+        if status.get("mastered_count", 0) >= 1:
+            due_reviews = planner.get_due_review_topics(USER_ID)
+        else:
+            due_reviews = []
         badge = " [bold red](🚨 Spaced-Repetition Quiz Due!)[/bold red]" if due_reviews else ""
         
         skipped_topics = status.get("skipped_unmapped_topics", [])

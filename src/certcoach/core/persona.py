@@ -5,6 +5,8 @@ Single model: gemma4:e4b — used for all teaching, feedback, and Q&A tasks.
 """
 import os
 import sys
+import re
+import textwrap
 
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -20,8 +22,83 @@ MODEL = os.getenv("MODEL", "gemma4:e4b")
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")
 
 
+def clean_lesson_explanation(text: str) -> str:
+    if not text:
+        return ""
+        
+    # Step 1: Dedent globally to remove any common leading block spaces
+    text = textwrap.dedent(text)
+    
+    # Step 2: Split lines to process them
+    lines = text.splitlines()
+    cleaned_lines = []
+    
+    # We want to process code blocks carefully. Keep track of whether we are inside a code block.
+    inside_code_block = False
+    code_block_lines = []
+    code_language = ""
+    
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("```"):
+            if not inside_code_block:
+                # Entering code block
+                inside_code_block = True
+                lang = stripped[3:].strip().lower()
+                code_language = lang
+                code_block_lines = []
+            else:
+                # Exiting code block
+                inside_code_block = False
+                # Dedent the code block lines
+                code_content = "\n".join(code_block_lines)
+                code_content_dedented = textwrap.dedent(code_content)
+                
+                # Check what language tag to use
+                if not code_language:
+                    lower_content = code_content_dedented.lower()
+                    if "pymongo" in lower_content or "import " in lower_content or "client =" in lower_content or "from pymongo" in lower_content:
+                        code_language = "python"
+                    elif "db." in lower_content or "insertone" in lower_content or "insertmany" in lower_content or "new date" in lower_content or "objectid" in lower_content:
+                        code_language = "javascript"
+                
+                lang_tag = code_language if code_language else "javascript"
+                cleaned_lines.append(f"```{lang_tag}")
+                cleaned_lines.extend(code_content_dedented.splitlines())
+                cleaned_lines.append("```")
+                
+                code_block_lines = []
+                code_language = ""
+            continue
+            
+        if inside_code_block:
+            code_block_lines.append(line)
+        else:
+            # Normalize headings
+            if re.search(r'^\s*#*\s*\*?\*?\s*(1\.?\s*)?Core\s*Concept\b', stripped, re.IGNORECASE):
+                cleaned_lines.append("### 1. Core Concept")
+            elif re.search(r'^\s*#*\s*\*?\*?\s*(2\.?\s*)?Level[- ]Based\s*Breakdown\b', stripped, re.IGNORECASE):
+                cleaned_lines.append("### 2. Level-Based Breakdown")
+            elif re.search(r'^\s*#*\s*\*?\*?\s*(3\.?\s*)?(Syntax\s*&\s*Code\s*Examples|Rich\s*Examples|Do\'s\s*&\s*Don\'ts)\b', stripped, re.IGNORECASE):
+                cleaned_lines.append("### 3. Syntax & Code Examples (Do's & Don'ts)")
+            elif re.search(r'^\s*#*\s*\*?\*?\s*(4\.?\s*)?Micro[- ]Challenge\b', stripped, re.IGNORECASE):
+                cleaned_lines.append("### 4. Micro-Challenge")
+            else:
+                cleaned_lines.append(line.rstrip())
+                
+    if inside_code_block and code_block_lines:
+        code_content = "\n".join(code_block_lines)
+        code_content_dedented = textwrap.dedent(code_content)
+        cleaned_lines.append("```javascript")
+        cleaned_lines.extend(code_content_dedented.splitlines())
+        cleaned_lines.append("```")
+        
+    return "\n".join(cleaned_lines)
+
+
 class CoachPersona:
     """Strict-but-friendly AI Coach powered by gemma4:e4b locally."""
+
 
     def __init__(self):
         try:
@@ -73,36 +150,65 @@ class CoachPersona:
             f"\n\nReference material (use for accuracy):\n```\n{md_context[:25000]}\n```"
             if md_context else ""
         )
+        
+        is_pymongo_topic = "pymongo" in topic.lower() or "driver" in topic.lower()
+        
+        if is_pymongo_topic:
+            advanced_prompt = "Discuss edge cases, syntax variations (Shell vs. PyMongo), performance impact, index costs, or diagnostic commands."
+            syntax_instructions = (
+                f"### 3. Syntax & Code Examples (Do's & Don'ts)\n"
+                f"Provide clean, syntax-highlighted code blocks for comparison. You MUST show both **MongoDB Shell (mongosh)** and **PyMongo (Python)** syntaxes, demonstrating how the shell commands map to PyMongo code. Do NOT show other programming languages. Wrap all code examples inside proper Markdown code fences:\n"
+                f"- For MongoDB Shell (mongosh), use strictly: ```javascript\n"
+                f"- For PyMongo (Python), use strictly: ```python\n"
+                f"Show correct best practices code blocks for both (labeled 'DO: Best Practices') and incorrect/trap code blocks (labeled 'DON'T / EXAM TRAP') side-by-side or sequentially, explaining exactly why the trap fails."
+            )
+        else:
+            advanced_prompt = "Discuss edge cases, performance impact, index costs, or diagnostic commands (e.g. explain()). Focus strictly on MongoDB Shell (mongosh) syntax."
+            syntax_instructions = (
+                f"### 3. Syntax & Code Examples (Do's & Don'ts)\n"
+                f"Provide clean, syntax-highlighted code blocks for comparison. You MUST focus strictly on **MongoDB Shell (mongosh)** syntax. Do NOT show PyMongo (Python) or other programming languages. Wrap all code examples inside proper Markdown code fences:\n"
+                f"- For MongoDB Shell (mongosh), use strictly: ```javascript\n"
+                f"Show a correct best practices code block (labeled 'DO: Best Practices') and an incorrect/trap code block (labeled 'DON'T / EXAM TRAP') side-by-side or sequentially, explaining exactly why the trap fails."
+            )
+
         return self._call(
             f"You are CertCoach — an expert MongoDB Certification Instructor.\n\n"
             f"Today's topic: **{topic}**\n"
-            f"Current subtopic: **{subtopic}**\n"
+            f"Current subtopic/concept to study: **{subtopic}**\n"
             f"{context_section}\n\n"
-            f"Provide a comprehensive, highly detailed explanation of this subtopic to a developer preparing for the MongoDB Associate Developer Exam. "
+            f"Provide a comprehensive, highly detailed explanation focusing strictly on the current concept: **{subtopic}**.\n"
             f"Your teaching must benefit developers of any level—from absolute beginners to advanced engineers.\n\n"
-            f"Please structure your response exactly like this:\n"
-            f"1. **Core Concept**: Explain the underlying database mechanics, structural rules, and design choices. "
-            f"Avoid brief summaries—go as deep and detailed as possible. Break down the mechanical steps or storage trade-offs if applicable.\n"
-            f"2. **Level-Based Breakdown**:\n"
-            f"   - *For Beginners*: Use a clear, intuitive real-world analogy to anchor the concept.\n"
-            f"   - *For Advanced Developers*: Discuss edge cases, syntax variations (Shell vs. PyMongo), performance impact, index costs, or diagnostic commands (e.g. explain()).\n"
-            f"3. **Rich Examples (Do's & Don'ts)**:\n"
-            f"   - Provide a realistic, fully detailed code example in standard MongoDB Shell or PyMongo showing best practices.\n"
-            f"   - Proactively show an incorrect or trap code snippet alongside it (labeled explicitly as 'DON'T / EXAM TRAP'), explaining exactly why it fails or represents poor design.\n"
-            f"4. **Micro-Challenge**: Ask an engaging 1-question challenge related to the subtle edge cases or traps of this subtopic to check their understanding.\n\n"
+            f"You MUST structure your response exactly using these Markdown headers (###):\n\n"
+            f"### 1. Core Concept\n"
+            f"Explain the underlying database mechanics, structural rules, and design choices. Go as deep and detailed as possible. Break down the mechanical steps or storage trade-offs if applicable.\n\n"
+            f"### 2. Level-Based Breakdown\n"
+            f"- *For Beginners*: Use a clear, intuitive real-world analogy to anchor the concept.\n"
+            f"- *For Advanced Developers*: {advanced_prompt}\n\n"
+            f"{syntax_instructions}\n\n"
+            f"### 4. Micro-Challenge\n"
+            f"Ask an engaging 1-question challenge related to the subtle edge cases or traps of this subtopic to check their understanding.\n\n"
             f"CRITICAL RULES:\n"
             f"- You MUST answer STRICTLY based on the Reference material provided above. Do NOT use external web search.\n"
             f"- If the Reference material is missing or does not cover the concept, state: 'This is not covered in my official docs.' and do not make up any content.\n"
             f"- Use beautiful markdown formatting, code highlights, and tables if helpful.\n"
+            f"- CRITICAL FORMATTING: All text, headings, list items, and code blocks must be strictly left-aligned standard Markdown. Do NOT center headers or text manually. Do NOT pad lines with leading spaces or tabs to center them. Any manual space padding ruins the terminal border and word wrapping layout.\n"
             f"- End with: 'Type your answer or ask any questions.'",
             temperature=0.4
         )
+
 
     def handle_followup(self, topic: str, user_question: str, chat_history: list) -> str:
         history_str = "\n".join(
             f"{'Student' if m['role'] == 'user' else 'CertCoach'}: {m['content']}"
             for m in chat_history[-6:]
         )
+        
+        is_pymongo_topic = "pymongo" in topic.lower() or "driver" in topic.lower()
+        if is_pymongo_topic:
+            language_rule = "- Provide answers strictly focusing on **MongoDB Shell (mongosh)** and **PyMongo (Python)** syntaxes. Do NOT show other programming languages."
+        else:
+            language_rule = "- Focus strictly on **MongoDB Shell (mongosh)** syntax and commands. Do NOT show PyMongo (Python) or other programming languages in your responses unless the student explicitly asks for them."
+
         return self._call(
             f"You are CertCoach — a strict-but-warm MongoDB Certification Instructor.\n"
             f"Topic: **{topic}**\n\n"
@@ -110,12 +216,14 @@ class CoachPersona:
             f"Student's input: {user_question}\n\n"
             f"CRITICAL MONGODB RULES:\n"
             f"- You MUST answer STRICTLY based on official MongoDB best practices. If you don't know, say so.\n"
-            f"- If a field is an array, querying `{{field: 'value'}}` DOES return documents where the array contains 'value'. Do NOT tell the student they need to wrap it in an array like `{{field: ['value']}}` unless they are looking for an exact array match.\n\n"
+            f"- If a field is an array, querying `{{field: 'value'}}` DOES return documents where the array contains 'value'. Do NOT tell the student they need to wrap it in an array like `{{field: ['value']}}` unless they are looking for an exact array match.\n"
+            f"{language_rule}\n\n"
             f"If the student is answering your interactive practice question, evaluate their MongoDB syntax, correct them if needed, and praise them if right.\n"
             f"If they ask a question, answer clearly and concisely.\n"
             f"End with a short follow-up like 'Does that clear it up?' or ask if they are ready to type 'practice' for the MCQs.",
             temperature=0.5
         )
+
 
     def handle_free_chat(self, user_input: str, chat_history: list, student_context: str = "") -> str:
         history_str = "\n".join(

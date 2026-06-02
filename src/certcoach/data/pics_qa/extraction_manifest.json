@@ -23,5 +23,210 @@
         "status": "success",
         "processed_at": "2026-05-31T15:46:39.272921",
         "question_id": "4fefdb15-8259-4ca4-ab23-47c1bbf65385"
+    },
+    "Screenshot 2025-12-14 101420.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:01:10.265497",
+        "question_id": "dd02be96-900a-49d4-93d8-a8f45038472e"
+    },
+    "Screenshot 2025-12-14 101443.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:02:25.643247",
+        "question_id": "4fdc02ab-dc51-4986-8dcc-d8c955f16180"
+    },
+    "Screenshot 2025-12-14 105832.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:04:13.627670",
+        "question_id": "6bad68fd-cad6-4c74-88d4-8341501ab84b"
+    },
+    "Screenshot 2025-12-14 105922.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:06:03.606923",
+        "question_id": "12bdf256-6ced-46bc-bba3-95ae9e490182"
+    },
+    "Screenshot 2025-12-14 110655.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:07:35.719333",
+        "question_id": "a58bfbd7-ea57-4a6b-b4a5-b386f84d287f"
+    },
+    "Screenshot 2025-12-14 110814.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:10:10.051906",
+        "question_id": "735b0f69-a756-4c10-a7bd-196445617d5c"
+    },
+    "Screenshot 2025-12-14 111502.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:11:35.960815",
+        "question_id": "2f73cfd2-4e3f-47dd-92c6-eb53d3c945e2"
+    },
+    "Screenshot 2025-12-14 111611.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:13:39.010678",
+        "question_id": "e51668f3-bcc5-4393-b35d-cabb36d5856a"
+    },
+    "Screenshot 2025-12-14 200631.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:15:11.996048",
+        "question_id": "af285345-05f6-494f-b754-90c8c864333f"
+    },
+    "Screenshot 2025-12-14 200742.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:17:15.763101",
+        "question_id": "ac994245-3c3d-4e71-95cb-cf7e53845ca7"
+    },
+    "Screenshot 2025-12-15 081801.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:19:16.658566",
+        "question_id": "a1109fcc-24b6-4284-adf0-f222d3e8275c"
+    },
+    "Screenshot 2025-12-15 081952.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:20:55.130542",
+        "question_id": "86ff9de5-2ccf-43a2-aae9-760303591410"
+    },
+    "Screenshot 2025-12-15 082438.png": {
+        "status": "failed",
+        "processed_at": "2026-05-31T16:22:41.910592",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2025-12-15 082508.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:28:27.169368",
+        "question_id": "200bbe0b-8de2-49e2-8769-2367ef00eb30"
+    },
+    "Screenshot 2025-12-15 082543.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:30:59.734111",
+        "question_id": "c9e170a2-49ee-4701-9b9b-d4f761eb1c0c"
+    },
+    "Screenshot 2025-12-15 082609.png": {
+        "status": "success",
+        "processed_at": "2026-05-31T16:33:52.297745",
+        "question_id": "0415220e-1d80-4e94-a1a7-1cad1d3d61c4"
+    },
+    "Screenshot 2025-12-15 083406.png": {
+        "status": "failed",
+        "processed_at": "2026-05-31T16:50:56.265153",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2025-12-15 083457.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:11:25.773290",
+        "question_id": "056ed890-f428-47ad-8d56-c400dec0f309"
+    },
+    "Screenshot 2025-12-15 084749.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:14:55.136699",
+        "question_id": "44fa09c7-1b94-4aba-8ee2-3cfb12abf904"
+    },
+    "Screenshot 2025-12-15 084906.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:21:38.654499",
+        "question_id": "68889eba-ee06-4724-8263-8d24e4a904b9"
+    },
+    "Screenshot 2025-12-15 085337.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:25:48.464600",
+        "question_id": "b727b1cd-5ad2-4893-b1c2-c46ad1146f7b"
+    },
+    "Screenshot 2025-12-15 085458.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:29:11.313549",
+        "question_id": "b14ef05f-89bc-4572-8adf-dc77d2fd874c"
+    },
+    "Screenshot 2025-12-15 090102.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:32:42.503072",
+        "question_id": "68f5ea22-1c3a-4a74-a7f6-e42e2cb90bd1"
+    },
+    "Screenshot 2025-12-15 090202.png": {
+        "status": "failed",
+        "processed_at": "2026-06-01T02:37:11.550367",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2025-12-15 090729.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:41:24.313971",
+        "question_id": "f4620a42-638c-4cc5-89b4-6d1393b55ae8"
+    },
+    "Screenshot 2025-12-15 090759.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:45:59.791726",
+        "question_id": "4eaa1e0e-d58c-4dce-a6d5-42fe15b73a92"
+    },
+    "Screenshot 2025-12-15 091247.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:52:32.812315",
+        "question_id": "fe44eb86-d61c-4d73-b620-575b3e7e7c1c"
+    },
+    "Screenshot 2025-12-15 091332.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T02:55:44.264090",
+        "question_id": "224cebf5-f8fe-4ae8-a95b-0be9b5375529"
+    },
+    "Screenshot 2025-12-15 092532.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T03:00:35.457747",
+        "question_id": "722075a0-bec2-49a3-837e-796158abb948"
+    },
+    "Screenshot 2025-12-15 092605.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T03:05:46.795218",
+        "question_id": "278eca73-a0ad-4c05-a5f4-d6287e649c65"
+    },
+    "Screenshot 2025-12-15 093033.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T03:10:16.025841",
+        "question_id": "531b9130-81d5-4be2-a281-f4ceee144b5f"
+    },
+    "Screenshot 2025-12-15 093114.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T03:16:49.276546",
+        "question_id": "989ff198-4992-42eb-8773-85fd3db9df0b"
+    },
+    "Screenshot 2025-12-15 104236.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T03:19:58.211194",
+        "question_id": "4a077a2c-50a4-4d7f-a5db-483b5430a683"
+    },
+    "Screenshot 2025-12-15 104303.png": {
+        "status": "success",
+        "processed_at": "2026-06-01T03:23:18.933979",
+        "question_id": "c1da65a9-3293-4a95-870c-07d959505bfc"
+    },
+    "Screenshot 2025-12-15 110359.png": {
+        "status": "failed",
+        "processed_at": "2026-06-02T03:10:31.221120",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2026-01-24 191115.png": {
+        "status": "failed",
+        "processed_at": "2026-06-02T03:10:33.308049",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2026-01-24 191149.png": {
+        "status": "success",
+        "processed_at": "2026-06-02T03:13:52.942822",
+        "question_id": "4974be28-9579-44bb-8625-54f2b318bd83"
+    },
+    "Screenshot 2026-01-24 191256.png": {
+        "status": "failed",
+        "processed_at": "2026-06-02T03:16:19.135938",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2026-01-24 191339.png": {
+        "status": "success",
+        "processed_at": "2026-06-02T03:17:57.653659",
+        "question_id": "7c955f66-95af-48f2-80b1-eb05075af6f8"
+    },
+    "Screenshot 2026-01-24 192047.png": {
+        "status": "failed",
+        "processed_at": "2026-06-02T03:20:07.092628",
+        "error": "Failed to parse model output"
+    },
+    "Screenshot 2026-01-24 192331.png": {
+        "status": "success",
+        "processed_at": "2026-06-02T03:21:56.361446",
+        "question_id": "303d3362-b9ef-403b-a300-256cd7ed0e22"
     }
 }

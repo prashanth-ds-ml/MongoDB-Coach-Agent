@@ -248,7 +248,8 @@ def calculate_readiness_metrics(user_id: str) -> dict:
         correct_attempts = 0
     overall_accuracy = (correct_attempts / max(1, total_attempts)) * 100
     
-    current_readiness = (mastery_percent * 0.6) + (overall_accuracy * 0.4)
+    dampener = min(1.0, total_attempts / 30.0)
+    current_readiness = ((mastery_percent * 0.6) + (overall_accuracy * 0.4)) * dampener
     target_readiness = 80.0
     
     # Expected Readiness based on calendar days passed
@@ -351,7 +352,12 @@ def get_due_review_topics(user_id: str) -> list:
 
 def generate_daily_agenda(user_id: str) -> list:
     status = get_syllabus_status(user_id)
-    due_reviews = get_due_review_topics(user_id)
+    
+    # Spaced-repetition due reviews are locked until the user masters at least 1 topic
+    if status["mastered_count"] >= 1:
+        due_reviews = get_due_review_topics(user_id)
+    else:
+        due_reviews = []
     
     # Check Exam Day Mode (Readiness >= 85%)
     readiness_data = calculate_readiness_metrics(user_id)
@@ -359,37 +365,46 @@ def generate_daily_agenda(user_id: str) -> list:
     
     agenda = []
 
-    # 1. Anki Spaced Repetition Review
-    for item in status["status_list"]:
-        # If it's in the due reviews list OR (accuracy < 60% and attempted)
-        is_due = any(k in due_reviews for k in item["bank_keys"])
-        is_weak = not item["is_mastered"] and item["attempts"] > 0 and item["accuracy"] < 60
-        if (is_due or is_weak) and has_topic_documentation(item):
-            agenda.append({
-                "type": "Review",
-                "topic": item["topic"],
-                "bank_keys": item["bank_keys"],
-                "subtopics": item["subtopics"],
-                "question_keywords": item.get("question_keywords", []),
-                "md_files": item["md_files"],
-                "desc": f"🔄 Spaced Repetition Due (Accuracy {item['accuracy']}%)",
-            })
-            break  # Only one review per day for pacing
+    # 1. Anki Spaced Repetition Review (Locked until at least 1 topic mastered)
+    if status["mastered_count"] >= 1:
+        for item in status["status_list"]:
+            # If it's in the due reviews list OR (accuracy < 60% and attempted)
+            is_due = any(k in due_reviews for k in item["bank_keys"])
+            is_weak = not item["is_mastered"] and item["attempts"] > 0 and item["accuracy"] < 60
+            if (is_due or is_weak) and has_topic_documentation(item):
+                agenda.append({
+                    "type": "Review",
+                    "topic": item["topic"],
+                    "bank_keys": item["bank_keys"],
+                    "subtopics": item["subtopics"],
+                    "question_keywords": item.get("question_keywords", []),
+                    "md_files": item["md_files"],
+                    "desc": f"🔄 Spaced Repetition Due (Accuracy {item['accuracy']}%)",
+                })
+                break  # Only one review per day for pacing
 
     # 2. Daily Track (Learn vs revision Mock based on Exam Day Mode)
     if not exam_day_mode:
         if status["next_topic"]:
             nt = status["next_topic"]
             if not any(a["topic"] == nt["topic"] for a in agenda):
+                profile = database.get_user_profile(user_id)
+                completed_subtopics = profile.get("progress", {}).get("completed_subtopics", {}).get(nt["topic"], [])
+                uncompleted_subtopics = [s for s in nt.get("subtopics", []) if s not in completed_subtopics]
+                
+                active_subtopic = uncompleted_subtopics[0] if uncompleted_subtopics else (nt["subtopics"][0] if nt.get("subtopics") else nt["topic"])
+                
                 agenda.append({
                     "type": "Learn",
                     "topic": nt["topic"],
+                    "active_subtopic": active_subtopic,
                     "bank_keys": nt.get("bank_topic_keys", [nt["topic"]]),
-                    "subtopics": nt.get("subtopics", []),
+                    "subtopics": [active_subtopic],
                     "question_keywords": nt.get("question_keywords", []),
                     "md_files": nt.get("md_files", []),
-                    "desc": f"📘 Topic #{nt['id']} in official syllabus",
+                    "desc": f"📘 Topic #{nt['id']} | Concept: {active_subtopic}",
                 })
+
     else:
         # Exam Day Mode: avoid new topics, focus entirely on mixed mocks/revision
         agenda.append({
@@ -431,6 +446,29 @@ def mark_topic_complete(user_id: str, topic: str):
         completed.append(topic)
         progress["completed_topics"] = completed
         database.update_user_profile(user_id, {"progress": progress})
+
+def mark_subtopic_complete(user_id: str, topic_name: str, subtopic: str):
+    profile = database.get_user_profile(user_id)
+    progress = profile.get("progress", {})
+    completed_subtopics = progress.get("completed_subtopics", {})
+    
+    if topic_name not in completed_subtopics:
+        completed_subtopics[topic_name] = []
+        
+    if subtopic not in completed_subtopics[topic_name]:
+        completed_subtopics[topic_name].append(subtopic)
+        progress["completed_subtopics"] = completed_subtopics
+        database.update_user_profile(user_id, {"progress": progress})
+        
+    # Check if all subtopics for this topic are completed
+    syllabus = load_syllabus()
+    topic_item = next((item for item in syllabus if item["topic"] == topic_name), None)
+    if topic_item:
+        subtopics = topic_item.get("subtopics", [])
+        completed_for_topic = completed_subtopics.get(topic_name, [])
+        if all(sub in completed_for_topic for sub in subtopics):
+            mark_topic_complete(user_id, topic_name)
+
 
 def mark_boss_complete(user_id: str, boss_level: int):
     profile = database.get_user_profile(user_id)
