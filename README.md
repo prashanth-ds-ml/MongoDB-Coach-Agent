@@ -2,17 +2,23 @@
 
 CertCoach is a local, AI-driven learning and study companion designed to help developers master the syllabus and clear the **MongoDB Associate Python Developer Certification** in one go.
 
-Using a local Ollama instance (`qwen2.5:7b`), an interactive console interface, Spaced Repetition quiz cycles, a vector knowledge base (Chroma DB), and strict document-grounded RAG, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
+Using a local Ollama instance (`qwen2.5-coder:7b`), an interactive console interface, Spaced Repetition quiz cycles, a vector knowledge base, and strict document-grounded RAG, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
 
 ---
 
 ## ✨ Features
 
-- **💡 Startup Readiness Briefing**: Prompts you to review critical syntactic traps across all 12 syllabus modules at daily launch.
+- **💡 Startup Readiness Briefing**: Prompts you to review critical syntactic traps across all 12 syllabus modules at daily launch (mastery-gated).
 - **⚡ Spaced Repetition (Anki Pop Quizzes)**: Automatically triggers Spaced-Repetition quizzes on due topics before your study agenda starts.
 - **🗓️ Personalized Study Planner**: Generates a day-by-day study calendar customized to your experience level and exam date.
+- **🏆 Timed Non-Linear Exam Simulator**: Features a professional delayed-feedback timed simulator for Mocks and Practice:
+  - **Dynamic Pacing HUD**: Evaluates average target response times and displays active pacing alerts (Ahead, Behind, or On Track).
+  - **Non-Linear Navigation**: Navigate freely using `[N]ext`, `[P]revious`, `[R]eview Flag`, and direct jumps to any question number.
+  - **Summary Grid**: Renders a compact progress grid detailing completed, skipped, and flagged questions.
+  - **Delayed Review Mode**: Scrutinizes incorrect answers under a graded scorecard presenting comprehensive **6-Part Explanations**.
+  - **Crash-Resilient Autosaver**: Automatically persists active exam state on every single question transition to survive crashes.
+- **🧹 Startup VRAM Memory Manager**: Automatically scans and detects active models in graphics memory at launch, prompting to unload them (`keep_alive=0`) to clear VRAM space and prevent model weight-loading lag.
 - **📚 Syllabus Gap & Coverage Auditor**: Audits official study documents and maps file coverage status directly in the CLI.
-- **📖 Interactive Study Journal**: Exposes the complete history of your learning sessions and chat conversations in a terminal scroll pager.
 - **💻 Scenario Simulator (Apply Mode)**: Generates and evaluates real-world coding/modeling scenarios tailored to the MongoDB exam.
 - **🔒 Gated Mock Exams**: Locks the timed and full mock exams (60 questions) until you master at least 70% of the syllabus.
 
@@ -21,9 +27,9 @@ Using a local Ollama instance (`qwen2.5:7b`), an interactive console interface, 
 ## 🛠️ Tech Stack & Architecture
 
 - **Core**: Python 3.10+
-- **Database**: MongoDB (Question Bank, Attempts, Streaks, User Profiles)
-- **Vector Search / RAG**: Chroma DB (Knowledge base indexed with descriptive raw markdowns)
-- **Local Intelligence**: Ollama (`qwen2.5:7b` model)
+- **Database**: MongoDB (Question Bank, Attempts, Streaks, User Profiles, Resumable Exam States)
+- **Document Grounding**: Direct Semantic Grounding (injects complete, un-fragmented official documentation text directly into optimized `8192` context windows, ensuring 100% accuracy and zero vector RAG chunk fragmentation)
+- **Local Intelligence**: Ollama (`qwen2.5-coder:7b` model)
 - **User Interface**: `rich` (glassmorphism panels, tables, line-by-line keyboard scroll pagers)
 
 ---
@@ -41,7 +47,7 @@ Ensure you have the following installed on your machine:
 ### 2. Pull the Coach Model
 Before launching, make sure the local LLM model is pulled and ready in Ollama:
 ```bash
-ollama pull qwen2.5:7b
+ollama pull qwen2.5-coder:7b
 ```
 *(You can customize the model inside your environment configurations).*
 
@@ -73,11 +79,13 @@ pip install -e .
 ### 6. Configuration Variables
 Setup your global configuration variables:
 1. Create a directory named `.certcoach` in your user home directory (e.g. `C:\Users\YourUser\.certcoach` or `~/.certcoach`).
-2. Add a `.env` file inside that directory with your local Ollama connection details:
+2. Add a `.env` file inside that directory with your local Ollama connection details and MongoDB URI:
    ```env
    LOCAL_LLM_URL=http://localhost:11434
-   MODEL=qwen2.5:7b
+   MODEL=qwen2.5-coder:7b
+   MONGO_URI="mongodb+srv://<username>:<password>@yourcluster.mongodb.net/"
    ```
+3. Copy this configuration file to your local workspace directory as well to keep configurations synchronized.
 
 ---
 
@@ -87,45 +95,46 @@ To start the interactive learning CLI, simply run the globally registered entry 
 ```bash
 certcoach
 ```
-*(On your very first launch, CertCoach will guide you through onboarding. You will be prompted to enter your MongoDB connection URI and your target exam date in `YYYY-MM-DD` format. Setup is saved automatically).*
+*(On launch, CertCoach will guide you through onboarding. You will be prompted to enter your MongoDB connection URI and your target exam date in `YYYY-MM-DD` format. Startup configurations are saved automatically).*
 
 ---
 
 ## 📊 Ingestion & Seeding Pipelines
 
-If you want to re-ingest raw syllabus files or seed your local MongoDB with practice questions, use these scripts:
+CertCoach includes a highly optimized, memory-safe, and doc-grounded question seeding pipeline:
 
-0. **Cache Official MongoDB Docs Markdown**:
-   Downloads direct `.md` versions of pages listed in MongoDB's `llms.txt` into `data/mongodb_docs/`, with a manifest for source URL, markdown URL, local path, status, hash, and fetch time. Use this as the broad source corpus before mapping pages to a specific exam syllabus:
-   ```bash
-   python src/scripts/utils/mongodb_docs_md_scraper.py --count-only
-   python src/scripts/utils/mongodb_docs_md_scraper.py --dry-run
-   python src/scripts/utils/mongodb_docs_md_scraper.py --limit 25
-   python src/scripts/utils/mongodb_docs_md_scraper.py --workers 4
-   python src/scripts/utils/mongodb_docs_md_scraper.py --workers 8 --delay 0.01 --progress-every 500 --manifest-every 100
-   python src/scripts/utils/mongodb_docs_md_scraper.py --include "/docs/manual/" --include "/docs/languages/python/"
-   ```
-1. **Map Cached Docs to the Active Syllabus**:
-   Resolve the curated official pages for the MongoDB Associate Python Developer syllabus, then copy the resolved docs into one folder per syllabus topic under `data/mongodb_docs/syllabus_mapped/associate_python_developer/` with a mapping manifest for citations:
-   ```bash
-   python src/scripts/utils/resolve_associate_python_developer_docs.py
-   python src/scripts/utils/map_mongodb_docs_to_syllabus.py
-   ```
-2. **Clean Markdown Reference Files**:
-   Strips boilerplate headings, formats HTML tables, and outputs cleaned text under `data/cleaned_markdowns/`:
-   ```bash
-   python src/scripts/utils/clean_markdown.py
-   ```
-3. **Index RAG Vector DB**:
-   Chunks and indexes the prefixed reference documents into Chroma DB:
-   ```bash
-   python src/scripts/utils/knowledge_base_indexer.py
-   ```
-4. **Seed MongoDB Question Bank**:
-   Parses the question datasets and seeds your local database:
-   ```bash
-   python src/scripts/seed_mongodb.py
-   ```
+### 1. Unified Topic-Level Question Seeder
+We use a stage-by-stage concept seeder script to populate your MongoDB question collection to the perfect syllabus target (15 Easy, 20 Medium, 10 Hard per topic). It is designed to be **VRAM-safe** by checking active models on startup, capping context windows to `8192` to avoid WDDM/RTX memory spillover (0% CPU offload), recovering truncated JSON payloads, and automatically unloading weights at completion.
+
+To seed the entire set of BSON and document structure questions for **Topic 1** in controlled stages with a single command:
+```bash
+.venv\Scripts\python scratch/populate_stage_by_stage.py 1
+```
+
+You can select other topics (2–12) or seed all topics sequentially with automatic memory flushes between topics by launching the interactive seeder CLI:
+```bash
+.venv\Scripts\python scratch/populate_stage_by_stage.py
+```
+
+### 2. General Data Ingestion Utilities
+If you want to re-ingest raw syllabus files, clean markdowns, or index files, use these helper scripts:
+* **Resolve & Map Syllabus Documents**: curates and maps crawled pages into structural folders matching syllabus topics:
+  ```bash
+  python src/scripts/utils/resolve_associate_python_developer_docs.py
+  python src/scripts/utils/map_mongodb_docs_to_syllabus.py
+  ```
+* **Clean Markdown Reference Files**: strips boilerplate headers and formats HTML tables into clean text:
+  ```bash
+  python src/scripts/utils/clean_markdown.py
+  ```
+* **Index RAG Vector DB**: chunks and indexes reference documents into Chroma DB:
+  ```bash
+  python src/scripts/utils/knowledge_base_indexer.py
+  ```
+* **Seed Static MongoDB Question Bank**: parses raw datasets and seeds your local database:
+  ```bash
+  python src/scripts/seed_mongodb.py
+  ```
 
 ---
 
