@@ -15,6 +15,18 @@ from certcoach.core import database
 IMAGE_DIR = os.path.abspath(os.path.join(_HERE, "../data/pics_qa"))
 MANIFEST_FILE = os.path.join(IMAGE_DIR, "extraction_manifest.json")
 
+TOPIC_ALIASES = {
+    "CRUD Operations - Read (Basic & Cursor)": "CRUD Operations - Read",
+    "Query Operators (L2/L3/L5)": "Query Operators & MQL",
+    "Querying Arrays & Subdocuments": "Querying Arrays & Embedded Documents",
+    "MongoDB Atlas & Operations": "Tools, Tooling & Atlas Search",
+}
+
+
+def normalize_topic_name(topic: str) -> str:
+    topic = (topic or "").strip()
+    return TOPIC_ALIASES.get(topic, topic)
+
 def load_manifest() -> dict:
     if os.path.exists(MANIFEST_FILE):
         try:
@@ -111,11 +123,11 @@ def extract_question_from_image(image_path: str) -> dict:
             "3. Map the question to one of these exact syllabus topics:\n"
             "   - MongoDB Overview & The Document Model\n"
             "   - CRUD Operations - Create\n"
-            "   - CRUD Operations - Read (Basic & Cursor)\n"
+            "   - CRUD Operations - Read\n"
             "   - CRUD Operations - Update\n"
             "   - CRUD Operations - Delete\n"
-            "   - Query Operators (L2/L3/L5)\n"
-            "   - Querying Arrays & Subdocuments\n"
+            "   - Query Operators & MQL\n"
+            "   - Querying Arrays & Embedded Documents\n"
             "   - Aggregation Framework\n"
             "   - Indexes & Performance\n"
             "   - Data Modeling\n"
@@ -221,7 +233,9 @@ def process_pics_qa(limit: int = None, dry_run: bool = False):
             continue
             
         # Structure question matching standard Ultimate Schema
-        mcq_data["topic"] = mcq_data.get("topic", "MongoDB Overview & The Document Model")
+        mcq_data["topic"] = normalize_topic_name(
+            mcq_data.get("topic", "MongoDB Overview & The Document Model")
+        )
         mcq_data["difficulty"] = mcq_data.get("difficulty", "Medium")
         mcq_data["citation_source"] = f"pics_qa/{img_name}"
         mcq_data["explanation"] = mcq_data.get("trap_analysis", "")
