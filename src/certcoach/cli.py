@@ -361,12 +361,7 @@ def run_teach_session(agenda_item: dict):
 
     score = run_practice_questions(header_topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=False, concepts=explained_subtopics)
 
-    # ---- 4. MINI MOCK OFFER ----
-    console.print()
-    if Confirm.ask("  Want a quick [bold]5-question Mini-Mock[/bold] on this topic (no coaching, just speed)?"):
-        run_practice_questions(header_topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=True, concepts=explained_subtopics)
-
-    # Mark mastered/completed if good score
+    # Mark mastered/completed if good score before evaluating mini-mock unlocks.
     if score is not None and score >= 4:
         active_subtopic = agenda_item.get("active_subtopic")
         if active_subtopic:
@@ -382,6 +377,40 @@ def run_teach_session(agenda_item: dict):
             planner.mark_topic_complete(USER_ID, topic)
             console.print(f"\n  [bold green]🏆 '{topic}' marked as mastered![/bold green]")
 
+    # ---- 4. MINI MOCK OFFER ----
+    # Mini-mocks are gated until the learner has mastered at least 3 topics.
+    status = planner.get_syllabus_status(USER_ID)
+    mastered_count = status.get("mastered_count", 0) if hasattr(status, "get") else 0
+    if not isinstance(mastered_count, (int, float)):
+        mastered_count = 0
+
+    if mastered_count >= 3:
+        console.print()
+        console.print(Panel(
+            "[bold]Mini-Mock unlocked.[/bold]\n"
+            "Choose a 10-question or 20-question speed check, or skip for now.",
+            border_style="magenta", box=box.ROUNDED
+        ))
+        try:
+            mock_choice = Prompt.ask(
+                "  [bold]Mini-Mock[/bold]",
+                choices=["10", "20", "skip", "q"],
+                default="skip"
+            ).lower()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+
+        if mock_choice in EXIT_COMMANDS:
+            raise SystemExit
+        if mock_choice in ("10", "20"):
+            run_practice_questions(
+                header_topic,
+                bank_keys,
+                question_keywords=dynamic_keywords,
+                num=int(mock_choice),
+                is_mock=True,
+                concepts=explained_subtopics
+            )
 
     try:
         ans = Prompt.ask("\n  [bold]Ready for the next agenda item?[/bold] (Y/n)", choices=["y", "n", "yes", "no", "q"]).lower()
