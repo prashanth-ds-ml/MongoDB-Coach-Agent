@@ -685,6 +685,39 @@ def test_run_teach_session_concept_completion(mock_database, mock_practice, mock
 @patch("certcoach.cli.Prompt.ask")
 @patch("certcoach.cli.run_practice_questions")
 @patch("certcoach.cli.database")
+def test_run_teach_session_acknowledgement_advances_after_followup(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_practice.return_value = 5
+    mock_coach.explain_topic.return_value = "### 1. Core Concept\nExplanation\nType your answer or ask any questions."
+    mock_coach.handle_followup.return_value = "Correct. Does that clear it up?"
+    mock_prompt_ask.side_effect = ["Dates should use new Date()", "yes", "n"]
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    mock_coach.handle_followup.assert_called_once()
+    mock_practice.assert_called_once_with("Topic: Topic A", ["Topic A"], question_keywords=["concept"], num=5, is_mock=False, concepts=["Concept X"])
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
 def test_run_teach_session_mini_mock_locked_until_three_topics(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
     from certcoach.cli import run_teach_session
 

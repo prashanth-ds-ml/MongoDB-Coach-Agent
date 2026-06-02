@@ -35,6 +35,18 @@ USER_ID = "local_user_1"
 
 EXIT_COMMANDS = {"q", "quit", "exit"}
 BACK_COMMANDS = {"back", "b", "menu"}
+ACK_CONTINUE_COMMANDS = {
+    "y",
+    "yes",
+    "yeah",
+    "yep",
+    "ok",
+    "okay",
+    "got it",
+    "understood",
+    "clear",
+    "makes sense",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -305,7 +317,9 @@ def run_teach_session(agenda_item: dict):
                 force_practice = True
                 break
 
-            if user_input.lower() in ("done", "next"):
+            lowered_input = user_input.lower()
+
+            if lowered_input in ("done", "next") or lowered_input in ACK_CONTINUE_COMMANDS:
                 break
 
             # Generate follow-up answer
