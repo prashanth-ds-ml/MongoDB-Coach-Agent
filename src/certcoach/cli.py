@@ -1295,12 +1295,12 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         # Track response time
         q_start = time.time()
         try:
-            ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK", "B"]).upper()
+            ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK"]).upper()
         except (KeyboardInterrupt, EOFError):
             raise SystemExit
         elapsed_sec = time.time() - q_start
 
-        if ans in ("Q", "BACK", "B"):
+        if ans in ("Q", "BACK"):
             console.print("[yellow]  Exiting practice session...[/yellow]")
             time.sleep(1)
             return None

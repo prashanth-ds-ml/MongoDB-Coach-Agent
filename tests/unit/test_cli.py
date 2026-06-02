@@ -327,6 +327,36 @@ def test_run_practice_questions_clean_exit(mock_prompt_ask, mock_database, mock_
     assert score is None
 
 
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.coach")
+def test_run_practice_questions_allows_option_b_answer(mock_coach, mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    mock_database.get_random_questions.return_value = [
+        {
+            "_id": "q1",
+            "question_text": "Which option is correct?",
+            "options": [
+                {"option_letter": "A", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+                {"option_letter": "B", "code_snippet": "Yes", "is_correct": True, "feedback": "Correct."},
+                {"option_letter": "C", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+                {"option_letter": "D", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+            ],
+            "metadata": {"topic": "Topic A"},
+            "context": {}
+        }
+    ]
+    mock_prompt_ask.side_effect = ["B", "H"]
+    mock_coach.get_answer_feedback.return_value = "Good."
+
+    score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
+
+    assert score == 1
+    mock_database.save_attempt.assert_called_once()
+
+
 @patch("certcoach.core.planner.get_syllabus_status")
 @patch("certcoach.core.database.get_analytics")
 @patch("certcoach.core.database.get_user_profile")
