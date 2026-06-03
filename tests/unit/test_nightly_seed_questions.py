@@ -80,3 +80,38 @@ def test_validate_question_quality_rejects_shallow_six_part_explanation():
 
     assert not is_valid
     assert any("sections are too short" in issue for issue in issues)
+
+
+def test_validate_question_quality_rejects_section_six_without_bullets():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which insert method should you use when adding one document?",
+        "options": [
+            {"code_snippet": "insertOne()", "is_correct": True},
+            {"code_snippet": "insertMany()", "is_correct": False},
+            {"code_snippet": "replaceOne()", "is_correct": False},
+            {"code_snippet": "updateOne()", "is_correct": False},
+        ],
+        "explanation": "\n".join([
+            "### 1. Correct Answer",
+            "insertOne() is the correct choice because it inserts a single document.",
+            "### 2. Why Correct",
+            "It matches the single-document requirement and returns insertion metadata.",
+            "### 3. Why Other Options Are Wrong",
+            "insertMany() is for multiple documents.",
+            "replaceOne() replaces an existing document.",
+            "updateOne() modifies matching fields, it does not insert a new document.",
+            "### 4. Exam Trap",
+            "The trap is confusing insert semantics with update semantics.",
+            "### 5. Memory Hook",
+            "One document, one insert call, one clear outcome.",
+            "### 6. Follow-Up Practice Recommendation",
+            "Review the insert documents guide and practice with one-document and many-document inserts.",
+        ]),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("need more bullets" in issue for issue in issues)

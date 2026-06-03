@@ -54,8 +54,12 @@ EXPLANATION_SECTION_MIN_LENGTHS = {
     "### 2. Why Correct": 90,
     "### 3. Why Other Options Are Wrong": 140,
     "### 4. Exam Trap": 60,
-    "### 5. Memory Hook": 40,
-    "### 6. Follow-Up Practice Recommendation": 70,
+    "### 5. Memory Hook": 80,
+    "### 6. Follow-Up Practice Recommendation": 120,
+}
+
+EXPLANATION_SECTION_MIN_BULLETS = {
+    "### 6. Follow-Up Practice Recommendation": 3,
 }
 
 
@@ -233,6 +237,10 @@ def _parse_six_part_explanation(explanation: str) -> dict[str, str]:
     return {heading: sections.get(heading, "").strip() for heading in SIX_PART_HEADINGS}
 
 
+def _count_bullet_lines(section: str) -> int:
+    return sum(1 for line in section.splitlines() if line.strip().startswith(("-", "*")))
+
+
 def _next_question_number(target: QuestionTarget) -> int:
     query = {
         "metadata.topic": target.bank_topic,
@@ -293,6 +301,13 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
     ]
     if short_sections:
         issues.append("six-part explanation sections are too short: " + ", ".join(short_sections))
+    short_bullet_sections = [
+        heading
+        for heading, min_bullets in EXPLANATION_SECTION_MIN_BULLETS.items()
+        if _count_bullet_lines(sections.get(heading, "")) < min_bullets
+    ]
+    if short_bullet_sections:
+        issues.append("six-part explanation sections need more bullets: " + ", ".join(short_bullet_sections))
     if len(explanation.strip()) < 800:
         issues.append("six-part explanation is too short")
     if len({str(option.get("code_snippet", "")).strip().lower() for option in options}) != len(options):
@@ -391,6 +406,8 @@ Rules:
   ### 4. Exam Trap
   ### 5. Memory Hook
   ### 6. Follow-Up Practice Recommendation
+- Section 5 should be a compact mnemonic or memory hook with one or two concrete rules.
+- Section 6 must be 3 to 5 bullet points, each bullet being a compact but specific action item or recall point.
 - Each section must be detailed enough for a beginner to learn from the answer review.
 - Section 3 must explicitly explain why each distractor is wrong.
 - Explain every relevant syntax token, operator, method argument, return value, and casing trap.

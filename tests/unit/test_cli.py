@@ -931,7 +931,9 @@ def test_run_teach_session_concept_completion(mock_database, mock_practice, mock
     with patch("time.sleep"):
         run_teach_session(agenda_item)
         
-    mock_planner.mark_subtopic_complete.assert_called_once_with("local_user_1", "Topic A", "Concept X")
+    from certcoach.cli import USER_ID
+
+    mock_planner.mark_subtopic_complete.assert_called_once_with(USER_ID, "Topic A", "Concept X")
 
 
 @patch("certcoach.cli.console")
@@ -1357,7 +1359,9 @@ def test_practice_questions_awards_freeze(mock_prompt_ask, mock_coach, mock_data
         score = run_practice_questions("Topic 1", ["Topic 1"], num=5, is_mock=False)
         
     assert score == 5
-    mock_database.award_streak_freeze.assert_called_once_with("local_user_1")
+    from certcoach.cli import USER_ID
+
+    mock_database.award_streak_freeze.assert_called_once_with(USER_ID)
     # Verify streak freeze announcement printed
     printed_text = "\n".join(
         str(call[0][0]) for call in mock_console.print.call_args_list if call[0]
