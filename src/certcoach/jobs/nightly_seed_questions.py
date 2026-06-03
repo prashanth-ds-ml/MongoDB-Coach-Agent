@@ -65,6 +65,19 @@ EXPLANATION_SECTION_MIN_BULLETS = {
     "### 6. Follow-Up Practice Recommendation": 3,
 }
 
+EASY_EXPLANATION_SECTION_MIN_LENGTHS = {
+    "### 1. Correct Answer": 24,
+    "### 2. Why Correct": 70,
+    "### 3. Why Other Options Are Wrong": 110,
+    "### 4. Exam Trap": 45,
+    "### 5. Memory Hook": 45,
+    "### 6. Follow-Up Practice Recommendation": 80,
+}
+
+EASY_EXPLANATION_SECTION_MIN_BULLETS = {
+    "### 6. Follow-Up Practice Recommendation": 2,
+}
+
 SYNTAX_HEAVY_TOPIC_IDS = {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}
 SYNTAX_EXAMPLE_HINTS = (
     "insertone", "insertmany", "find(", "findone", "updateone", "updatemany", "deleteone", "deletemany",
@@ -275,6 +288,13 @@ def _question_needs_syntax_example(question: dict) -> bool:
     return any(hint in haystack for hint in SYNTAX_EXAMPLE_HINTS)
 
 
+def _difficulty_key(question: dict) -> str:
+    difficulty = str(question.get("metadata", {}).get("difficulty", "") or "").strip().lower()
+    if difficulty in {"easy", "medium", "hard"}:
+        return difficulty
+    return "medium"
+
+
 def _next_question_number(target: QuestionTarget) -> int:
     query = {
         "metadata.topic": target.bank_topic,
@@ -315,6 +335,7 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
     options = question.get("options", [])
     explanation = str(question.get("explanation", "") or "")
     needs_syntax_example = _question_needs_syntax_example(question)
+    difficulty = _difficulty_key(question)
     if not str(question.get("question_text", "")).strip():
         issues.append("missing question text")
     if len(options) != 4:
@@ -327,19 +348,25 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
         issues.append("contains placeholder option text")
     sections = _parse_six_part_explanation(explanation)
     missing_headings = [heading for heading, content in sections.items() if not content]
+    if not needs_syntax_example:
+        missing_headings = [heading for heading in missing_headings if heading != "### 7. Syntax Example"]
     if missing_headings:
         issues.append("missing seven-part headings or content: " + ", ".join(missing_headings))
+    min_lengths = EASY_EXPLANATION_SECTION_MIN_LENGTHS if difficulty == "easy" else EXPLANATION_SECTION_MIN_LENGTHS
     short_sections = [
         heading
-        for heading, min_length in EXPLANATION_SECTION_MIN_LENGTHS.items()
+        for heading, min_length in min_lengths.items()
         if len(sections.get(heading, "")) < min_length
     ]
+    if not needs_syntax_example:
+        short_sections = [heading for heading in short_sections if heading != "### 7. Syntax Example"]
     if short_sections:
         issues.append("seven-part explanation sections are too short: " + ", ".join(short_sections))
+    min_bullets = EASY_EXPLANATION_SECTION_MIN_BULLETS if difficulty == "easy" else EXPLANATION_SECTION_MIN_BULLETS
     short_bullet_sections = [
         heading
-        for heading, min_bullets in EXPLANATION_SECTION_MIN_BULLETS.items()
-        if _count_bullet_lines(sections.get(heading, "")) < min_bullets
+        for heading, min_bullet_count in min_bullets.items()
+        if _count_bullet_lines(sections.get(heading, "")) < min_bullet_count
     ]
     if short_bullet_sections:
         issues.append("seven-part explanation sections need more bullets: " + ", ".join(short_bullet_sections))
@@ -351,7 +378,10 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
             issues.append("syntax example needs a fenced code block")
         if len(syntax_section.strip()) < 80:
             issues.append("syntax example is too short")
-    elif not syntax_section.strip().lower().startswith("not required"):
+    elif syntax_section.strip() and not any(
+        marker in syntax_section.strip().lower()
+        for marker in ("not required", "not needed", "optional", "no syntax example")
+    ):
         issues.append("syntax example should explicitly say it is not required for this concept")
     if len(explanation.strip()) < 800:
         issues.append("seven-part explanation is too short")
