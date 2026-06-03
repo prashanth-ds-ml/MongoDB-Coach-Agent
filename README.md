@@ -10,7 +10,7 @@ Using a local Ollama instance (default: `gemma4:e4b`, configurable in `~/.certco
 
 - **💡 Startup Readiness Briefing**: Prompts you to review critical syntactic traps across all 12 syllabus modules at daily launch (mastery-gated).
 - **🎯 Daily Mission Briefs**: Every agenda item starts with a clear mission, target concept, and win condition so the learner knows exactly what “done for today” means.
-- **🧠 Structured Lesson Coach**: Lessons follow an exam-first format: Core Concept, Level-Based Breakdown, Syntax & Code Examples, Exam Radar, Micro-Challenge, and 30-Second Recall.
+- **🧠 Structured Lesson Coach**: Lessons follow a bounded state machine: Teach one concept, resolve one Micro-Challenge, stay in concept-scoped Q&A, then move to practice and cumulative review.
 - **⚡ Spaced Repetition (Anki Pop Quizzes)**: Automatically triggers Spaced-Repetition quizzes on due topics before your study agenda starts.
 - **🛠️ Practice Recovery Guidance**: After every practice set, CertCoach surfaces reinforcement or remediation steps based on score and the weak concepts just exposed.
 - **📌 Session Closeout Coaching**: At the end of a study session, CertCoach summarizes what got locked in, how readiness moved, and the best next agenda start.
@@ -149,7 +149,7 @@ certcoach
 During onboarding, select `Yes` when prompted to take the 10-question Diagnostic Test. This allows CertCoach to evaluate your current knowledge, automatically skip topics you already know, and build a highly personalized day-by-day calendar.
 
 ### Step 6: Follow the Daily Agenda
-Select `Option 1` from the main menu to start studying today's scheduled concept. CertCoach now shows a mission brief, teaches one active concept at a time, asks a micro-challenge, opens follow-up Q&A, and then requires a 5-question practice gate.
+Select `Option 1` from the main menu to start studying today's scheduled concept. CertCoach now shows a mission brief, teaches one active concept at a time, asks a micro-challenge, keeps follow-up Q&A inside the same concept, and then requires a 5-question practice gate.
 
 To count the concept as complete, clear the practice gate with **4/5 or better**. After the quiz:
 
@@ -165,7 +165,7 @@ At the end of the session, CertCoach logs the study session and shows a closeout
 Main Menu -> Start Today's Agenda
           -> Daily Mission Brief
           -> Lesson
-          -> Micro-Challenge + Q&A
+          -> Micro-Challenge + concept-scoped Q&A
           -> 5-question Practice Gate
           -> Recovery / Reinforcement
           -> Concept Completion + Cumulative Cheat Sheet

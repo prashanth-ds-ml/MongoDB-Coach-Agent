@@ -13,3 +13,11 @@
 ## Coaching Analytics State & Persistence
 - **Decision:** Stick to using MongoDB completely for all application state, tracking topics covered, learning analytics, and question memory.
 - **Reason:** Aligns natively with the target certification domain (MongoDB Associate Developer), avoiding secondary databases (like SQLite) and allowing seamless usage of document collections and aggregation pipelines.
+
+## Bounded Coach State Machine
+- **Decision:** Keep the learner experience segmented into Teach, Check, Practice, Review, and Free Chat modes with explicit transition rules.
+- **Reason:** Prevents cross-topic drift and keeps explanations anchored to the current syllabus concept until the learner is ready to move on.
+
+## Timestamped Project Memory
+- **Decision:** Maintain timestamped markdown memory files for progress, decisions, and flow specifications under `memory/`.
+- **Reason:** The project now depends on repeatable pedagogy decisions, and those need to remain visible without digging through code history.

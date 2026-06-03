@@ -163,6 +163,7 @@ def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent
             f"Understand [bold]{focus_concept}[/bold], answer the Micro-Challenge, and score at least [bold green]4/5[/bold green] in practice so the concept counts as complete."
         )
         why_today = "One concept mastered properly each day is safer than skimming multiple topics."
+    flow_line = "Flow: teach one concept, clear the checkpoint, practice only that concept, then move on."
 
     return (
         f"[bold]Mission[/bold]: {agenda_type}\n"
@@ -170,6 +171,7 @@ def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent
         f"[bold]Today's target[/bold]: {focus_concept}\n"
         f"[bold]Win condition[/bold]: {win_condition}\n"
         f"[bold]Why this matters[/bold]: {why_today}\n"
+        f"[bold]Flow[/bold]: {flow_line}\n"
         f"[bold]Current mastery[/bold]: {mastery_percent:.1f}%\n"
         f"{urgency_line}"
     )
@@ -444,10 +446,10 @@ def show_plan_preview(calendar: list, total_days: int):
 def run_teach_session(agenda_item: dict):
     """
     Full study session for a topic:
-    1. Coach explains the topic.
-    2. Open Q&A until user says 'done' / 'practice' / 'q'.
-    3. Offer 5-question practice quiz.
-    4. Mini-mock offer.
+    1. Coach explains the current concept.
+    2. Open Q&A, but keep every answer inside the current topic/concept.
+    3. Offer 5-question practice quiz for the same concept.
+    4. Mini-mock offer only after topic mastery clears the gate.
     """
     topic = agenda_item["topic"]
     subtopics = agenda_item.get("subtopics", [])
@@ -506,7 +508,7 @@ def run_teach_session(agenda_item: dict):
         chat_history = memory_manager.load_active_history()
         console.print()
         console.print(
-            "  [dim]Answer the challenge, ask a question, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
+            "  [dim]Answer the challenge, ask a question about this concept, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
         )
 
         while True:
@@ -538,7 +540,7 @@ def run_teach_session(agenda_item: dict):
             memory_manager.log_interaction("user", user_input)
             chat_history = memory_manager.load_active_history()
             with console.status("[dim]🤖 CertCoach is thinking...[/dim]", spinner="dots"):
-                answer = coach.handle_followup(topic, user_input, chat_history)
+                answer = coach.handle_followup(topic, subtopic, user_input, chat_history)
             
             from certcoach.core.persona import clean_lesson_explanation
             answer = clean_lesson_explanation(answer)

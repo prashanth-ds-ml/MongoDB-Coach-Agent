@@ -42,3 +42,30 @@ def test_apply_repair_updates_explanation_and_feedbacks():
     assert update_doc["explanation"].startswith("### 1. Correct Answer")
     assert update_doc["options"][2]["feedback"] == "fc"
     assert update_doc["metadata.explanation_repair_source"] == "certcoach_repair_explanations"
+
+
+def test_repair_quality_helper_passes_candidate_to_validator():
+    from certcoach.jobs import repair_explanations as repair
+
+    q = {
+        "metadata": {"topic_id": 2, "topic": "CRUD Operations - Create", "concept": "insertOne()", "difficulty": "Easy"},
+        "options": [
+            {"option_letter": "A", "is_correct": True},
+            {"option_letter": "B", "is_correct": False},
+            {"option_letter": "C", "is_correct": False},
+            {"option_letter": "D", "is_correct": False},
+        ],
+    }
+    repaired = repair.RepairedExplanation(
+        explanation="### 1. Correct Answer\nA\n### 2. Why Correct\nBecause.\n### 3. Why Other Options Are Wrong\nNo.\n### 4. Exam Trap\nTrap.\n### 5. Memory Hook\nHook.\n### 6. Follow-Up Practice Recommendation\nPractice.\n### 7. Syntax Example\nNot required for this concept.",
+        feedbacks=["fa", "fb", "fc", "fd"],
+        trap_analysis="trap",
+    )
+
+    with patch.object(repair, "validate_question_quality", return_value=(True, [])) as validate:
+        issues = repair._repair_quality_issues(q, repaired)
+
+    assert issues == []
+    candidate = validate.call_args[0][0]
+    assert candidate["explanation"] == repaired.explanation
+    assert candidate["options"][0]["feedback"] == "fa"

@@ -11,3 +11,6 @@
 - **Codebase:** All feature development and UI enhancements are frozen.
 - **Goal:** Shift focus entirely from writing tool functionality to taking quizzes, reading explanations, and mastering the MongoDB blueprint topics.
 - **Storage:** Local MongoDB (`certcoach_db`) acts as the single source of truth for questions and student state.
+- **Historical note:** Phase 2.5 hardened the coach flow into a bounded Teach -> Check -> Practice -> Review state machine before the later feature freeze.
+
+*See `session_handoff.md`, `session_log.md`, and `coach_flow_spec.md` for daily handoff and mode rules.*

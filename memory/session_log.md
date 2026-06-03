@@ -18,6 +18,11 @@
 - Upgraded the `run_teach_session` to chunk explanations and auto-advance through the daily agenda.
 - Shifted the CLI to a Hybrid Conversational interface, adding a persistent Smart Router and a `run_free_chat_session` mode.
 
+## 2026-06-03
+- Tightened the coach flow into a bounded Teach -> Check -> Practice -> Review state machine.
+- Added timestamped memory files for progress, decisions, and flow specifications.
+- Updated the lesson persona so follow-up answers stay within the current concept instead of drifting into later topics.
+
 ## 2026-06-06
 - Implemented the Casing Guard validation repair in `planner.py` to support python keywords and neutral methods in PyMongo topics.
 - Added strict Pydantic flat schema formatting rules to `nightly_seed_questions.py` prompt to prevent Ollama output formatting errors.

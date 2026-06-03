@@ -32,6 +32,22 @@ OUTCOME_GUARDRAILS = (
     "- Never invent syntax, undocumented traps, or facts that are not supported by the provided material."
 )
 
+TEACH_SCOPE_RULES = (
+    "Scope rules:\n"
+    "- Stay strictly within the current syllabus topic and the current concept.\n"
+    "- You may mention a prerequisite only if it is needed to explain the current concept.\n"
+    "- Do not introduce later-topic methods, operators, workflows, or mock-exam style questions.\n"
+    "- If the learner asks for examples, keep them inside the current concept and do not cross into the next syllabus node.\n"
+)
+
+FOLLOWUP_SCOPE_RULES = (
+    "Scope rules:\n"
+    "- Stay strictly within the current syllabus topic and current concept.\n"
+    "- Answer the learner's question or correct their micro-challenge response directly.\n"
+    "- If the learner requests more examples, give at most two and keep them inside the current concept.\n"
+    "- If the request belongs to a later topic, say it is deferred until that topic is reached.\n"
+)
+
 
 def clean_lesson_explanation(text: str) -> str:
     if not text:
@@ -150,12 +166,15 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
     return (
         f"{COACH_IDENTITY}\n"
         f"{OUTCOME_GUARDRAILS}\n\n"
+        f"MODE: TEACH\n"
         f"Today's topic: **{topic}**\n"
         f"Current subtopic/concept to study: **{subtopic}**\n"
         f"{context_section}\n\n"
+        f"{TEACH_SCOPE_RULES}\n"
         f"Provide a comprehensive explanation that helps the learner both understand and remember **{subtopic}** for the exam.\n"
         f"Your teaching must work for developers of any level, from absolute beginners to advanced engineers.\n"
         f"Start with intuition, then go deep into mechanics, then syntax, then exam recall.\n"
+        f"Do not preload later-topic material. If a later-topic idea would help, name it only as deferred context and move back to the current concept.\n"
         f"Keep the pacing clean: short paragraphs, bullets where useful, and no repetitive filler.\n\n"
         f"Do not give a short summary.\n\n"
         f"You MUST structure your response exactly using these Markdown headers (###):\n\n"
@@ -169,9 +188,9 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
         f"### 4. Exam Radar\n"
         f"List 3-5 exam traps or distinctions the learner must notice under pressure. For each one, state what the examiner is trying to test.\n\n"
         f"### 5. Micro-Challenge\n"
-        f"Ask one short but high-signal challenge that forces the learner to apply the subtle rule or trap.\n\n"
+        f"Ask one short but high-signal challenge that forces the learner to apply only the current concept. Do not ask a question that requires a later topic.\n\n"
         f"### 6. 30-Second Recall\n"
-        f"End with 3-5 ultra-compact bullets the learner should be able to recall without notes.\n\n"
+        f"End with 3-5 ultra-compact bullets the learner should be able to recall without notes. Keep them bounded to the current concept.\n\n"
         f"CRITICAL RULES:\n"
         f"- You MUST answer STRICTLY based on the Reference material provided above. Do NOT use external web search.\n"
         f"- If the Reference material is missing or does not cover the concept, state: 'This is not covered in my official docs.' and do not make up any content.\n"
@@ -184,7 +203,7 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
     )
 
 
-def build_followup_prompt(topic: str, user_question: str, chat_history: list) -> str:
+def build_followup_prompt(topic: str, subtopic: str, user_question: str, chat_history: list) -> str:
     history_str = "\n".join(
         f"{'Student' if m['role'] == 'user' else 'CertCoach'}: {m['content']}"
         for m in chat_history[-6:]
@@ -199,7 +218,10 @@ def build_followup_prompt(topic: str, user_question: str, chat_history: list) ->
     return (
         f"{COACH_IDENTITY}\n"
         f"{OUTCOME_GUARDRAILS}\n\n"
+        f"MODE: CHECK / CLARIFY\n"
         f"Topic: **{topic}**\n\n"
+        f"Current concept: **{subtopic}**\n\n"
+        f"{FOLLOWUP_SCOPE_RULES}\n"
         f"Conversation so far:\n{history_str}\n\n"
         f"Student's input: {user_question}\n\n"
         f"CRITICAL MONGODB RULES:\n"
@@ -207,8 +229,10 @@ def build_followup_prompt(topic: str, user_question: str, chat_history: list) ->
         f"- If a field is an array, querying `{{field: 'value'}}` DOES match documents whose array contains 'value'. Do NOT claim they must use `{{field: ['value']}}` unless they want an exact array match.\n"
         f"{language_rule}\n\n"
         f"RESPONSE BEHAVIOR:\n"
-        f"- If the student is answering your Micro-Challenge, act like a Staff Engineer reviewing their PR: state what is correct, identify the exact code-smell or casing trap they fell for, and explain the database engine impact (e.g. COLLSCAN performance penalties or AttributeErrors). Give the corrected answer in clean, exam-ready syntax.\n"
-        f"- If the student asks a question, answer with technical precision (referencing cursor pipelines, index stages, or connection pool pooling details), then tie it back to the exam trap.\n"
+        f"- If the student is answering your Micro-Challenge, first state what they got right, then state the exact gap, code-smell, or casing trap, explain the database engine impact when relevant (for example COLLSCAN penalties or AttributeErrors), and then give the corrected answer in clean, exam-ready syntax.\n"
+        f"- If the student asks a question, answer directly with technical precision, then tie it back to the exam signal or common trap.\n"
+        f"- If the student asks for more examples, give no more than two and keep them inside the current concept.\n"
+        f"- If the student asks about a later topic, refuse to teach it here and briefly defer it to the relevant syllabus node.\n"
         f"- Keep the response concise but useful: no more than 2 short paragraphs or 6 bullets unless code is required.\n"
         f"- If a tiny example will remove confusion, include one minimal example.\n"
         f"- End with either a short check for understanding or a prompt to type `practice` when ready."
@@ -289,8 +313,8 @@ class CoachPersona:
         return self._call(build_lesson_prompt(topic, subtopic, md_context), temperature=0.4)
 
 
-    def handle_followup(self, topic: str, user_question: str, chat_history: list) -> str:
-        return self._call(build_followup_prompt(topic, user_question, chat_history), temperature=0.5)
+    def handle_followup(self, topic: str, subtopic: str, user_question: str, chat_history: list) -> str:
+        return self._call(build_followup_prompt(topic, subtopic, user_question, chat_history), temperature=0.5)
 
 
     def handle_free_chat(self, user_input: str, chat_history: list, student_context: str = "") -> str:

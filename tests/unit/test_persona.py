@@ -9,6 +9,8 @@ def test_build_lesson_prompt_adds_exam_recall_sections():
 
     prompt = build_lesson_prompt("CRUD Operations - Read", "findOne()", "Official doc content")
 
+    assert "MODE: TEACH" in prompt
+    assert "Stay strictly within the current syllabus topic and the current concept" in prompt
     assert "### 4. Exam Radar" in prompt
     assert "### 5. Micro-Challenge" in prompt
     assert "### 6. 30-Second Recall" in prompt
@@ -20,13 +22,16 @@ def test_build_followup_prompt_requires_gap_correction():
 
     prompt = build_followup_prompt(
         "Querying Arrays & Embedded Documents",
+        "dot notation",
         "I think I need {tags: ['mongodb']}",
         [{"role": "assistant", "content": "Answer the challenge."}],
     )
 
-    assert "state what is correct" in prompt
-    assert "exact code-smell or casing trap" in prompt
-    assert "practice" in prompt
+    assert "MODE: CHECK / CLARIFY" in prompt
+    assert "Current concept: **dot notation**" in prompt
+    assert "first state what they got right" in prompt
+    assert "exact gap, code-smell, or casing trap" in prompt
+    assert "type `practice` when ready" in prompt
 
 
 def test_build_free_chat_prompt_anchors_study_advice():

@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import time
 from datetime import datetime, timezone
@@ -26,11 +27,12 @@ from certcoach.jobs.nightly_seed_questions import (
     _load_env,
     clear_ollama_memory,
     preload_ollama_model,
-    unload_ollama_model,
     validate_question_quality,
+    unload_ollama_model,
 )
 
 console = Console()
+REPAIR_ATTEMPTS = 3
 
 
 class RepairedExplanationSchema(BaseModel):
@@ -88,6 +90,18 @@ def is_structurally_repairable(q: dict) -> tuple[bool, str]:
     return True, "repairable"
 
 
+def _repair_quality_issues(q: dict, repaired: RepairedExplanation) -> list[str]:
+    candidate = dict(q)
+    candidate["explanation"] = repaired.explanation
+    candidate["trap_analysis"] = repaired.trap_analysis
+    candidate["options"] = [
+        {**dict(opt), "feedback": repaired.feedbacks[idx]}
+        for idx, opt in enumerate(q.get("options", []))
+    ]
+    ok, issues = validate_question_quality(candidate)
+    return [] if ok else issues
+
+
 def generate_repair(q: dict) -> RepairedExplanation | None:
     model, local_llm_url = _load_env()
     meta = q.get("metadata", {})
@@ -140,20 +154,29 @@ Syntax example rule:
 Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 {QUALITY_RULES}
 """
-    try:
-        import os
-        timeout_val = float(os.getenv("OLLAMA_TIMEOUT", "300.0"))
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=timeout_val, num_ctx=4096, format="json")
-        repaired_raw = llm.with_structured_output(RepairedExplanationSchema).invoke(prompt)
-    except Exception as exc:
-        print(f"  [!] Repair generation failed: {exc}")
-        return None
+    for attempt in range(1, REPAIR_ATTEMPTS + 1):
+        try:
+            timeout_val = float(os.getenv("OLLAMA_TIMEOUT", "300.0"))
+            llm = ChatOllama(
+                model=model,
+                base_url=local_llm_url,
+                temperature=0.25,
+                timeout=timeout_val,
+                num_ctx=8192,
+                format="json",
+            )
+            repaired_raw = llm.with_structured_output(RepairedExplanationSchema).invoke(prompt)
+        except Exception as exc:
+            print(f"  [!] Repair generation failed: {exc}")
+            return None
 
-    if not repaired_raw or len(repaired_raw.feedbacks) != 4:
-        return None
+        if not repaired_raw or len(repaired_raw.feedbacks) != 4:
+            continue
 
-    rec_bullets = "\n".join(f"- {rec.strip()}" for rec in repaired_raw.explanation_practice_recommendations)
-    explanation_markdown = f"""
+        rec_bullets = "\n".join(
+            f"- {rec.strip()}" for rec in repaired_raw.explanation_practice_recommendations
+        )
+        explanation_markdown = f"""
 ### 1. Correct Answer
 {repaired_raw.explanation_correct_answer.strip()}
 
@@ -176,11 +199,19 @@ Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 {repaired_raw.explanation_syntax_example.strip()}
 """.strip()
 
-    return RepairedExplanation(
-        explanation=explanation_markdown,
-        feedbacks=repaired_raw.feedbacks,
-        trap_analysis=repaired_raw.trap_analysis,
-    )
+        repaired = RepairedExplanation(
+            explanation=explanation_markdown,
+            feedbacks=repaired_raw.feedbacks,
+            trap_analysis=repaired_raw.trap_analysis,
+        )
+
+        issues = _repair_quality_issues(q, repaired)
+        if not issues:
+            return repaired
+
+        print(f"  [!] Repair quality retry: {'; '.join(issues)} ({attempt}/{REPAIR_ATTEMPTS})")
+
+    return None
 
 
 def apply_repair(q: dict, repaired: RepairedExplanation) -> None:
