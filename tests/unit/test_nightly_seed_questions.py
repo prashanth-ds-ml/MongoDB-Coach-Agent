@@ -47,3 +47,36 @@ def test_topic_matches_bank_topic_substring():
     assert _topic_matches(target, "pymongo")
     assert _topic_matches(target, "11")
     assert not _topic_matches(target, "aggregation")
+
+
+def test_validate_question_quality_rejects_shallow_six_part_explanation():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which insert method should you use when adding one document?",
+        "options": [
+            {"code_snippet": "insertOne()", "is_correct": True},
+            {"code_snippet": "insertMany()", "is_correct": False},
+            {"code_snippet": "replaceOne()", "is_correct": False},
+            {"code_snippet": "updateOne()", "is_correct": False},
+        ],
+        "explanation": "\n".join([
+            "### 1. Correct Answer",
+            "insertOne()",
+            "### 2. Why Correct",
+            "Because it inserts one document.",
+            "### 3. Why Other Options Are Wrong",
+            "insertMany() is for multiple documents.",
+            "### 4. Exam Trap",
+            "Confusing single-document and multi-document inserts.",
+            "### 5. Memory Hook",
+            "One = One.",
+            "### 6. Follow-Up Practice Recommendation",
+            "Review the MongoDB insert documents guide.",
+        ]),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("sections are too short" in issue for issue in issues)

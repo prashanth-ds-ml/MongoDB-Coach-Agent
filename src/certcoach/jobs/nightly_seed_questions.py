@@ -38,13 +38,25 @@ SIX_PART_HEADINGS = [
 QUALITY_RULES = """
 Quality rules:
 - The question must test one clearly named syllabus concept, not a vague general MongoDB fact.
+- The stem must be a fresh, concrete scenario. Do not reword an existing question or lift a documentation sentence verbatim.
+- Every retry must change the decision point, not just the wording or answer option order.
 - The correct answer must be fully supported by the supplied documentation context.
 - There must be exactly four answer options and exactly one correct option.
 - Distractors must be plausible exam traps, not joke answers, placeholders, or obvious nonsense.
 - For syntax questions, distractors should vary one meaningful detail: casing, operator placement, argument shape, cursor method order, projection inclusion/exclusion, or PyMongo vs mongosh syntax.
 - The explanation must use the six required headings and teach the beginner why the correct answer works and why every distractor fails.
+- Each explanation section must be substantive. A heading without useful content is a failure.
 - Avoid duplicates, near-duplicates, cosmetic rewrites of existing questions, and repeated scenarios for the same topic/concept/difficulty.
 """.strip()
+
+EXPLANATION_SECTION_MIN_LENGTHS = {
+    "### 1. Correct Answer": 30,
+    "### 2. Why Correct": 90,
+    "### 3. Why Other Options Are Wrong": 140,
+    "### 4. Exam Trap": 60,
+    "### 5. Memory Hook": 40,
+    "### 6. Follow-Up Practice Recommendation": 70,
+}
 
 
 class SeedMCQ(BaseModel):
@@ -207,6 +219,20 @@ def _token_similarity(left: str, right: str) -> float:
     return len(left_tokens & right_tokens) / len(left_tokens | right_tokens)
 
 
+def _parse_six_part_explanation(explanation: str) -> dict[str, str]:
+    sections: dict[str, str] = {}
+    current_heading: str | None = None
+    for raw_line in explanation.splitlines():
+        stripped = raw_line.strip()
+        if stripped in SIX_PART_HEADINGS:
+            current_heading = stripped
+            sections[current_heading] = ""
+            continue
+        if current_heading:
+            sections[current_heading] = f"{sections[current_heading]}{raw_line.rstrip()}\n"
+    return {heading: sections.get(heading, "").strip() for heading in SIX_PART_HEADINGS}
+
+
 def _next_question_number(target: QuestionTarget) -> int:
     query = {
         "metadata.topic": target.bank_topic,
@@ -250,14 +276,24 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
         issues.append("missing question text")
     if len(options) != 4:
         issues.append("does not have exactly four options")
+    if any(not str(option.get("code_snippet", "")).strip() for option in options):
+        issues.append("contains blank option text")
     if sum(1 for option in options if option.get("is_correct")) != 1:
         issues.append("does not have exactly one correct option")
     if any("placeholder" in str(option.get("code_snippet", "")).lower() for option in options):
         issues.append("contains placeholder option text")
-    missing_headings = [heading for heading in SIX_PART_HEADINGS if heading.lower() not in explanation.lower()]
+    sections = _parse_six_part_explanation(explanation)
+    missing_headings = [heading for heading, content in sections.items() if not content]
     if missing_headings:
-        issues.append("missing six-part headings: " + ", ".join(missing_headings))
-    if len(explanation.strip()) < 700:
+        issues.append("missing six-part headings or content: " + ", ".join(missing_headings))
+    short_sections = [
+        heading
+        for heading, min_length in EXPLANATION_SECTION_MIN_LENGTHS.items()
+        if len(sections.get(heading, "")) < min_length
+    ]
+    if short_sections:
+        issues.append("six-part explanation sections are too short: " + ", ".join(short_sections))
+    if len(explanation.strip()) < 800:
         issues.append("six-part explanation is too short")
     if len({str(option.get("code_snippet", "")).strip().lower() for option in options}) != len(options):
         issues.append("duplicate option text")
@@ -313,6 +349,7 @@ Existing questions to avoid for this exact topic/concept/difficulty:
 {avoid_lines}
 
 You must create a genuinely different scenario, ask for a different decision point, and avoid reusing the same wording.
+Do not reuse the same code shape, error condition, or return-value framing from these examples.
 """
 
     prompt = f"""You are CertCoach, an expert MongoDB Associate Python Developer exam question writer.
@@ -328,6 +365,13 @@ Concept share within topic: {target.concept_weight:.2%}
 
 Syntax rule:
 {syntax_rule}
+
+Question design:
+- Build a fresh scenario, not a paraphrase of the documentation.
+- Focus on one narrow decision point tied to the target concept.
+- Make the four options similar enough to be believable, but only one should be correct.
+- Prefer realistic MongoDB work: schema choice, query behavior, cursor behavior, driver behavior, Atlas workflow, or index tradeoff.
+- The correct answer must be obvious to a careful reader of the source context, but not to someone relying on memory alone.
 
 Official documentation context:
 {context_text[:7000]}
@@ -348,12 +392,13 @@ Rules:
   ### 5. Memory Hook
   ### 6. Follow-Up Practice Recommendation
 - Each section must be detailed enough for a beginner to learn from the answer review.
+- Section 3 must explicitly explain why each distractor is wrong.
 - Explain every relevant syntax token, operator, method argument, return value, and casing trap.
 - Use a short analogy in either Why Correct or Memory Hook when it helps anchor the concept.
 {QUALITY_RULES}
 """
     try:
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.35, timeout=120.0, num_ctx=8192)
+        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192)
         mcq = llm.with_structured_output(SeedMCQ).invoke(prompt)
     except Exception as exc:
         print(f"  [!] Generation failed for {target.concept} ({target.difficulty}): {exc}")
