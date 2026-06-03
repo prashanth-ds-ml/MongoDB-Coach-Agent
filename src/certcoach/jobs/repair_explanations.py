@@ -22,6 +22,7 @@ from certcoach.core import database
 from certcoach.jobs.nightly_seed_questions import (
     QUALITY_RULES,
     SEVEN_PART_HEADINGS,
+    _question_needs_syntax_example,
     _load_env,
     clear_ollama_memory,
     preload_ollama_model,
@@ -77,6 +78,7 @@ def is_structurally_repairable(q: dict) -> tuple[bool, str]:
 def generate_repair(q: dict) -> RepairedExplanation | None:
     model, local_llm_url = _load_env()
     meta = q.get("metadata", {})
+    needs_syntax_example = _question_needs_syntax_example(q)
     options_text = []
     for opt in q.get("options", []):
         correctness = "CORRECT" if opt.get("is_correct") else "WRONG"
@@ -114,6 +116,10 @@ Return a repaired explanation with:
 - `trap_analysis`: detailed exam-trap analysis.
 
 Make it beginner-friendly but technically precise. Explain syntax tokens, method names, operators, return values, casing traps, and why each distractor is wrong.
+Syntax example rule:
+- If this question needs syntax, include a short fenced code example and 2 brief bullets explaining it.
+- If syntax is not needed, write exactly: Not required for this concept.
+Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 {QUALITY_RULES}
 """
     try:

@@ -29,7 +29,7 @@ def test_apply_repair_updates_explanation_and_feedbacks():
         ],
     }
     repaired = repair.RepairedExplanation(
-        explanation="### 1. Correct Answer\nA\n### 2. Why Correct\nBecause\n### 3. Why Other Options Are Wrong\nNo\n### 4. Exam Trap\nTrap\n### 5. Memory Hook\nHook\n### 6. Follow-Up Practice Recommendation\nPractice",
+        explanation="### 1. Correct Answer\nA\n### 2. Why Correct\nBecause\n### 3. Why Other Options Are Wrong\nNo\n### 4. Exam Trap\nTrap\n### 5. Memory Hook\nHook\n### 6. Follow-Up Practice Recommendation\nPractice\n### 7. Syntax Example\nNot required for this concept.",
         feedbacks=["fa", "fb", "fc", "fd"],
         trap_analysis="trap",
     )
