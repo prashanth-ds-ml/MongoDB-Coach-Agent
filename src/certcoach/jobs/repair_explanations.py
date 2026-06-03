@@ -21,7 +21,7 @@ from rich.progress import (
 from certcoach.core import database
 from certcoach.jobs.nightly_seed_questions import (
     QUALITY_RULES,
-    SIX_PART_HEADINGS,
+    SEVEN_PART_HEADINGS,
     _load_env,
     clear_ollama_memory,
     preload_ollama_model,
@@ -32,7 +32,7 @@ console = Console()
 
 
 class RepairedExplanation(BaseModel):
-    explanation: str = Field(description="Detailed six-part explanation markdown.")
+    explanation: str = Field(description="Detailed seven-part explanation markdown.")
     feedbacks: list[str] = Field(description="Exactly four detailed feedback strings, one per option.")
     trap_analysis: str = Field(description="Detailed exam trap explanation.")
 
@@ -108,8 +108,8 @@ Current trap analysis:
 {q.get('trap_analysis', '')}
 
 Return a repaired explanation with:
-- `explanation`: detailed markdown containing exactly these six headings:
-  {chr(10).join("  " + heading for heading in SIX_PART_HEADINGS)}
+- `explanation`: detailed markdown containing exactly these seven headings:
+  {chr(10).join("  " + heading for heading in SEVEN_PART_HEADINGS)}
 - `feedbacks`: exactly four detailed feedback strings matching options A, B, C, D in order.
 - `trap_analysis`: detailed exam-trap analysis.
 
@@ -157,7 +157,7 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
     skipped = []
     failed = []
 
-    console.print("\n[bold cyan]CertCoach 6-Part Explanation Repair[/bold cyan]")
+    console.print("\n[bold cyan]CertCoach 7-Part Explanation Repair[/bold cyan]")
     console.print(f"Total questions: [bold]{audit['total_questions']}[/bold]")
     console.print(f"Already compliant: [bold green]{audit['compliant_questions']}[/bold green]")
     console.print(f"Needs review: [bold red]{audit['non_compliant_questions']}[/bold red]")
@@ -235,7 +235,7 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
                 progress.advance(task_id)
                 console.print(f"\n[bold green]Repaired {q.get('_id')}[/bold green]")
                 console.print(f"[bold]Question:[/bold] {q.get('question_text', '')}")
-                console.print("[bold]Six-Part Explanation:[/bold]")
+                console.print("[bold]Seven-Part Explanation:[/bold]")
                 console.print(repair.explanation)
                 time.sleep(0.2)
     finally:
@@ -252,7 +252,7 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Repair existing question explanations into the CertCoach six-part template.")
+    parser = argparse.ArgumentParser(description="Repair existing question explanations into the CertCoach seven-part template.")
     parser.add_argument("--topic", default=None, help="Repair only questions matching topic id/name/bank/concept text.")
     parser.add_argument("--max-questions", type=int, default=None, help="Cap repaired questions for this run.")
     parser.add_argument("--dry-run", action="store_true", help="Show repairable questions without calling the model.")

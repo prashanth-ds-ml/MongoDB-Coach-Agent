@@ -27,13 +27,14 @@ from certcoach.core.question_targets import DEFAULT_TOTAL_BANK_TARGET, QuestionT
 
 console = Console()
 LETTERS = ["A", "B", "C", "D"]
-SIX_PART_HEADINGS = [
+SEVEN_PART_HEADINGS = [
     "### 1. Correct Answer",
     "### 2. Why Correct",
     "### 3. Why Other Options Are Wrong",
     "### 4. Exam Trap",
     "### 5. Memory Hook",
     "### 6. Follow-Up Practice Recommendation",
+    "### 7. Syntax Example",
 ]
 QUALITY_RULES = """
 Quality rules:
@@ -44,8 +45,9 @@ Quality rules:
 - There must be exactly four answer options and exactly one correct option.
 - Distractors must be plausible exam traps, not joke answers, placeholders, or obvious nonsense.
 - For syntax questions, distractors should vary one meaningful detail: casing, operator placement, argument shape, cursor method order, projection inclusion/exclusion, or PyMongo vs mongosh syntax.
-- The explanation must use the six required headings and teach the beginner why the correct answer works and why every distractor fails.
+- The explanation must use the seven required headings and teach the beginner why the correct answer works and why every distractor fails.
 - Each explanation section must be substantive. A heading without useful content is a failure.
+- If a syntax example is not required, Section 7 must explicitly say so.
 - Avoid duplicates, near-duplicates, cosmetic rewrites of existing questions, and repeated scenarios for the same topic/concept/difficulty.
 """.strip()
 
@@ -56,11 +58,20 @@ EXPLANATION_SECTION_MIN_LENGTHS = {
     "### 4. Exam Trap": 60,
     "### 5. Memory Hook": 80,
     "### 6. Follow-Up Practice Recommendation": 120,
+    "### 7. Syntax Example": 20,
 }
 
 EXPLANATION_SECTION_MIN_BULLETS = {
     "### 6. Follow-Up Practice Recommendation": 3,
 }
+
+SYNTAX_HEAVY_TOPIC_IDS = {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}
+SYNTAX_EXAMPLE_HINTS = (
+    "insertone", "insertmany", "find(", "findone", "updateone", "updatemany", "deleteone", "deletemany",
+    "projection", "cursor", "sort", "limit", "skip", "aggregate", "lookup", "unwind", "group", "match",
+    "elemMatch", "dot notation", "mongoclient", "pymongo", "explain", "index", "atlas search", "search",
+    "connection string", "uri"
+)
 
 
 class SeedMCQ(BaseModel):
@@ -228,17 +239,40 @@ def _parse_six_part_explanation(explanation: str) -> dict[str, str]:
     current_heading: str | None = None
     for raw_line in explanation.splitlines():
         stripped = raw_line.strip()
-        if stripped in SIX_PART_HEADINGS:
+        if stripped in SEVEN_PART_HEADINGS:
             current_heading = stripped
             sections[current_heading] = ""
             continue
         if current_heading:
             sections[current_heading] = f"{sections[current_heading]}{raw_line.rstrip()}\n"
-    return {heading: sections.get(heading, "").strip() for heading in SIX_PART_HEADINGS}
+    return {heading: sections.get(heading, "").strip() for heading in SEVEN_PART_HEADINGS}
 
 
 def _count_bullet_lines(section: str) -> int:
     return sum(1 for line in section.splitlines() if line.strip().startswith(("-", "*")))
+
+
+def _count_code_fences(section: str) -> int:
+    return section.count("```")
+
+
+def _question_needs_syntax_example(question: dict) -> bool:
+    metadata = question.get("metadata", {}) or {}
+    topic_id = metadata.get("topic_id")
+    if isinstance(topic_id, int) and topic_id in SYNTAX_HEAVY_TOPIC_IDS:
+        return True
+
+    haystack = " ".join(
+        str(part or "")
+        for part in (
+            metadata.get("topic"),
+            metadata.get("syllabus_topic"),
+            metadata.get("concept"),
+            question.get("question_text"),
+            " ".join(str(option.get("code_snippet", "")) for option in question.get("options", []) or []),
+        )
+    ).lower()
+    return any(hint in haystack for hint in SYNTAX_EXAMPLE_HINTS)
 
 
 def _next_question_number(target: QuestionTarget) -> int:
@@ -280,6 +314,7 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
     issues = []
     options = question.get("options", [])
     explanation = str(question.get("explanation", "") or "")
+    needs_syntax_example = _question_needs_syntax_example(question)
     if not str(question.get("question_text", "")).strip():
         issues.append("missing question text")
     if len(options) != 4:
@@ -293,23 +328,33 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
     sections = _parse_six_part_explanation(explanation)
     missing_headings = [heading for heading, content in sections.items() if not content]
     if missing_headings:
-        issues.append("missing six-part headings or content: " + ", ".join(missing_headings))
+        issues.append("missing seven-part headings or content: " + ", ".join(missing_headings))
     short_sections = [
         heading
         for heading, min_length in EXPLANATION_SECTION_MIN_LENGTHS.items()
         if len(sections.get(heading, "")) < min_length
     ]
     if short_sections:
-        issues.append("six-part explanation sections are too short: " + ", ".join(short_sections))
+        issues.append("seven-part explanation sections are too short: " + ", ".join(short_sections))
     short_bullet_sections = [
         heading
         for heading, min_bullets in EXPLANATION_SECTION_MIN_BULLETS.items()
         if _count_bullet_lines(sections.get(heading, "")) < min_bullets
     ]
     if short_bullet_sections:
-        issues.append("six-part explanation sections need more bullets: " + ", ".join(short_bullet_sections))
+        issues.append("seven-part explanation sections need more bullets: " + ", ".join(short_bullet_sections))
+    syntax_section = sections.get("### 7. Syntax Example", "")
+    if needs_syntax_example:
+        if "```" not in syntax_section:
+            issues.append("missing syntax example code block for a syntax-heavy concept")
+        if _count_code_fences(syntax_section) < 1:
+            issues.append("syntax example needs a fenced code block")
+        if len(syntax_section.strip()) < 80:
+            issues.append("syntax example is too short")
+    elif not syntax_section.strip().lower().startswith("not required"):
+        issues.append("syntax example should explicitly say it is not required for this concept")
     if len(explanation.strip()) < 800:
-        issues.append("six-part explanation is too short")
+        issues.append("seven-part explanation is too short")
     if len({str(option.get("code_snippet", "")).strip().lower() for option in options}) != len(options):
         issues.append("duplicate option text")
     return not issues, issues
@@ -328,7 +373,7 @@ def print_question_template(question: dict) -> None:
             tags.append("trap")
         suffix = f" [{' / '.join(tags)}]" if tags else ""
         console.print(f"  {option.get('option_letter')}. {option.get('code_snippet', '')}{suffix}")
-    console.print("[bold]Six-Part Explanation:[/bold]")
+    console.print("[bold]Seven-Part Explanation:[/bold]")
     console.print(question.get("explanation", ""))
 
 
@@ -406,8 +451,10 @@ Rules:
   ### 4. Exam Trap
   ### 5. Memory Hook
   ### 6. Follow-Up Practice Recommendation
+  ### 7. Syntax Example
 - Section 5 should be a compact mnemonic or memory hook with one or two concrete rules.
 - Section 6 must be 3 to 5 bullet points, each bullet being a compact but specific action item or recall point.
+- Section 7 should follow this rule: if the concept is syntax-heavy, include one short fenced code example plus 2 brief bullets explaining it; if not, write exactly "Not required for this concept."
 - Each section must be detailed enough for a beginner to learn from the answer review.
 - Section 3 must explicitly explain why each distractor is wrong.
 - Explain every relevant syntax token, operator, method argument, return value, and casing trap.
