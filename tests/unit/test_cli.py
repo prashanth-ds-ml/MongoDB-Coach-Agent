@@ -239,6 +239,86 @@ def test_get_syllabus_status_does_not_skip_uncompleted_concepts(mock_load_syllab
         planner.DATA_DIR = original_data_dir
 
 
+def test_build_onboarding_commitment_text_sets_daily_loop():
+    from certcoach.cli import build_onboarding_commitment_text
+
+    text = build_onboarding_commitment_text(45, "Beginner")
+
+    assert "45 days" in text
+    assert "Beginner" in text
+    assert "Start Today's Agenda" in text
+    assert "4/5" in text
+
+
+def test_build_agenda_mission_text_for_learn_agenda():
+    from certcoach.cli import build_agenda_mission_text
+
+    text = build_agenda_mission_text(
+        {
+            "type": "Learn",
+            "topic": "CRUD Operations - Read",
+            "active_subtopic": "findOne()",
+            "subtopics": ["findOne()"],
+        },
+        days_left=10,
+        mastery_percent=25.0,
+    )
+
+    assert "Mission" in text
+    assert "findOne()" in text
+    assert "4/5" in text
+    assert "10 days left" in text
+
+
+def test_build_practice_debrief_for_pass_and_retry():
+    from certcoach.cli import build_practice_debrief
+
+    success_title, success_body, success_style = build_practice_debrief(4, 5, "CRUD", "find()")
+    retry_title, retry_body, retry_style = build_practice_debrief(2, 5, "CRUD", "find()")
+
+    assert success_title == "✅ Concept Locked In"
+    assert "4/5" in success_body
+    assert success_style == "green"
+
+    assert retry_title == "🛠️ Not Locked In Yet"
+    assert "2/5" in retry_body
+    assert retry_style == "yellow"
+
+
+def test_build_practice_recovery_text_surfaces_weak_signals():
+    from certcoach.cli import build_practice_recovery_text
+
+    title, body, style = build_practice_recovery_text(
+        "Query Arrays",
+        ["$elemMatch"],
+        2,
+        5,
+        ["$elemMatch", "dot notation", "$elemMatch"],
+    )
+
+    assert title == "🚨 High-Priority Recovery"
+    assert "$elemMatch, dot notation" in body
+    assert "2/5" in body
+    assert style == "red"
+
+
+def test_build_session_closeout_text_includes_readiness_and_next_step():
+    from certcoach.cli import build_session_closeout_text
+
+    title, body, style = build_session_closeout_text(
+        ["CRUD Operations - Read"],
+        80.0,
+        24.0,
+        28.5,
+        {"topic": "Query Operators & MQL", "desc": "📘 Topic #6 | Concept: $in"},
+    )
+
+    assert title == "📌 Coach Closeout"
+    assert "24.0% -> 28.5%" in body
+    assert "Query Operators & MQL" in body
+    assert style == "green"
+
+
 @patch("certcoach.cli.console")
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.planner")
@@ -1283,6 +1363,21 @@ def test_practice_questions_awards_freeze(mock_prompt_ask, mock_coach, mock_data
         str(call[0][0]) for call in mock_console.print.call_args_list if call[0]
     )
     assert "earned a Streak Freeze token" in printed_text
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+def test_run_practice_questions_missing_bank_does_not_insert_fallback(mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    mock_database.get_random_questions.return_value = []
+    mock_database.questions_col.insert_one = MagicMock()
+
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=5, is_mock=False)
+
+    assert score is None
+    mock_database.questions_col.insert_one.assert_not_called()
 
 
 

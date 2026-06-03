@@ -1,15 +1,19 @@
 # 🧑‍🏫 CertCoach: Local RAG-Powered MongoDB Certification Prep
 
-CertCoach is a local, AI-driven learning and study companion designed to help developers master the syllabus and clear the **MongoDB Associate Python Developer Certification** in one go.
+CertCoach is a local, AI-driven learning and study companion designed to help developers master the syllabus and clear the **MongoDB Associate Python Developer Certification** in one disciplined attempt.
 
-Using a local Ollama instance (`qwen2.5-coder:7b`), an interactive console interface, Spaced Repetition quiz cycles, a vector knowledge base, and strict document-grounded RAG, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
+Using a local Ollama instance (default: `gemma4:e4b`, configurable in `~/.certcoach/.env`), an interactive console interface, spaced-repetition quiz cycles, a question bank, and strict document-grounded teaching prompts, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
 
 ---
 
 ## ✨ Features
 
 - **💡 Startup Readiness Briefing**: Prompts you to review critical syntactic traps across all 12 syllabus modules at daily launch (mastery-gated).
+- **🎯 Daily Mission Briefs**: Every agenda item starts with a clear mission, target concept, and win condition so the learner knows exactly what “done for today” means.
+- **🧠 Structured Lesson Coach**: Lessons follow an exam-first format: Core Concept, Level-Based Breakdown, Syntax & Code Examples, Exam Radar, Micro-Challenge, and 30-Second Recall.
 - **⚡ Spaced Repetition (Anki Pop Quizzes)**: Automatically triggers Spaced-Repetition quizzes on due topics before your study agenda starts.
+- **🛠️ Practice Recovery Guidance**: After every practice set, CertCoach surfaces reinforcement or remediation steps based on score and the weak concepts just exposed.
+- **📌 Session Closeout Coaching**: At the end of a study session, CertCoach summarizes what got locked in, how readiness moved, and the best next agenda start.
 - **🗓️ Personalized Study Planner**: Generates a day-by-day study calendar customized to your experience level and exam date.
 - **🏆 Timed Non-Linear Exam Simulator**: Features a professional delayed-feedback timed simulator for Mocks and Practice:
   - **Dynamic Pacing HUD**: Evaluates average target response times and displays active pacing alerts (Ahead, Behind, or On Track).
@@ -29,7 +33,7 @@ Using a local Ollama instance (`qwen2.5-coder:7b`), an interactive console inter
 - **Core**: Python 3.10+
 - **Database**: MongoDB (Question Bank, Attempts, Streaks, User Profiles, Resumable Exam States)
 - **Document Grounding**: Direct Semantic Grounding (injects complete, un-fragmented official documentation text directly into optimized `8192` context windows, ensuring 100% accuracy and zero vector RAG chunk fragmentation)
-- **Local Intelligence**: Ollama (`qwen2.5-coder:7b` model)
+- **Local Intelligence**: Ollama (default `gemma4:e4b`, configurable)
 - **User Interface**: `rich` (glassmorphism panels, tables, line-by-line keyboard scroll pagers)
 
 ---
@@ -97,6 +101,16 @@ certcoach
 ```
 *(On launch, CertCoach will guide you through onboarding. You will be prompted to enter your MongoDB connection URI and your target exam date in `YYYY-MM-DD` format. Startup configurations are saved automatically).*
 
+### Cross-Machine Progress Sync
+
+CertCoach stores learner progress in MongoDB. To continue from another machine, point both machines at the same `MONGO_URI`, then open:
+
+```text
+Settings & Extras -> Account Login / Sync Across Machines
+```
+
+Create an account or sign in with an existing account. CertCoach saves only the active account id locally in `~/.certcoach/session.json`; attempts, streaks, calendar, study sessions, active exam state, and readiness history remain in MongoDB.
+
 ---
 
 ## 🎓 Study Quick-Start Workflow (Day 1 Guide)
@@ -132,7 +146,29 @@ certcoach
 During onboarding, select `Yes` when prompted to take the 10-question Diagnostic Test. This allows CertCoach to evaluate your current knowledge, automatically skip topics you already know, and build a highly personalized day-by-day calendar.
 
 ### Step 6: Follow the Daily Agenda
-Select `Option 1` from the main menu to start studying today's scheduled concept. Read the Coach's lesson, ask follow-up questions, and score $\ge 80\%$ on the follow-up quiz to mark the concept complete and unlock your next daily agenda item.
+Select `Option 1` from the main menu to start studying today's scheduled concept. CertCoach now shows a mission brief, teaches one active concept at a time, asks a micro-challenge, opens follow-up Q&A, and then requires a 5-question practice gate.
+
+To count the concept as complete, clear the practice gate with **4/5 or better**. After the quiz:
+
+1. CertCoach shows the structured six-part answer review for every question.
+2. CertCoach gives a recovery or reinforcement plan based on the score and the weak concepts just exposed.
+3. If the concept is locked in, CertCoach marks it complete, updates the cumulative cheat sheet for that topic, and keeps the existing mini-mock unlock rules intact.
+
+At the end of the session, CertCoach logs the study session and shows a closeout summary with readiness movement and the best next agenda start.
+
+### Daily Study Loop at a Glance
+
+```text
+Main Menu -> Start Today's Agenda
+          -> Daily Mission Brief
+          -> Lesson
+          -> Micro-Challenge + Q&A
+          -> 5-question Practice Gate
+          -> Recovery / Reinforcement
+          -> Concept Completion + Cumulative Cheat Sheet
+          -> Optional Mini-Mock (after 3 mastered topics)
+          -> Session Closeout
+```
 
 ---
 
@@ -152,6 +188,92 @@ You can select other topics (2–12) or seed all topics sequentially with automa
 ```bash
 .venv\Scripts\python scratch/populate_stage_by_stage.py
 ```
+
+### 3. Weighted Nightly Seeder
+
+For a smoother learner experience, run the weighted seeder before study sessions instead of generating questions during live practice. The weighted seeder prioritizes exam-heavy topics and concept-level gaps using `syllabus.json` weights.
+
+```bash
+certcoach-seed-nightly --max-questions 25
+```
+
+Useful modes:
+
+```bash
+certcoach-seed-nightly --dry-run
+certcoach-seed-nightly --target 540 --max-questions 50
+certcoach-seed-nightly --topic 11 --dry-run
+certcoach-seed-nightly --topic 11
+certcoach-seed-nightly --topic "MongoDB Drivers & PyMongo"
+```
+
+Recommended Windows Task Scheduler command:
+
+```powershell
+.\.venv\Scripts\certcoach-seed-nightly.exe --max-questions 25
+```
+
+To complete all missing weighted questions for a single topic, omit `--max-questions`:
+
+```powershell
+.\.venv\Scripts\certcoach-seed-nightly.exe --topic 11
+```
+
+After activating the virtual environment, `certcoach`, `certcoach-seed-nightly`, `certcoach-repair-explanations`, and `certcoach-dedupe-questions` can be run from any folder. If a command is not on `PATH`, call the executable directly:
+
+```powershell
+C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-seed-nightly.exe --topic 11
+```
+
+### 4. Repair Existing Question Explanations
+
+To audit and repair older question-bank items so answer reviews teach through the full six-part template:
+
+```powershell
+certcoach-repair-explanations --dry-run
+certcoach-repair-explanations --topic "CRUD Operations" --max-questions 10
+certcoach-repair-explanations
+```
+
+The repair command preserves question text, option text, option letters, and the marked correct answer. It updates explanations, trap analysis, and option feedback. Questions with invalid structure, such as fewer than four options or no marked correct option, are skipped for manual reconstruction.
+
+### 5. Question Bank Duplicate Cleanup
+
+After explanation repair finishes, check the question bank for repeated generated questions before running another overnight populate. The dedupe command is safe by default: without `--apply`, it only prints duplicate groups and the documents it would remove.
+
+```powershell
+certcoach-dedupe-questions
+certcoach-dedupe-questions --topic 11
+certcoach-dedupe-questions --apply
+```
+
+Use this sequence when you want the full repair-and-populate maintenance flow:
+
+```powershell
+certcoach-repair-explanations
+certcoach-dedupe-questions
+certcoach-dedupe-questions --apply
+certcoach-seed-nightly --dry-run
+certcoach-seed-nightly
+```
+
+For a single topic, use the topic-specific sequence:
+
+```powershell
+certcoach-repair-explanations --topic 11
+certcoach-dedupe-questions --topic 11
+certcoach-dedupe-questions --topic 11 --apply
+certcoach-seed-nightly --topic 11 --dry-run
+certcoach-seed-nightly --topic 11
+```
+
+Recommended nightly order:
+
+1. Run `certcoach-repair-explanations` until the six-part explanation audit is clean enough for study.
+2. Run `certcoach-dedupe-questions`, review the duplicate summary, then run `certcoach-dedupe-questions --apply`.
+3. Run `certcoach-seed-nightly --dry-run` to see remaining weighted gaps.
+4. Run `certcoach-seed-nightly` overnight to populate all remaining weighted questions.
+5. Start study with `certcoach` the next morning.
 
 ### 2. General Data Ingestion Utilities
 If you want to re-ingest raw syllabus files, clean markdowns, or index files, use these helper scripts:

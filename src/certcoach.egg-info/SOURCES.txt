@@ -12,11 +12,13 @@ src/certcoach.egg-info/entry_points.txt
 src/certcoach.egg-info/requires.txt
 src/certcoach.egg-info/top_level.txt
 src/certcoach/core/__init__.py
+src/certcoach/core/auth.py
 src/certcoach/core/database.py
 src/certcoach/core/image_extractor.py
 src/certcoach/core/memory_manager.py
 src/certcoach/core/persona.py
 src/certcoach/core/planner.py
+src/certcoach/core/question_targets.py
 src/certcoach/core/quiz_generator.py
 src/certcoach/core/retriever.py
 src/certcoach/data/Primary_Exam_Guide.md
@@ -119,6 +121,10 @@ src/certcoach/data/raw_markdowns/topic_12_docs_atlas_review_all_cluster_metrics_
 src/certcoach/data/raw_markdowns/topic_12_docs_atlas_sample_data__1aa48bf01e.md
 src/certcoach/data/raw_markdowns/topic_12_docs_atlas_tutorial_create_new_cluster__2e7ea674b1.md
 src/certcoach/data/raw_markdowns/topic_12_docs_atlas_tutorial_deploy_free_tier_cluster__5819911ace.md
+src/certcoach/jobs/__init__.py
+src/certcoach/jobs/dedupe_questions.py
+src/certcoach/jobs/nightly_seed_questions.py
+src/certcoach/jobs/repair_explanations.py
 src/scripts/scrape_docs.py
 src/scripts/seed_mongodb.py
 src/scripts/core/database.py

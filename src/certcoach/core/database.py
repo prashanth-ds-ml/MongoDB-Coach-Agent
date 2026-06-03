@@ -2,6 +2,9 @@ import os
 import sys
 import random
 import uuid
+import hashlib
+import hmac
+import secrets
 from datetime import datetime
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -26,6 +29,7 @@ profiles_col = None
 attempts_col = None
 study_sessions_col = None
 draft_questions_col = None
+users_col = None
 connection_error = None
 
 try:
@@ -36,6 +40,7 @@ try:
     attempts_col = db["user_attempts"]
     study_sessions_col = db["user_study_sessions"]
     draft_questions_col = db["draft_questions"]
+    users_col = db["users"]
 except Exception as e:
     connection_error = e
 
@@ -48,6 +53,64 @@ def check_connection():
         print("  3. An incorrect connection string in your .env file")
         print(f"\nPlease verify your network/database connection or update your connection string at:\n  {ENV_PATH}\n")
         sys.exit(1)
+    try:
+        client.admin.command("ping")
+    except Exception as e:
+        print(f"\n⚠️  MongoDB Connection Error: {e}")
+        print("Could not ping MongoDB. Verify your network/database connection or update your connection string.")
+        sys.exit(1)
+
+
+# --- AUTHENTICATION ---
+
+def _hash_password(password: str, salt_hex: str | None = None) -> dict:
+    salt = bytes.fromhex(salt_hex) if salt_hex else secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 210_000)
+    return {
+        "algorithm": "pbkdf2_sha256",
+        "iterations": 210_000,
+        "salt": salt.hex(),
+        "hash": digest.hex(),
+    }
+
+
+def _verify_password(password: str, password_hash: dict) -> bool:
+    if not password_hash or password_hash.get("algorithm") != "pbkdf2_sha256":
+        return False
+    iterations = int(password_hash.get("iterations", 210_000))
+    salt = bytes.fromhex(password_hash["salt"])
+    expected = password_hash["hash"]
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations).hex()
+    return hmac.compare_digest(digest, expected)
+
+
+def create_user(email: str, password: str, display_name: str = "") -> tuple[bool, str | dict]:
+    email_norm = email.strip().lower()
+    if users_col.find_one({"email": email_norm}):
+        return False, "An account with that email already exists."
+
+    user = {
+        "_id": str(uuid.uuid4()),
+        "email": email_norm,
+        "display_name": display_name.strip() or email_norm.split("@")[0],
+        "password_hash": _hash_password(password),
+        "created_at": datetime.utcnow().isoformat(),
+        "last_login_at": datetime.utcnow().isoformat(),
+    }
+    users_col.insert_one(user)
+    public_user = {k: v for k, v in user.items() if k != "password_hash"}
+    return True, public_user
+
+
+def authenticate_user(email: str, password: str) -> tuple[bool, str | dict]:
+    email_norm = email.strip().lower()
+    user = users_col.find_one({"email": email_norm})
+    if not user or not _verify_password(password, user.get("password_hash", {})):
+        return False, "Invalid email or password."
+
+    users_col.update_one({"_id": user["_id"]}, {"$set": {"last_login_at": datetime.utcnow().isoformat()}})
+    public_user = {k: v for k, v in user.items() if k != "password_hash"}
+    return True, public_user
 
 
 # --- QUESTION BANK ---
@@ -71,6 +134,8 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
         def _matches(q):
             haystack = (
                 q.get("question_text", "") + " " +
+                q.get("metadata", {}).get("concept", "") + " " +
+                q.get("metadata", {}).get("syllabus_topic", "") + " " +
                 " ".join(opt.get("code_snippet", "") for opt in q.get("options", []))
             ).lower()
             return any(kw in haystack for kw in keywords_lower)
@@ -436,6 +501,73 @@ def get_questions_quality_analytics() -> list:
     return results
 
 
+SIX_PART_EXPLANATION_MARKERS = [
+    "correct answer",
+    "why correct",
+    "why other options are wrong",
+    "exam trap",
+    "memory hook",
+    "follow-up practice recommendation",
+]
+
+
+def audit_question_explanations(min_explanation_chars: int = 500) -> dict:
+    """Audit whether question-bank items have detailed 6-part explanations."""
+    all_qs = list(questions_col.find({}))
+    issues = []
+    compliant = 0
+
+    for q in all_qs:
+        explanation_parts = [
+            str(q.get("explanation", "") or ""),
+            str(q.get("trap_analysis", "") or ""),
+            str(q.get("citation_source", "") or ""),
+        ]
+        for opt in q.get("options", []):
+            explanation_parts.append(str(opt.get("feedback", "") or ""))
+        explanation_text = "\n".join(explanation_parts)
+        lowered = explanation_text.lower()
+
+        missing_markers = [marker for marker in SIX_PART_EXPLANATION_MARKERS if marker not in lowered]
+        option_feedback_missing = [
+            opt.get("option_letter", "?")
+            for opt in q.get("options", [])
+            if not str(opt.get("feedback", "") or "").strip()
+        ]
+
+        q_issues = []
+        if missing_markers:
+            q_issues.append("missing sections: " + ", ".join(missing_markers))
+        if len(explanation_text.strip()) < min_explanation_chars:
+            q_issues.append(f"explanation too short (< {min_explanation_chars} chars)")
+        if len(q.get("options", [])) != 4:
+            q_issues.append("does not have exactly 4 options")
+        if option_feedback_missing:
+            q_issues.append("missing option feedback: " + ", ".join(option_feedback_missing))
+
+        if q_issues:
+            issues.append({
+                "id": str(q.get("_id", "")),
+                "topic": q.get("metadata", {}).get("topic", "General"),
+                "concept": q.get("metadata", {}).get("concept", ""),
+                "difficulty": q.get("metadata", {}).get("difficulty", ""),
+                "question_text": str(q.get("question_text", ""))[:90],
+                "issues": q_issues,
+            })
+        else:
+            compliant += 1
+
+    total = len(all_qs)
+    compliance_percent = (compliant / total * 100) if total else 100.0
+    return {
+        "total_questions": total,
+        "compliant_questions": compliant,
+        "non_compliant_questions": len(issues),
+        "compliance_percent": round(compliance_percent, 1),
+        "issues": issues,
+    }
+
+
 def save_active_exam(user_id: str, topic: str, questions: list, user_answers: list, flagged: list, elapsed: float):
     """Saves the current state of an in-progress timed exam for crash resilience and resumption."""
     clean_questions = []
@@ -484,7 +616,7 @@ def award_streak_freeze(user_id: str) -> bool:
 
 def update_database_connection(new_uri: str) -> bool:
     """Rewrites the .env files, closes the active client, and re-establishes the connection."""
-    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, draft_questions_col, MONGO_URI, connection_error
+    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, draft_questions_col, users_col, MONGO_URI, connection_error
     
     os.environ["MONGO_URI"] = new_uri
     MONGO_URI = new_uri
@@ -531,6 +663,7 @@ def update_database_connection(new_uri: str) -> bool:
         attempts_col = db["user_attempts"]
         study_sessions_col = db["user_study_sessions"]
         draft_questions_col = db["draft_questions"]
+        users_col = db["users"]
         connection_error = None
         return True
     except Exception as e:

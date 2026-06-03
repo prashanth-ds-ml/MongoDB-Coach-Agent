@@ -26,13 +26,14 @@ from rich.rule import Rule
 from rich.text import Text
 from rich import box
 
-from certcoach.core import database, planner
+from certcoach.core import auth, database, planner
 from certcoach.core.persona import CoachPersona
 import certcoach.core.memory_manager as memory_manager
 
 console = Console()
 coach = CoachPersona()
-USER_ID = "local_user_1"
+DEFAULT_USER_ID = "local_user_1"
+USER_ID = auth.get_session_user_id(DEFAULT_USER_ID)
 
 EXIT_COMMANDS = {"q", "quit", "exit"}
 BACK_COMMANDS = {"back", "b", "menu"}
@@ -119,6 +120,196 @@ def print_paginated(renderable, title: str = "CertCoach"):
     console.print(renderable)
 
 
+def build_onboarding_commitment_text(total_days: int, experience_level: str) -> str:
+    return (
+        f"[bold]Daily Discipline Contract[/bold]\n"
+        f"You have [bold cyan]{total_days} days[/bold cyan] until exam day as a [bold]{experience_level}[/bold] learner.\n\n"
+        f"Show up each day and follow this exact loop:\n"
+        f"1. Start Today's Agenda instead of random browsing.\n"
+        f"2. Learn one concept deeply enough to explain the trap in your own words.\n"
+        f"3. Clear the 5-question gate with at least [bold green]4/5[/bold green].\n"
+        f"4. Review misses immediately so tomorrow starts stronger.\n\n"
+        f"[dim]If you stay consistent with this loop, CertCoach keeps the workload focused and exam-oriented.[/dim]"
+    )
+
+
+def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent: float) -> str:
+    topic = agenda_item.get("topic", "Unknown Topic")
+    agenda_type = agenda_item.get("type", "Learn")
+    active_subtopic = agenda_item.get("active_subtopic")
+    subtopics = agenda_item.get("subtopics", [])
+    focus_concept = active_subtopic or (subtopics[0] if subtopics else topic)
+    if not isinstance(days_left, (int, float)):
+        days_left = 30
+    if not isinstance(mastery_percent, (int, float)):
+        mastery_percent = 0.0
+
+    urgency_line = (
+        f"[bold red]Urgency[/bold red]: {days_left} days left. Stay on today's mission until it is complete."
+        if days_left <= 14
+        else f"[bold cyan]Pacing[/bold cyan]: {days_left} days left. Consistency beats intensity."
+    )
+
+    if agenda_type == "Review":
+        win_condition = (
+            f"Refresh the weak point, clear the trap, and turn shaky recall into clean exam-speed answers on [bold]{topic}[/bold]."
+        )
+        why_today = "Review comes before new material because forgotten topics leak points on exam day."
+    elif agenda_type == "BossFight":
+        win_condition = "Beat the timed checkpoint and prove the last domain is strong enough to build on."
+        why_today = "Boss fights stop weak foundations from snowballing into bigger gaps."
+    else:
+        win_condition = (
+            f"Understand [bold]{focus_concept}[/bold], answer the Micro-Challenge, and score at least [bold green]4/5[/bold green] in practice so the concept counts as complete."
+        )
+        why_today = "One concept mastered properly each day is safer than skimming multiple topics."
+
+    return (
+        f"[bold]Mission[/bold]: {agenda_type}\n"
+        f"[bold]Focus[/bold]: {topic}\n"
+        f"[bold]Today's target[/bold]: {focus_concept}\n"
+        f"[bold]Win condition[/bold]: {win_condition}\n"
+        f"[bold]Why this matters[/bold]: {why_today}\n"
+        f"[bold]Current mastery[/bold]: {mastery_percent:.1f}%\n"
+        f"{urgency_line}"
+    )
+
+
+def build_practice_debrief(score: int | None, total_questions: int, topic: str, completed_concept: str | None = None) -> tuple[str, str, str]:
+    concept_label = completed_concept or topic
+    if score is None:
+        return (
+            "⚠️ Practice Not Completed",
+            (
+                f"The concept [bold]{concept_label}[/bold] is still open because the practice round did not complete.\n"
+                f"Return once the question bank is ready so the learning loop finishes with retrieval practice."
+            ),
+            "yellow",
+        )
+
+    pct = (score / max(1, total_questions)) * 100
+    if score >= 4:
+        return (
+            "✅ Concept Locked In",
+            (
+                f"You cleared today's gate with [bold green]{score}/{total_questions}[/bold green] ({pct:.0f}%).\n"
+                f"[bold]{concept_label}[/bold] is strong enough to count as progress for today. Review the trap explanations once, then move on."
+            ),
+            "green",
+        )
+
+    return (
+        "🛠️ Not Locked In Yet",
+        (
+            f"You scored [bold yellow]{score}/{total_questions}[/bold yellow] ({pct:.0f}%), so [bold]{concept_label}[/bold] stays open.\n"
+            f"Read the misses carefully, identify the exact trap, and retry before treating this topic as done."
+        ),
+        "yellow",
+    )
+
+
+def extract_question_focus_label(q_item: dict) -> str:
+    metadata = q_item.get("metadata", {})
+    return (
+        metadata.get("concept")
+        or metadata.get("syllabus_topic")
+        or metadata.get("topic")
+        or "MongoDB core syntax"
+    )
+
+
+def build_practice_recovery_text(topic: str, concepts: list | None, score: int, total_questions: int, weak_signals: list[str]) -> tuple[str, str, str]:
+    concept_scope = ", ".join(concepts) if concepts else topic
+    unique_signals = []
+    for signal in weak_signals:
+        if signal and signal not in unique_signals:
+            unique_signals.append(signal)
+    signal_text = ", ".join(unique_signals[:3]) if unique_signals else "the explanation panels you just reviewed"
+    pct = (score / max(1, total_questions)) * 100
+
+    if pct >= 80:
+        return (
+            "✅ Reinforcement Plan",
+            (
+                f"You are above the mastery line on [bold]{concept_scope}[/bold] with [bold green]{score}/{total_questions}[/bold green] ({pct:.0f}%).\n"
+                f"Before moving on, spend 30 seconds restating the key trap in your own words and glance once more at: [bold cyan]{signal_text}[/bold cyan]."
+            ),
+            "green",
+        )
+
+    if pct >= 60:
+        return (
+            "🛠️ Recovery Plan",
+            (
+                f"You are close, but [bold]{concept_scope}[/bold] is not fully stable yet at [bold yellow]{score}/{total_questions}[/bold yellow] ({pct:.0f}%).\n"
+                f"Focus your next review on [bold cyan]{signal_text}[/bold cyan], then retry this concept before treating it as finished."
+            ),
+            "yellow",
+        )
+
+    return (
+        "🚨 High-Priority Recovery",
+        (
+            f"This concept is still high risk at [bold red]{score}/{total_questions}[/bold red] ({pct:.0f}%).\n"
+            f"Do not move on casually. Re-read the lesson for [bold]{concept_scope}[/bold], write down the trap behind [bold cyan]{signal_text}[/bold cyan], and come back for a fresh retry."
+        ),
+        "red",
+    )
+
+
+def build_session_closeout_text(
+    covered_topics: list[str],
+    session_accuracy: float,
+    readiness_before: float,
+    readiness_after: float,
+    next_agenda_item: dict | None = None,
+) -> tuple[str, str, str]:
+    if not isinstance(session_accuracy, (int, float)):
+        session_accuracy = 0.0
+    if not isinstance(readiness_before, (int, float)):
+        readiness_before = 0.0
+    if not isinstance(readiness_after, (int, float)):
+        readiness_after = 0.0
+
+    delta = readiness_after - readiness_before
+    if delta > 0.25:
+        delta_line = f"[bold green]Readiness moved up[/bold green] by {delta:.1f}% today."
+        style = "green"
+        title = "📌 Coach Closeout"
+    elif delta < -0.25:
+        delta_line = f"[bold yellow]Readiness dipped[/bold yellow] by {abs(delta):.1f}% today. That usually means weak accuracy or incomplete recall still needs cleanup."
+        style = "yellow"
+        title = "📌 Coach Closeout"
+    else:
+        delta_line = "[bold cyan]Readiness stayed roughly flat[/bold cyan] today. Consistency still matters."
+        style = "cyan"
+        title = "📌 Coach Closeout"
+
+    if session_accuracy >= 80:
+        accuracy_line = "You studied with exam-safe accuracy today. Keep the same rhythm tomorrow."
+    elif session_accuracy >= 60:
+        accuracy_line = "You made progress, but some answers are still fragile under pressure."
+    else:
+        accuracy_line = "Today exposed real gaps. Use the next session for repair, not for rushing ahead."
+
+    covered_line = ", ".join(covered_topics[:3]) if covered_topics else "No scored topics yet"
+    next_line = "Take the next scheduled agenda item."
+    if next_agenda_item:
+        next_line = f"Next best start: [bold]{next_agenda_item.get('topic', 'Next Agenda')}[/bold] ({next_agenda_item.get('desc', 'Continue the study loop')})."
+
+    return (
+        title,
+        (
+            f"[bold]Locked in today[/bold]: {covered_line}\n"
+            f"[bold]Accuracy read[/bold]: {accuracy_line}\n"
+            f"[bold]Readiness[/bold]: {readiness_before:.1f}% -> {readiness_after:.1f}%\n"
+            f"{delta_line}\n"
+            f"[bold]Next move[/bold]: {next_line}"
+        ),
+        style,
+    )
+
+
 # ---------------------------------------------------------------------------
 # ONBOARDING
 # ---------------------------------------------------------------------------
@@ -192,6 +383,13 @@ def run_onboarding():
 
     # --- Show the plan ---
     show_plan_preview(calendar, days)
+    console.print()
+    console.print(Panel(
+        build_onboarding_commitment_text(days, experience_level),
+        title="🎯 How You Win With CertCoach",
+        border_style="green",
+        box=box.ROUNDED,
+    ))
 
     # --- Confirm ---
     console.print()
@@ -259,6 +457,20 @@ def run_teach_session(agenda_item: dict):
 
     console.print(Rule(f"[bold cyan]Today's Topic: {topic}[/bold cyan]"))
     console.print("[dim]  Type [bold]q[/bold] at any point to save and quit.\n[/dim]")
+    profile = database.get_user_profile(USER_ID)
+    status = planner.get_syllabus_status(USER_ID)
+    days_left = planner.calculate_days_left(profile.get("exam_date"))
+    console.print(Panel(
+        build_agenda_mission_text(
+            agenda_item,
+            days_left=days_left,
+            mastery_percent=status.get("mastery_percent", 0.0),
+        ),
+        title="🎯 Daily Mission Brief",
+        border_style="cyan",
+        box=box.ROUNDED,
+    ))
+    console.print()
 
     # ---- 1. EXPLAIN & Q&A LOOP ----
     md_context = planner.load_md_context(md_files)
@@ -375,6 +587,19 @@ def run_teach_session(agenda_item: dict):
     header_topic = f"{topic_id_str}: {topic}"
 
     score = run_practice_questions(header_topic, bank_keys, question_keywords=dynamic_keywords, num=5, is_mock=False, concepts=explained_subtopics)
+    debrief_title, debrief_body, debrief_style = build_practice_debrief(
+        score,
+        5,
+        topic,
+        agenda_item.get("active_subtopic"),
+    )
+    console.print()
+    console.print(Panel(
+        debrief_body,
+        title=debrief_title,
+        border_style=debrief_style,
+        box=box.ROUNDED,
+    ))
 
     # Mark mastered/completed if good score before evaluating mini-mock unlocks.
     if score is not None and score >= 4:
@@ -1173,115 +1398,19 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         questions = unique[:num]
 
     if not questions:
-        # Instead of failing, let's automatically generate and save questions directly!
         console.print(f"\n  [bold yellow]🤖 No pre-seeded questions found in the database for this topic.[/bold yellow]")
-        console.print(f"  [dim]Coach is automatically generating 5 high-fidelity exam questions on the fly...[/dim]")
-        
-        generated_count = 0
-        with console.status("[dim]🤖 Generating and seeding practice questions directly...[/dim]", spinner="dots"):
-            try:
-                from certcoach.core import quiz_generator
-                import sys
-                import os
-                # For bank_keys, let's use the first one
-                b_key = bank_keys[0] if bank_keys else topic
-                
-                # We try to generate up to 5 questions
-                for i in range(5):
-                    mcq = quiz_generator.generate_quiz_for_topic(b_key)
-                    if mcq and mcq.question and len(mcq.options) == 4:
-                        diff = "Easy" if i < 2 else "Medium" if i < 4 else "Hard"
-                        q_data = {
-                            "question_text": mcq.question,
-                            "options": [
-                                {
-                                    "option_letter": ['A', 'B', 'C', 'D'][idx],
-                                    "code_snippet": opt,
-                                    "is_correct": (opt == mcq.correct_answer),
-                                    "feedback": mcq.explanation if (opt == mcq.correct_answer) else mcq.trap_analysis
-                                }
-                                for idx, opt in enumerate(mcq.options)
-                            ],
-                            "metadata": {
-                                "topic": b_key,
-                                "difficulty": diff,
-                                "source": "AI_On_The_Fly"
-                            },
-                            "context": {
-                                "scenario_description": f"Real-world MongoDB operations in {b_key}."
-                            },
-                            "explanation": mcq.explanation,
-                            "trap_analysis": mcq.trap_analysis,
-                            "citation_source": mcq.citation_source
-                        }
-                        database.questions_col.insert_one(q_data)
-                        generated_count += 1
-            except Exception:
-                pass
-                
-        # If we failed to generate any questions via Ollama (e.g. offline), let's insert a beautiful pre-defined mock question!
-        if generated_count == 0:
-            b_key = bank_keys[0] if bank_keys else topic
-            q_fallback = {
-                "question_text": f"Which statement is true regarding the design or query mechanics of '{b_key}' in MongoDB?",
-                "options": [
-                    {
-                        "option_letter": "A",
-                        "code_snippet": "Queries on embedded fields can be indexed using standard single-field or compound indexes.",
-                        "is_correct": True,
-                        "feedback": "Correct. MongoDB allows indexing fields within embedded documents just like top-level fields."
-                    },
-                    {
-                        "option_letter": "B",
-                        "code_snippet": "All document queries must strictly run inside the MongoDB shell without index support.",
-                        "is_correct": False,
-                        "feedback": "Incorrect. Indexes are automatically utilized by the query optimizer."
-                    },
-                    {
-                        "option_letter": "C",
-                        "code_snippet": "Embedded document fields can never have index constraints like uniqueness.",
-                        "is_correct": False,
-                        "feedback": "Incorrect. Unique indexes can be defined on embedded fields as well."
-                    },
-                    {
-                        "option_letter": "D",
-                        "code_snippet": "MongoDB does not support standard query filtering on array fields.",
-                        "is_correct": False,
-                        "feedback": "Incorrect. Array fields are fully queryable and automatically support index lookup."
-                    }
-                ],
-                "metadata": {
-                    "topic": b_key,
-                    "difficulty": "Medium",
-                    "source": "Offline_Fallback"
-                },
-                "context": {
-                    "scenario_description": f"Auditing the structure and query optimization of {b_key}."
-                },
-                "explanation": "MongoDB allows query optimization, indexing, and advanced filtering on embedded fields and array fields seamlessly.",
-                "trap_analysis": "Distractor options suggest that indexing or array lookups are restricted, which represents poor design awareness.",
-                "citation_source": "Syllabus_Grounded_Core.md"
-            }
-            database.questions_col.insert_one(q_fallback)
-            generated_count = 1
-            
-        console.print(f"  [bold green]✔ Successfully seeded {generated_count} practice questions directly to the database![/bold green]")
-        time.sleep(1.5)
-        
-        # Re-fetch!
-        questions = []
-        for key in bank_keys:
-            questions.extend(database.get_random_questions(topic=key, limit=num * 2, subtopic_keywords=question_keywords))
-            
-        # Deduplicate
-        seen, unique = set(), []
-        for q in questions:
-            qt = q.get("question_text", "")
-            if qt not in seen:
-                seen.add(qt)
-                unique.append(q)
-        random.shuffle(unique)
-        questions = unique[:num]
+        console.print(Panel(
+            "[bold]This topic is not ready for smooth practice yet.[/bold]\n\n"
+            "Run the weighted nightly seeder before the next study session:\n"
+            "[bold cyan]certcoach-seed-nightly --max-questions 25[/bold cyan]\n\n"
+            "The coach no longer creates generic production questions during live practice, "
+            "so the learner does not experience lag or low-quality fallback items.",
+            title="Question Bank Not Ready",
+            border_style="yellow",
+            box=box.ROUNDED
+        ))
+        time.sleep(2)
+        return None
 
     if is_mock:
         time_limit = num * 90
@@ -1296,6 +1425,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         return score
 
     score = 0
+    weak_signals = []
     label = "Mini-Mock" if is_mock else "Practice"
     concepts_lbl = f" | Concepts: {', '.join(concepts)}" if (not is_mock and concepts) else ""
     console.print(Rule(f"[bold cyan]{label}: {topic}{concepts_lbl}[/bold cyan]"))
@@ -1365,6 +1495,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
             score += 1
             console.print(f"\n  [bold green]✅ Correct![/bold green]")
         else:
+            weak_signals.append(extract_question_focus_label(q))
             console.print(f"\n  [bold red]❌ Wrong.[/bold red]")
             if correct_option:
                 console.print(f"  Correct answer: [bold]{correct_option.get('option_letter')}[/bold]")
@@ -1404,6 +1535,22 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         console.print("  [yellow]Decent, but review the explanations above before moving on.[/yellow]")
     else:
         console.print("  [red]Below 60% — Coach will schedule a review session tomorrow.[/red]")
+
+    if not is_mock:
+        recovery_title, recovery_body, recovery_style = build_practice_recovery_text(
+            topic,
+            concepts,
+            score,
+            len(questions),
+            weak_signals,
+        )
+        console.print()
+        console.print(Panel(
+            recovery_body,
+            title=recovery_title,
+            border_style=recovery_style,
+            box=box.ROUNDED,
+        ))
 
     if not is_mock and len(questions) == 5 and score == 5:
         awarded = database.award_streak_freeze(USER_ID)
@@ -2107,11 +2254,12 @@ def run_ai_question_wizard():
     
     console.print("  [bold cyan]1.[/bold cyan] Generate & Approve New AI Questions (Interactive Wizard)")
     console.print("  [bold cyan]2.[/bold cyan] View Question Quality Analytics & Difficulty Flags")
-    console.print("  [bold cyan]3.[/bold cyan] Return to Settings Submenu")
+    console.print("  [bold cyan]3.[/bold cyan] Audit 6-Part Explanation Coverage")
+    console.print("  [bold cyan]4.[/bold cyan] Return to Settings Submenu")
     console.print()
     
-    choice = ask("  [bold]Select Option[/bold]", choices=["1", "2", "3"])
-    if choice in ("3", "__back__"):
+    choice = ask("  [bold]Select Option[/bold]", choices=["1", "2", "3", "4"])
+    if choice in ("4", "__back__"):
         return
         
     if choice == "1":
@@ -2283,6 +2431,53 @@ def run_ai_question_wizard():
             )
             
         print_paginated(table, title="Question Quality Analytics")
+        try:
+            Prompt.ask("\n  [dim]Press Enter to return[/dim]")
+        except (KeyboardInterrupt, EOFError):
+            pass
+
+    elif choice == "3":
+        clear()
+        console.print(Rule("[bold cyan]📋 6-Part Explanation Coverage Audit[/bold cyan]"))
+        console.print()
+
+        audit = database.audit_question_explanations()
+        summary = (
+            f"Total Questions: [bold]{audit['total_questions']}[/bold]\n"
+            f"Compliant: [bold green]{audit['compliant_questions']}[/bold green]\n"
+            f"Needs Review: [bold red]{audit['non_compliant_questions']}[/bold red]\n"
+            f"Compliance: [bold cyan]{audit['compliance_percent']}%[/bold cyan]"
+        )
+        elements = [Panel(summary, title="Question Bank Explanation Health", border_style="cyan", box=box.ROUNDED)]
+
+        if audit["issues"]:
+            table = Table(box=box.MINIMAL, header_style="bold blue")
+            table.add_column("Topic", width=18)
+            table.add_column("Concept", width=18)
+            table.add_column("Diff", width=8)
+            table.add_column("Question", min_width=30)
+            table.add_column("Issues", min_width=36)
+
+            for item in audit["issues"][:75]:
+                table.add_row(
+                    item["topic"],
+                    item.get("concept", "") or "—",
+                    item.get("difficulty", "") or "—",
+                    item["question_text"],
+                    "; ".join(item["issues"]),
+                )
+            elements.append(table)
+            if len(audit["issues"]) > 75:
+                elements.append(Text.from_markup(f"\n[dim]Showing first 75 of {len(audit['issues'])} flagged questions.[/dim]"))
+        else:
+            elements.append(Text.from_markup("[bold green]All questions have detailed 6-part explanations.[/bold green]"))
+
+        from rich.console import Group
+        print_paginated(Group(*elements), title="6-Part Explanation Audit")
+        try:
+            Prompt.ask("\n  [dim]Press Enter to return[/dim]")
+        except (KeyboardInterrupt, EOFError):
+            pass
 def run_model_manager():
     import urllib.request
     import urllib.error
@@ -2404,6 +2599,66 @@ def run_model_manager():
         time.sleep(2)
 
 
+def run_account_submenu():
+    global USER_ID
+
+    while True:
+        session = auth.load_session()
+        current_label = (
+            f"{session.get('email')} ({session.get('user_id')})"
+            if session
+            else f"Local demo profile ({USER_ID})"
+        )
+        console.print("\n  [bold blue]👤 Account & Sync[/bold blue]")
+        console.print("  [dim]  " + "─"*30 + "[/dim]")
+        console.print(f"    Current: [bold cyan]{current_label}[/bold cyan]")
+        console.print("    [bold cyan]1.[/bold cyan] Sign in to existing account")
+        console.print("    [bold cyan]2.[/bold cyan] Create new account")
+        console.print("    [bold cyan]3.[/bold cyan] Sign out / use local demo profile")
+        console.print("    [bold cyan]4.[/bold cyan] Back to Settings")
+        console.print()
+
+        try:
+            choice = Prompt.ask("  [bold blue]Account ❯[/bold blue]", choices=["1", "2", "3", "4"]).strip()
+        except (KeyboardInterrupt, EOFError):
+            return
+
+        if choice == "4":
+            return
+
+        if choice == "1":
+            email = Prompt.ask("  Email").strip()
+            password = Prompt.ask("  Password", password=True).strip()
+            ok, msg, user = auth.login(email, password)
+            if ok and user:
+                USER_ID = user["_id"]
+                console.print(f"[green]  ✔ {msg} Progress will sync through MongoDB for this account.[/green]")
+                time.sleep(1.5)
+                return
+            console.print(f"[red]  ❌ {msg}[/red]")
+            time.sleep(1.5)
+
+        elif choice == "2":
+            email = Prompt.ask("  Email").strip()
+            display_name = Prompt.ask("  Display name", default=email.split("@")[0] if "@" in email else "").strip()
+            password = Prompt.ask("  Password (8+ chars)", password=True).strip()
+            ok, msg, user = auth.create_account(email, password, display_name)
+            if ok and user:
+                USER_ID = user["_id"]
+                console.print(f"[green]  ✔ {msg} Your progress will now sync across machines using this MongoDB backend.[/green]")
+                time.sleep(1.5)
+                return
+            console.print(f"[red]  ❌ {msg}[/red]")
+            time.sleep(1.5)
+
+        elif choice == "3":
+            auth.clear_session()
+            USER_ID = DEFAULT_USER_ID
+            console.print("[yellow]  Signed out. Using local demo profile for this machine.[/yellow]")
+            time.sleep(1.5)
+            return
+
+
 def run_settings_submenu(profile, status):
     while True:
         console.print("\n  [bold blue]🛠️ Study Settings & Extras[/bold blue]")
@@ -2425,6 +2680,7 @@ def run_settings_submenu(profile, status):
         console.print("    [bold cyan]h.[/bold cyan] ❌ Quit CertCoach")
         console.print("    [bold cyan]i.[/bold cyan] ⬅️  Back to Main Menu")
         console.print("    [bold cyan]j.[/bold cyan] 💾 Reconfigure MongoDB Connection URI")
+        console.print("    [bold cyan]k.[/bold cyan] 👤 Account Login / Sync Across Machines")
         console.print()
         
         try:
@@ -2471,6 +2727,10 @@ def run_settings_submenu(profile, status):
                 else:
                     console.print("[red]  ❌ Failed to connect using new URI. Check your network or connection string.[/red]")
                 time.sleep(2)
+        elif ans == "k":
+            run_account_submenu()
+            profile = database.get_user_profile(USER_ID)
+            status = planner.get_syllabus_status(USER_ID)
 
 
 
@@ -2612,6 +2872,7 @@ def main_menu():
  
         if choice_raw == "1":
             session_start = datetime.datetime.utcnow()
+            readiness_before_session = current_readiness
             
             # Show skipped topics notice if any
             if skipped_topics:
@@ -2712,6 +2973,14 @@ def main_menu():
                     "readiness": readiness_data_new["current_readiness"]
                 })
                 database.update_user_profile(USER_ID, {"readiness_history": history})
+                next_agenda_after = planner.generate_daily_agenda(USER_ID)
+                closeout_title, closeout_body, closeout_style = build_session_closeout_text(
+                    covered_topics,
+                    session_accuracy,
+                    readiness_before_session,
+                    readiness_data_new["current_readiness"],
+                    next_agenda_after[0] if next_agenda_after else None,
+                )
                 
                 # Render high-visibility session stats panel
                 console.print()
@@ -2721,6 +2990,13 @@ def main_menu():
                     f"🎯  [bold green]Accuracy[/bold green]: {session_accuracy:.1f}%\n"
                     f"📚  [bold]Topics Covered[/bold]: {', '.join(covered_topics)}",
                     title="📝 CertCoach: Study Session Logged", border_style="green", box=box.ROUNDED
+                ))
+                console.print()
+                console.print(Panel(
+                    closeout_body,
+                    title=closeout_title,
+                    border_style=closeout_style,
+                    box=box.ROUNDED,
                 ))
                 time.sleep(2)
                 
