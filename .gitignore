@@ -36,3 +36,15 @@ data/mongodb_docs/
 .ai/
 .antigravity/
 .antigravitycli/
+
+# Scratch and Temporary directories
+scratch/
+memory/
+
+# User Profile, Attempt Histories & Chat Logs (Confidential Data)
+**/user_profiles.json
+**/user_attempts.json
+**/cleaned_profile.json
+**/raw_profile.json
+**/chat_logs/
+**/pics_qa/

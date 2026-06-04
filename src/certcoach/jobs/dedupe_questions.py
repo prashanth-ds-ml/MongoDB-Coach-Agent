@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import argparse
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from rich.console import Console
@@ -50,7 +50,7 @@ def _quality_score(question: dict[str, Any]) -> tuple[int, int, int, str]:
     lowered = explanation_text.lower()
 
     marker_count = sum(
-        1 for marker in database.SIX_PART_EXPLANATION_MARKERS
+        1 for marker in database.SEVEN_PART_EXPLANATION_MARKERS
         if marker in lowered
     )
     option_feedback_count = sum(
@@ -160,7 +160,7 @@ def run_dedupe(*, apply: bool = False, topic: str | None = None, limit: int | No
             deleted = int(result.deleted_count)
             database.questions_col.update_many(
                 {"_id": {"$in": [group["keep"]["_id"] for group in duplicate_groups if "_id" in group["keep"]]}},
-                {"$set": {"metadata.dedupe_checked_at": datetime.utcnow().isoformat()}},
+                {"$set": {"metadata.dedupe_checked_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}},
             )
             console.print(f"\n[green]Deleted duplicate documents: {deleted}[/green]")
 

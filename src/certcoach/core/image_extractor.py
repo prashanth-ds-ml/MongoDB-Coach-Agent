@@ -2,7 +2,7 @@ import os
 import sys
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 import ollama
 from pymongo import MongoClient
 
@@ -73,7 +73,7 @@ def extract_question_from_image(image_path: str) -> dict:
     Uses a robust Double-Pass Pipeline:
     - Pass 1: Multimodal vision model (prioritizing glm-ocr, fallback to llava) extracts the raw textual content.
     - Pass 2: High-accuracy model (qwen2.5:7b) parses, structures, validates, and builds
-              the detailed 6-part explanation strictly adhering to the Question Generation Rulebook.
+              the detailed seven-part explanation strictly adhering to the Question Generation Rulebook.
     """
     vision_model = get_available_vision_model()
     if not vision_model:
@@ -133,13 +133,14 @@ def extract_question_from_image(image_path: str) -> dict:
             "   - Data Modeling\n"
             "   - MongoDB Drivers & PyMongo\n"
             "   - Tools, Tooling & Atlas Search\n"
-            "4. Construct a high-fidelity explanation strictly in the following 6-part structure:\n"
-            "   - Correct Answer: [Letter and exact syntax]\n"
-            "   - Why Correct: [Detailed developer rationale]\n"
-            "   - Why Other Options Are Wrong: [Teardown of each incorrect option]\n"
-            "   - Exam Trap: [Common student misconception warning]\n"
-            "   - Memory Hook: [Short conceptual mnemonic or rule]\n"
-            "   - Follow-Up Practice Recommendation: [Doc citation suggestion]\n\n"
+            "4. Construct a high-fidelity explanation strictly in the following 7-part structure:\n"
+            "   - ### 1. Correct Answer: [Letter and exact syntax]\n"
+            "   - ### 2. Why Correct: [Detailed developer rationale]\n"
+            "   - ### 3. Why Other Options Are Wrong: [Teardown of each incorrect option]\n"
+            "   - ### 4. Exam Trap: [Common student misconception warning]\n"
+            "   - ### 5. Memory Hook: [Short conceptual mnemonic or rule]\n"
+            "   - ### 6. Follow-Up Practice Recommendation: [Doc citation suggestion]\n"
+            "   - ### 7. Syntax Example: [Code block of syntax example, or 'Not required for this concept.']\n\n"
             "Return the output strictly in a valid JSON structure (no markdown wrapper, no extra text) matching this schema:\n"
             "{\n"
             "  \"topic\": \"Syllabus Topic String\",\n"
@@ -152,7 +153,7 @@ def extract_question_from_image(image_path: str) -> dict:
             "    \"Option D text or code\"\n"
             "  ],\n"
             "  \"correct_answer\": \"Option text or code matching the correct choice exactly\",\n"
-            "  \"trap_analysis\": \"The detailed 6-part explanation template here\"\n"
+            "  \"trap_analysis\": \"The detailed seven-part explanation template here\"\n"
             "}"
         )
         
@@ -226,7 +227,7 @@ def process_pics_qa(limit: int = None, dry_run: bool = False):
         if not mcq_data:
             manifest[img_name] = {
                 "status": "failed",
-                "processed_at": datetime.utcnow().isoformat(),
+                "processed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "error": "Failed to parse model output"
             }
             save_manifest(manifest)
@@ -247,7 +248,7 @@ def process_pics_qa(limit: int = None, dry_run: bool = False):
                 print(f"-> Question from {img_name} already exists in production bank. Skipping insertion.")
                 manifest[img_name] = {
                     "status": "success",
-                    "processed_at": datetime.utcnow().isoformat(),
+                    "processed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                     "question_id": existing["_id"],
                     "note": "duplicate skipped"
                 }
@@ -261,7 +262,7 @@ def process_pics_qa(limit: int = None, dry_run: bool = False):
             
             manifest[img_name] = {
                 "status": "success",
-                "processed_at": datetime.utcnow().isoformat(),
+                "processed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "question_id": q_id
             }
             save_manifest(manifest)
@@ -270,7 +271,7 @@ def process_pics_qa(limit: int = None, dry_run: bool = False):
             print(f"Error saving question from {img_name}: {e}")
             manifest[img_name] = {
                 "status": "failed",
-                "processed_at": datetime.utcnow().isoformat(),
+                "processed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
                 "error": str(e)
             }
             save_manifest(manifest)

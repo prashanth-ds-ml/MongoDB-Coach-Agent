@@ -40,7 +40,7 @@ def calculate_days_left(exam_date_str: str) -> int:
         return 30
     try:
         exam_date = datetime.datetime.fromisoformat(exam_date_str)
-        delta = exam_date - datetime.datetime.utcnow()
+        delta = exam_date - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         return max(0, delta.days)
     except Exception:
         return 30
@@ -203,7 +203,7 @@ def get_due_review_topics(user_id: str) -> list:
         try:
             dt = datetime.datetime.fromisoformat(a.get("timestamp"))
         except Exception:
-            dt = datetime.datetime.utcnow()
+            dt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         if t not in last_attempts or dt > last_attempts[t]["dt"]:
             last_attempts[t] = {
                 "dt": dt,
@@ -212,7 +212,7 @@ def get_due_review_topics(user_id: str) -> list:
             }
             
     due_topics = []
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     for t, data in last_attempts.items():
         if not data["is_correct"] or data["confidence"] == "Low":
             interval = 1

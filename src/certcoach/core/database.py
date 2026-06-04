@@ -5,7 +5,7 @@ import uuid
 import hashlib
 import hmac
 import secrets
-from datetime import datetime
+from datetime import datetime, timezone
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -30,6 +30,7 @@ attempts_col = None
 study_sessions_col = None
 draft_questions_col = None
 users_col = None
+error_book_col = None
 connection_error = None
 
 try:
@@ -41,6 +42,7 @@ try:
     study_sessions_col = db["user_study_sessions"]
     draft_questions_col = db["draft_questions"]
     users_col = db["users"]
+    error_book_col = db["user_error_book"]
 except Exception as e:
     connection_error = e
 
@@ -94,8 +96,8 @@ def create_user(email: str, password: str, display_name: str = "") -> tuple[bool
         "email": email_norm,
         "display_name": display_name.strip() or email_norm.split("@")[0],
         "password_hash": _hash_password(password),
-        "created_at": datetime.utcnow().isoformat(),
-        "last_login_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        "last_login_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     }
     users_col.insert_one(user)
     public_user = {k: v for k, v in user.items() if k != "password_hash"}
@@ -108,30 +110,55 @@ def authenticate_user(email: str, password: str) -> tuple[bool, str | dict]:
     if not user or not _verify_password(password, user.get("password_hash", {})):
         return False, "Invalid email or password."
 
-    users_col.update_one({"_id": user["_id"]}, {"$set": {"last_login_at": datetime.utcnow().isoformat()}})
+    users_col.update_one({"_id": user["_id"]}, {"$set": {"last_login_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}})
     public_user = {k: v for k, v in user.items() if k != "password_hash"}
     return True, public_user
 
 
 # --- QUESTION BANK ---
 
-def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False):
+def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False, topic_id=None, concepts=None):
     """
-    Fetch questions filtered by topic, then narrowed by subtopic keywords and optionally difficulty.
+    Fetch questions filtered by topic/topic_id, then narrowed by concepts and subtopic keywords.
     """
     query = {}
-    if topic:
+    if topic_id is not None:
+        query["metadata.topic_id"] = int(topic_id)
+    elif topic:
         query["metadata.topic"] = {"$regex": f"^{topic}$", "$options": "i"}
+        
     if difficulty:
         query["metadata.difficulty"] = {"$regex": f"^{difficulty}$", "$options": "i"}
 
-    questions = list(questions_col.find(query))
+    # 1. First attempt: Direct concept matching on metadata.concept
+    matched_questions = []
+    if concepts:
+        concept_query = dict(query)
+        # Match any of the concepts in a case-insensitive manner or direct mapping
+        concept_query["metadata.concept"] = {"$in": concepts}
+        matched_questions = list(questions_col.find(concept_query))
+        
+    if len(matched_questions) >= limit:
+        random.shuffle(matched_questions)
+        return matched_questions[:limit]
+        
+    # 2. Second attempt: Fall back to keyword/substring matching across all questions of the topic
+    all_topic_qs = list(questions_col.find(query))
     
-    # 2. Narrow by subtopic keywords if provided
+    # Gather search keywords
+    search_keywords = []
     if subtopic_keywords:
-        keywords_lower = [kw.lower() for kw in subtopic_keywords]
-
+        search_keywords.extend(subtopic_keywords)
+    if concepts:
+        search_keywords.extend(concepts)
+        
+    if search_keywords:
+        keywords_lower = [kw.lower() for kw in search_keywords]
+        
         def _matches(q):
+            # Check if this question is already in matched_questions to avoid duplicates
+            if q["_id"] in {mq["_id"] for mq in matched_questions}:
+                return False
             haystack = (
                 q.get("question_text", "") + " " +
                 q.get("metadata", {}).get("concept", "") + " " +
@@ -140,19 +167,18 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
             ).lower()
             return any(kw in haystack for kw in keywords_lower)
 
-        keyword_filtered = [q for q in questions if _matches(q)]
-
-        if strict_keywords:
-            questions = keyword_filtered
-        else:
-            # Only use keyword-filtered set if it has enough questions
-            if len(keyword_filtered) >= min(3, limit):
-                questions = keyword_filtered
-            elif len(keyword_filtered) >= 1:
-                questions = keyword_filtered
-
-    random.shuffle(questions)
-    return questions[:limit]
+        keyword_filtered = [q for q in all_topic_qs if _matches(q)]
+        
+        # Combine direct concept matches and keyword filtered matches
+        combined = matched_questions + keyword_filtered
+    else:
+        # Exclude already matched ones from the fallback general pool
+        matched_ids = {mq["_id"] for mq in matched_questions}
+        fallback = [q for q in all_topic_qs if q["_id"] not in matched_ids]
+        combined = matched_questions + fallback
+        
+    random.shuffle(combined)
+    return combined[:limit]
 
 
 def get_all_topics():
@@ -171,7 +197,7 @@ def save_generated_question(mcq_data: dict):
             "topic": mcq_data.get("topic", "General"),
             "difficulty": mcq_data.get("difficulty", "Medium"),
             "citation_source": mcq_data.get("citation_source", ""),
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         },
         "context": {
             "scenario_description": mcq_data.get("scenario", ""),
@@ -209,8 +235,87 @@ def save_generated_question(mcq_data: dict):
 
 # --- USER PROGRESS & ANALYTICS ---
 
+def classify_mistake_trap(topic: str, question_text: str, correct_snippet: str, selected_snippet: str) -> str:
+    """Heuristic to classify why a student fell for a trap."""
+    topic_lower = topic.lower()
+    q_lower = question_text.lower()
+    c_lower = (correct_snippet or "").lower()
+    s_lower = (selected_snippet or "").lower()
+    
+    # 1. Casing trap: e.g. insert_one vs insertOne
+    if ("_" in c_lower and "_" not in s_lower) or ("_" not in c_lower and "_" in s_lower):
+        return "Lexical Casing Trap"
+        
+    # 2. Array/Embedded elements: e.g. $elemMatch, dot notation
+    if "array" in topic_lower or "$elemmatch" in q_lower or "$elemmatch" in c_lower or "$elemmatch" in s_lower:
+        return "Array Matching Semantics"
+        
+    # 3. Cursor execution order: sort, limit, skip
+    if any(k in q_lower or k in c_lower or k in s_lower for k in ["sort", "limit", "skip", "cursor"]):
+        return "Cursor Method Sequencing"
+        
+    # 4. Data Modeling choice: embedded vs referenced
+    if "modeling" in topic_lower or "relationship" in topic_lower or "embed" in q_lower or "reference" in q_lower:
+        return "Data Modeling Choice"
+        
+    # 5. Query Operator Logic: $and vs $or vs implicit AND
+    if any(op in q_lower or op in c_lower or op in s_lower for op in ["$and", "$or", "$nor", "$not", "$exists", "$type"]):
+        return "MQL Operator Logic"
+        
+    return "Syntax / Conceptual Nuance"
+
+
+def log_mistake(user_id: str, question_id: str, topic: str, concept: str, selected_option: str, correct_option: str, trap_type: str):
+    """Log or increment a mistake in the user's error book."""
+    existing = error_book_col.find_one({"user_id": user_id, "question_id": question_id, "reviewed": False})
+    if existing:
+        error_book_col.update_one(
+            {"_id": existing["_id"]},
+            {
+                "$inc": {"fail_count": 1},
+                "$set": {
+                    "last_failed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                    "selected_option": selected_option,
+                    "correct_option": correct_option,
+                    "trap_type": trap_type
+                }
+            }
+        )
+    else:
+        error_book_col.insert_one({
+            "user_id": user_id,
+            "question_id": question_id,
+            "topic": topic,
+            "concept": concept,
+            "selected_option": selected_option,
+            "correct_option": correct_option,
+            "trap_type": trap_type,
+            "fail_count": 1,
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "last_failed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "reviewed": False
+        })
+
+
+def resolve_mistake(user_id: str, question_id: str):
+    """Mark a mistake as resolved/reviewed when answered correctly."""
+    error_book_col.update_many(
+        {"user_id": user_id, "question_id": question_id, "reviewed": False},
+        {"$set": {"reviewed": True, "resolved_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()}}
+    )
+
+
+def get_error_book(user_id: str, limit: int = 50) -> list:
+    """Retrieve unresolved/active mistakes for a user, sorted by failure frequency."""
+    return list(
+        error_book_col.find({"user_id": user_id, "reviewed": False})
+        .sort([("fail_count", -1), ("last_failed_at", -1)])
+        .limit(limit)
+    )
+
+
 def save_attempt(user_id: str, question_id: str, topic: str, user_selected_letter: str, is_correct: bool, confidence: str):
-    """Save an individual question attempt to MongoDB."""
+    """Save an individual question attempt to MongoDB and manage error book entries."""
     attempt = {
         "user_id": user_id,
         "question_id": question_id,
@@ -218,9 +323,49 @@ def save_attempt(user_id: str, question_id: str, topic: str, user_selected_lette
         "user_selected_letter": user_selected_letter,
         "is_correct": is_correct,
         "confidence_level": confidence,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     attempts_col.insert_one(attempt)
+    
+    if is_correct:
+        resolve_mistake(user_id, question_id)
+    else:
+        # Fetch question details to run heuristic classification
+        try:
+            q_doc = questions_col.find_one({"_id": question_id})
+            if q_doc:
+                question_text = q_doc.get("question_text", "")
+                concept = q_doc.get("metadata", {}).get("concept", "")
+                
+                correct_snippet = ""
+                selected_snippet = ""
+                for opt in q_doc.get("options", []):
+                    if opt.get("is_correct"):
+                        correct_snippet = opt.get("code_snippet", "")
+                    if opt.get("option_letter") == user_selected_letter:
+                        selected_snippet = opt.get("code_snippet", "")
+                
+                trap_type = classify_mistake_trap(topic, question_text, correct_snippet, selected_snippet)
+                log_mistake(
+                    user_id=user_id,
+                    question_id=question_id,
+                    topic=topic,
+                    concept=concept,
+                    selected_option=user_selected_letter,
+                    correct_option=correct_snippet,
+                    trap_type=trap_type
+                )
+        except Exception:
+            # Fallback if lookup fails
+            log_mistake(
+                user_id=user_id,
+                question_id=question_id,
+                topic=topic,
+                concept="Unclassified",
+                selected_option=user_selected_letter,
+                correct_option="Unknown",
+                trap_type="Unclassified"
+            )
 
 def get_user_attempts(user_id: str):
     """Retrieve all attempts for a user."""
@@ -269,7 +414,7 @@ def get_user_profile(user_id: str):
             "last_login_date": None,
             "study_preference": {"hours_per_week": 10},
             "progress": {"completed_topics": [], "current_agenda": [], "streak_freezes": 0},
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
         profiles_col.insert_one(profile)
     return profile
@@ -294,7 +439,7 @@ def update_user_profile(user_id: str, updates: dict):
 def update_streak(user_id: str):
     from datetime import timedelta
     profile = get_user_profile(user_id)
-    today_date = datetime.utcnow().date()
+    today_date = datetime.now(timezone.utc).date()
     
     last_login_str = profile.get("last_login_date")
     if last_login_str:
@@ -340,7 +485,7 @@ def save_study_session(user_id: str, start_time: datetime, end_time: datetime, d
         "topics_covered": topics_covered,
         "questions_attempted": questions_attempted,
         "accuracy": accuracy,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     study_sessions_col.insert_one(session)
 
@@ -366,7 +511,7 @@ def save_draft_question(mcq_data: dict) -> str:
         "trap_analysis": mcq_data.get("trap_analysis", "No specific trap."),
         "explanation": mcq_data.get("explanation", ""),
         "citation_source": mcq_data.get("citation_source", ""),
-        "created_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     draft_questions_col.insert_one(draft)
     return q_id
@@ -396,7 +541,7 @@ def approve_draft_question(draft_id: str) -> bool:
             "topic": draft["topic"],
             "difficulty": draft["difficulty"],
             "citation_source": draft["citation_source"],
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         },
         "context": {
             "scenario_description": draft["scenario"],
@@ -501,18 +646,19 @@ def get_questions_quality_analytics() -> list:
     return results
 
 
-SIX_PART_EXPLANATION_MARKERS = [
+SEVEN_PART_EXPLANATION_MARKERS = [
     "correct answer",
     "why correct",
     "why other options are wrong",
     "exam trap",
     "memory hook",
     "follow-up practice recommendation",
+    "syntax example",
 ]
 
 
 def audit_question_explanations(min_explanation_chars: int = 500) -> dict:
-    """Audit whether question-bank items have detailed 6-part explanations."""
+    """Audit whether question-bank items have detailed seven-part explanations."""
     all_qs = list(questions_col.find({}))
     issues = []
     compliant = 0
@@ -528,7 +674,7 @@ def audit_question_explanations(min_explanation_chars: int = 500) -> dict:
         explanation_text = "\n".join(explanation_parts)
         lowered = explanation_text.lower()
 
-        missing_markers = [marker for marker in SIX_PART_EXPLANATION_MARKERS if marker not in lowered]
+        missing_markers = [marker for marker in SEVEN_PART_EXPLANATION_MARKERS if marker not in lowered]
         option_feedback_missing = [
             opt.get("option_letter", "?")
             for opt in q.get("options", [])
@@ -586,7 +732,7 @@ def save_active_exam(user_id: str, topic: str, questions: list, user_answers: li
             "user_answers": user_answers,
             "flagged": flagged,
             "elapsed": elapsed,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         },
         upsert=True
     )
@@ -616,7 +762,7 @@ def award_streak_freeze(user_id: str) -> bool:
 
 def update_database_connection(new_uri: str) -> bool:
     """Rewrites the .env files, closes the active client, and re-establishes the connection."""
-    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, draft_questions_col, users_col, MONGO_URI, connection_error
+    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, draft_questions_col, users_col, error_book_col, MONGO_URI, connection_error
     
     os.environ["MONGO_URI"] = new_uri
     MONGO_URI = new_uri
@@ -664,6 +810,7 @@ def update_database_connection(new_uri: str) -> bool:
         study_sessions_col = db["user_study_sessions"]
         draft_questions_col = db["draft_questions"]
         users_col = db["users"]
+        error_book_col = db["user_error_book"]
         connection_error = None
         return True
     except Exception as e:

@@ -93,7 +93,13 @@ class SeedMCQ(BaseModel):
     correct_answer: str = Field(description="The exact correct option text or letter.")
     feedbacks: list[str] = Field(description="Exactly four feedback strings, one per option.")
     trap_analysis: str = Field(description="The main exam trap.")
-    six_part_explanation: str = Field(description="Six-part explanation markdown.")
+    explanation_correct_answer: str = Field(description="What is the correct answer and a brief statement of it.")
+    explanation_why_correct: str = Field(description="Detailed explanation of why the correct option is correct.")
+    explanation_why_wrong: str = Field(description="Detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.")
+    explanation_exam_trap: str = Field(description="Description of the exam trap or common misconception related to this concept.")
+    explanation_memory_hook: str = Field(description="A compact mnemonic or memory hook with one or two concrete rules to remember.")
+    explanation_practice_recommendations: list[str] = Field(description="A list of 3 to 5 compact but specific action items or recall points for practice.")
+    explanation_syntax_example: str = Field(description="A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.")
     citation_source: str = Field(description="Official source filename or section.")
 
 
@@ -262,7 +268,7 @@ def _parse_six_part_explanation(explanation: str) -> dict[str, str]:
 
 
 def _count_bullet_lines(section: str) -> int:
-    return sum(1 for line in section.splitlines() if line.strip().startswith(("-", "*")))
+    return sum(1 for line in section.splitlines() if line.strip().startswith(("-", "*")) or re.match(r"^\d+\.", line.strip()))
 
 
 def _count_code_fences(section: str) -> int:
@@ -387,6 +393,18 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
         issues.append("seven-part explanation is too short")
     if len({str(option.get("code_snippet", "")).strip().lower() for option in options}) != len(options):
         issues.append("duplicate option text")
+        
+    # Check casing validation rules using the shared lexical guard
+    meta = question.get("metadata", {}) or {}
+    topic_name = meta.get("topic") or meta.get("syllabus_topic") or ""
+    syntax_ok, syntax_msg = planner.validate_lexical_syntax_guard(
+        topic_name,
+        question.get("question_text", ""),
+        options
+    )
+    if not syntax_ok:
+        issues.append(f"Casing validation failed: {syntax_msg}")
+        
     return not issues, issues
 
 
@@ -473,26 +491,25 @@ Rules:
 - Include at least one subtle exam-trap distractor.
 - Make the difficulty match the requested level.
 - Do not invent unsupported MongoDB behavior.
+- Be strictly grounded in the provided documentation context. Do not test on concepts, APIs, commands, or drivers that are not explicitly documented in the provided source text.
+- Do not jump ahead to advanced concepts (like indexing, aggregation, or PyMongo connection options) if the current topic/concept doesn't cover them. If the topic is Topic 1 (Overview & Document Model), keep the focus purely on BSON data types, fields, and collections.
 - Do not create a cosmetic rewrite of a common MongoDB docs example; create a fresh scenario grounded in the context.
-- The six_part_explanation must contain these headings:
-  ### 1. Correct Answer
-  ### 2. Why Correct
-  ### 3. Why Other Options Are Wrong
-  ### 4. Exam Trap
-  ### 5. Memory Hook
-  ### 6. Follow-Up Practice Recommendation
-  ### 7. Syntax Example
-- Section 5 should be a compact mnemonic or memory hook with one or two concrete rules.
-- Section 6 must be 3 to 5 bullet points, each bullet being a compact but specific action item or recall point.
-- Section 7 should follow this rule: if the concept is syntax-heavy, include one short fenced code example plus 2 brief bullets explaining it; if not, write exactly "Not required for this concept."
-- Each section must be detailed enough for a beginner to learn from the answer review.
-- Section 3 must explicitly explain why each distractor is wrong.
+- Provide detailed structured explanation fields:
+  - explanation_correct_answer: What is the correct answer and a brief statement of it.
+  - explanation_why_correct: Detailed explanation of why the correct option is correct.
+  - explanation_why_wrong: Detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.
+  - explanation_exam_trap: Description of the exam trap or common misconception related to this concept.
+  - explanation_memory_hook: A compact mnemonic or memory hook with one or two concrete rules to remember.
+  - explanation_practice_recommendations: A list of 3 to 5 compact but specific action items or recall points for practice. Do NOT add markdown hyphen prefixes (e.g. - ) inside the list items themselves; the system will format them.
+  - explanation_syntax_example: A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.
+- Each explanation field must be detailed enough for a beginner to learn from the answer review.
+- explanation_why_wrong must explicitly explain why each distractor is wrong.
 - Explain every relevant syntax token, operator, method argument, return value, and casing trap.
-- Use a short analogy in either Why Correct or Memory Hook when it helps anchor the concept.
+- Use a short analogy in either explanation_why_correct or explanation_memory_hook when it helps anchor the concept.
 {QUALITY_RULES}
 """
     try:
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192)
+        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192, format="json")
         mcq = llm.with_structured_output(SeedMCQ).invoke(prompt)
     except Exception as exc:
         print(f"  [!] Generation failed for {target.concept} ({target.difficulty}): {exc}")
@@ -513,6 +530,30 @@ Rules:
     fingerprint = question_fingerprint(target.bank_topic, target.concept, mcq.question)
     question_number = _next_question_number(target)
     q_id = make_question_id(target, question_number, fingerprint)
+
+    rec_bullets = "\n".join(f"- {rec.strip()}" for rec in mcq.explanation_practice_recommendations)
+    explanation_markdown = f"""
+### 1. Correct Answer
+{mcq.explanation_correct_answer.strip()}
+
+### 2. Why Correct
+{mcq.explanation_why_correct.strip()}
+
+### 3. Why Other Options Are Wrong
+{mcq.explanation_why_wrong.strip()}
+
+### 4. Exam Trap
+{mcq.explanation_exam_trap.strip()}
+
+### 5. Memory Hook
+{mcq.explanation_memory_hook.strip()}
+
+### 6. Follow-Up Practice Recommendation
+{rec_bullets}
+
+### 7. Syntax Example
+{mcq.explanation_syntax_example.strip()}
+""".strip()
 
     return {
         "_id": q_id,
@@ -545,7 +586,7 @@ Rules:
             }
             for idx, option in enumerate(mcq.options)
         ],
-        "explanation": mcq.six_part_explanation,
+        "explanation": explanation_markdown,
         "trap_analysis": mcq.trap_analysis,
         "citation_source": mcq.citation_source,
         "global_metrics": {
@@ -604,15 +645,22 @@ def run_weighted_seed(
             task_id = progress.add_task("Seeding weighted questions", total=total_to_attempt)
             for target, missing in deficits:
                 topic_item = syllabus_by_id[target.topic_id]
-                context_text = planner.load_md_context(topic_item.get("md_files", []))
+                md_files = topic_item.get("md_files", [])
+                context_text = planner.load_md_context(md_files, prioritize_concept=target.concept)
                 if not context_text:
-                    console.print(f"  [yellow][skip][/yellow] No docs for Topic {target.topic_id}: {target.topic}")
+                    progress.console.print(f"  [yellow][skip][/yellow] No docs for Topic {target.topic_id}: {target.topic}")
                     continue
+
+                prioritized = planner.prioritize_md_files(md_files, target.concept)
+                progress.console.print(f"\n[cyan][Target Info][/cyan] Topic {target.topic_id} ({target.topic}) | Concept: [bold]{target.concept}[/bold] | Difficulty: {target.difficulty}")
+                progress.console.print(f"  - Mapped md files: {md_files}")
+                progress.console.print(f"  - Prioritized context file: [bold green]{prioritized[0] if prioritized else 'None'}[/bold green]")
+                progress.console.print(f"  - Injected Context Length: {len(context_text)} characters")
 
                 generated_for_target = 0
                 while generated_for_target < missing:
                     if max_questions is not None and inserted >= max_questions:
-                        console.print(f"\nReached max_questions={max_questions}. Inserted {inserted}.")
+                        progress.console.print(f"\nReached max_questions={max_questions}. Inserted {inserted}.")
                         return inserted
 
                     label = f"T{target.topic_id} {target.concept} ({target.difficulty})"
@@ -625,19 +673,19 @@ def run_weighted_seed(
                         question = generate_weighted_question(target, context_text, avoid_questions)
                         if not question:
                             failures += 1
-                            console.print(f"[yellow]Generation retry:[/yellow] empty/invalid response for {label} ({attempts}/{max_attempts_per_slot})")
+                            progress.console.print(f"[yellow]Generation retry:[/yellow] empty/invalid response for {label} ({attempts}/{max_attempts_per_slot})")
                             continue
 
                         is_valid, quality_issues = validate_question_quality(question)
                         if not is_valid:
                             failures += 1
-                            console.print(f"[yellow]Quality retry:[/yellow] {question.get('_id')} - {'; '.join(quality_issues)} ({attempts}/{max_attempts_per_slot})")
+                            progress.console.print(f"[yellow]Quality retry:[/yellow] {question.get('_id')} - {'; '.join(quality_issues)} ({attempts}/{max_attempts_per_slot})")
                             avoid_questions.append(question.get("question_text", ""))
                             continue
 
                         is_dup, reason = is_duplicate_question(question, target)
                         if is_dup:
-                            console.print(f"[yellow]Duplicate retry:[/yellow] {reason} ({attempts}/{max_attempts_per_slot})")
+                            progress.console.print(f"[yellow]Duplicate retry:[/yellow] {reason} ({attempts}/{max_attempts_per_slot})")
                             avoid_questions.append(question.get("question_text", ""))
                             continue
 
@@ -652,7 +700,7 @@ def run_weighted_seed(
                         failures += 1
                         generated_for_target += 1
                         progress.advance(task_id)
-                        console.print(f"[red]Slot failed:[/red] {label} after {max_attempts_per_slot} attempts")
+                        progress.console.print(f"[red]Slot failed:[/red] {label} after {max_attempts_per_slot} attempts")
     finally:
         unload_ollama_model(model, local_llm_url)
 

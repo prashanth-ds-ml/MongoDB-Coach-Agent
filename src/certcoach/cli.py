@@ -341,11 +341,11 @@ def run_onboarding():
             continue
         try:
             exam_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            today = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
             if exam_date <= today:
                 console.print("[red]The exam date must be in the future (after today).[/red]")
                 continue
-            delta = exam_date - datetime.datetime.utcnow()
+            delta = exam_date - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
             days = max(1, delta.days)
             break
         except ValueError:
@@ -473,8 +473,6 @@ def run_teach_session(agenda_item: dict):
     console.print()
 
     # ---- 1. EXPLAIN & Q&A LOOP ----
-    md_context = planner.load_md_context(md_files)
-    
     chat_history = memory_manager.load_active_history()
     
     # Fallback if no subtopics defined
@@ -484,6 +482,7 @@ def run_teach_session(agenda_item: dict):
     force_practice = False
     explained_subtopics = []
     for idx, subtopic in enumerate(subtopics):
+        md_context = planner.load_md_context(md_files, prioritize_concept=subtopic)
         with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
             explanation = coach.explain_topic(topic, subtopic, md_context)
         
@@ -790,7 +789,7 @@ def clean_feedback_for_role(feedback: str, is_correct: bool) -> str:
 
 
 def format_explanation_template(correct_option_letter: str, q_item: dict) -> str:
-    """Restructures a question explanation into a strict 6-part template."""
+    """Restructures a question explanation into a strict seven-part template."""
     options = q_item.get("options", [])
     correct_snippet = ""
     wrong_snippets = []
@@ -828,12 +827,13 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
             break
 
     explanation_text = (
-        f"1. **Correct Answer**: Option {correct_option_letter} (`{correct_snippet}`)\n\n"
-        f"2. **Why Correct**: {official_explanation or 'This query or operator matches the official MongoDB developer specification.'}\n\n"
-        f"3. **Why Other Options Are Wrong**:\n" + "\n".join(wrong_snippets) + "\n\n"
-        f"4. **Exam Trap**: {trap_desc}\n\n"
-        f"5. **{hook}**\n\n"
-        f"6. **Follow-Up Practice Recommendation**: Review official MongoDB reference markdown documentation and practice syntax patterns in the Scenario Simulator."
+        f"### 1. Correct Answer\nOption {correct_option_letter} (`{correct_snippet}`)\n\n"
+        f"### 2. Why Correct\n{official_explanation or 'This query or operator matches the official MongoDB developer specification.'}\n\n"
+        f"### 3. Why Other Options Are Wrong\n" + "\n".join(wrong_snippets) + "\n\n"
+        f"### 4. Exam Trap\n{trap_desc}\n\n"
+        f"### 5. Memory Hook\n{hook}\n\n"
+        f"### 6. Follow-Up Practice Recommendation\nReview official MongoDB reference markdown documentation and practice syntax patterns in the Scenario Simulator.\n\n"
+        f"### 7. Syntax Example\nNot required for this concept."
     )
     return explanation_text
 
@@ -975,7 +975,7 @@ def run_post_exam_review(questions: list, user_answers: list, flagged: list, sco
         console.print(f"  Final Score: [{col}][bold]{score}/{len(questions)}  ({pct:.1f}%)[/bold][/{col}]")
         console.print()
         console.print("  [bold]Actions:[/bold]")
-        console.print(f"    • Enter a question number [bold][1-{len(questions)}][/bold] to review its scenario, answers, and 6-part explanation")
+        console.print(f"    • Enter a question number [bold][1-{len(questions)}][/bold] to review its scenario, answers, and seven-part explanation")
         console.print("    • Type [bold]B[/bold] to return to the Main Menu")
         console.print()
         
@@ -1032,8 +1032,10 @@ def show_single_question_review(questions: list, user_answers: list, correctness
                 
         console.print()
         
-        templated_explanation = format_explanation_template(correct_opt.get("option_letter") if correct_opt else "A", q)
-        console.print(Panel(Markdown(templated_explanation, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
+        explanation_markdown = q.get("explanation", "").strip()
+        if not explanation_markdown:
+            explanation_markdown = format_explanation_template(correct_opt.get("option_letter") if correct_opt else "A", q)
+        console.print(Panel(Markdown(explanation_markdown, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
         
         console.print()
         console.print("  [dim]Navigation: [Enter] back to review grid | [N]ext question | [P]rev question[/dim]")
@@ -1268,8 +1270,8 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
         database.save_attempt(USER_ID, str(q.get("_id", "unknown")), q_topic, ans or "—", is_correct, "High")
         database.update_question_exposure(str(q.get("_id", "unknown")), is_correct, response_times[idx])
         
-    session_start = datetime.datetime.fromtimestamp(start_time)
-    session_end = datetime.datetime.utcnow()
+    session_start = datetime.datetime.fromtimestamp(start_time, datetime.timezone.utc).replace(tzinfo=None)
+    session_end = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     duration_minutes = (session_end - session_start).total_seconds() / 60.0
     
     covered_topics = list(set(q.get("metadata", {}).get("topic", "General") for q in questions))
@@ -1303,6 +1305,11 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
     if is_mock:
         clear()
 
+    # Try to extract topic_id from the topic parameter to enable precise database concept querying
+    syllabus = planner.load_syllabus()
+    topic_item = next((item for item in syllabus if item["topic"] == topic or f"Topic {item['id']}:" in topic or item["topic"] in topic), None)
+    topic_id = topic_item["id"] if topic_item else None
+
     # Gather questions filtered by topic + keyword relevance
     questions = []
     
@@ -1317,7 +1324,9 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                     limit=num * 2,
                     subtopic_keywords=question_keywords,
                     difficulty="Easy",
-                    strict_keywords=True
+                    strict_keywords=True,
+                    topic_id=topic_id,
+                    concepts=concepts
                 )
             )
             medium_qs.extend(
@@ -1326,7 +1335,9 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                     limit=num * 2,
                     subtopic_keywords=question_keywords,
                     difficulty="Medium",
-                    strict_keywords=True
+                    strict_keywords=True,
+                    topic_id=topic_id,
+                    concepts=concepts
                 )
             )
         
@@ -1359,7 +1370,9 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                         topic=key,
                         limit=num * 2,
                         subtopic_keywords=question_keywords,
-                        strict_keywords=True
+                        strict_keywords=True,
+                        topic_id=topic_id,
+                        concepts=concepts
                     )
                 )
             unique_fallback = []
@@ -1383,7 +1396,9 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                 database.get_random_questions(
                     topic=key,
                     limit=num * 2,
-                    subtopic_keywords=question_keywords
+                    subtopic_keywords=question_keywords,
+                    topic_id=topic_id,
+                    concepts=concepts
                 )
             )
             
@@ -1500,11 +1515,13 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
             if correct_option:
                 console.print(f"  Correct answer: [bold]{correct_option.get('option_letter')}[/bold]")
 
-        # Restructure to the strict 6-part Explanation Template
+        # Restructure to the strict seven-part Explanation Template
         correct_letter = correct_option.get("option_letter") if correct_option else "A"
-        templated_explanation = format_explanation_template(correct_letter, q)
+        explanation_markdown = q.get("explanation", "").strip()
+        if not explanation_markdown:
+            explanation_markdown = format_explanation_template(correct_letter, q)
         
-        console.print(Panel(Markdown(templated_explanation, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
+        console.print(Panel(Markdown(explanation_markdown, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
 
         if not is_mock:
             with console.status("[dim]🤖 Coach is reflecting...[/dim]", spinner="dots"):
@@ -2027,11 +2044,11 @@ def recalibrate_study_plan():
             return
         try:
             exam_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            today = datetime.datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+            today = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
             if exam_date <= today:
                 console.print("[red]The exam date must be in the future (after today).[/red]")
                 continue
-            delta = exam_date - datetime.datetime.utcnow()
+            delta = exam_date - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
             days = max(1, delta.days)
             break
         except ValueError:
@@ -2058,7 +2075,7 @@ def recalibrate_study_plan():
     # Generate new study plan
     console.print()
     console.print("[dim]Regenerating and balancing your new study plan...[/dim]")
-    exam_date = datetime.datetime.utcnow() + datetime.timedelta(days=days)
+    exam_date = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=days)
     calendar = planner.generate_study_calendar(days, experience_level, completed_topics)
     
     database.update_user_profile(USER_ID, {
@@ -2185,6 +2202,128 @@ def show_casing_contrast_sheet():
         pass
 
 
+def show_error_book_menu():
+    while True:
+        clear()
+        console.print(Rule("[bold red]🛑 Active Error Book (Mistake Log & Diagnostic Reviews)[/bold red]"))
+        console.print("  [dim]This log classifies your mistake patterns to help you practice target areas.[/dim]\n")
+        
+        errors = database.get_error_book(USER_ID)
+        if not errors:
+            console.print(Panel(
+                "🎉 [bold green]Clean Slate![/bold green] You have no unresolved mistakes in your Error Book.\n"
+                "This means you have resolved all past incorrect answers by subsequently answering them correctly.\n"
+                "Keep up the high discipline and accuracy!",
+                border_style="green", box=box.ROUNDED, padding=(1, 2)
+            ))
+            try:
+                Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+            except (KeyboardInterrupt, EOFError):
+                pass
+            break
+            
+        # Draw a beautiful summary table
+        table = Table(box=box.MINIMAL, header_style="bold blue", show_lines=False)
+        table.add_column("#", width=3, justify="right")
+        table.add_column("Topic", width=22)
+        table.add_column("Concept / Focus Area", min_width=25)
+        table.add_column("Trap Classification", width=25, style="bold red")
+        table.add_column("Fails", width=6, justify="center")
+        table.add_column("Last Attempt", width=12)
+        
+        for idx, err in enumerate(errors, 1):
+            topic = err.get("topic", "General")
+            concept = err.get("concept", "Unclassified")
+            trap = err.get("trap_type", "Unclassified")
+            fails = str(err.get("fail_count", 1))
+            
+            # Format time
+            last_failed_raw = err.get("last_failed_at", "")
+            time_lbl = ""
+            if last_failed_raw:
+                try:
+                    dt = datetime.datetime.fromisoformat(last_failed_raw)
+                    time_lbl = dt.strftime("%b %d %H:%M")
+                except Exception:
+                    time_lbl = last_failed_raw[:12]
+                    
+            table.add_row(
+                str(idx),
+                topic[:20] + "..." if len(topic) > 20 else topic,
+                concept[:25] + "..." if len(concept) > 25 else concept,
+                trap,
+                fails,
+                time_lbl
+            )
+            
+        console.print(table)
+        console.print()
+        console.print("  [bold cyan]1.[/bold cyan] 🚀 Start Targeted Recovery Practice for a Concept")
+        console.print("  [bold cyan]2.[/bold cyan] 🔍 View Mistake Details & Analytics")
+        console.print("  [bold cyan]3.[/bold cyan] ⬅️  Back to Reference Library Menu")
+        console.print()
+        
+        choice = ask("  [bold]Select Option[/bold]", choices=["1", "2", "3"])
+        if choice in ("3", "__back__"):
+            break
+            
+        if choice == "1":
+            ans = ask(f"  [bold]Enter Item Number (1-{len(errors)})[/bold]")
+            try:
+                item_idx = int(ans) - 1
+                if 0 <= item_idx < len(errors):
+                    err_item = errors[item_idx]
+                    target_topic = err_item["topic"]
+                    target_concept = err_item["concept"]
+                    console.print(f"\n  [bold cyan]Starting practice for: {target_topic} -> {target_concept}[/bold cyan]")
+                    time.sleep(1)
+                    run_practice_questions(target_topic, [target_topic], num=3, concepts=[target_concept])
+            except Exception as e:
+                console.print(f"[red]  Invalid selection: {e}. Press Enter to retry.[/red]")
+                time.sleep(2)
+                
+        elif choice == "2":
+            ans = ask(f"  [bold]Enter Item Number (1-{len(errors)})[/bold]")
+            try:
+                item_idx = int(ans) - 1
+                if 0 <= item_idx < len(errors):
+                    err_item = errors[item_idx]
+                    q_doc = database.questions_col.find_one({"_id": err_item["question_id"]})
+                    if q_doc:
+                        clear()
+                        console.print(Rule(f"[bold red]Mistake Detail: {err_item.get('concept')}[/bold red]"))
+                        console.print(f"\n  [bold]Question:[/bold]\n  {q_doc.get('question_text', '')}\n")
+                        
+                        console.print("  [bold]Options:[/bold]")
+                        for opt in q_doc.get("options", []):
+                            prefix = "   "
+                            suffix = ""
+                            if opt.get("is_correct"):
+                                prefix = "  [green]✓[/green] "
+                                suffix = " [green](Correct Answer)[/green]"
+                            elif opt.get("option_letter") == err_item.get("selected_option"):
+                                prefix = "  [red]✗[/red] "
+                                suffix = " [red](Your Selection)[/red]"
+                            console.print(f"{prefix}{opt.get('option_letter')}. {opt.get('code_snippet', '')}{suffix}")
+                            
+                        console.print(f"\n  [bold red]Trap Classification:[/bold red] {err_item.get('trap_type')}")
+                        console.print(f"  [bold]Total Failure Frequency:[/bold] {err_item.get('fail_count')} times")
+                        
+                        console.print(f"\n  [bold cyan]Seven-Part Explanation:[/bold cyan]")
+                        console.print(Markdown(q_doc.get("explanation", "")))
+                        
+                        try:
+                            Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+                        except (KeyboardInterrupt, EOFError):
+                            pass
+                    else:
+                        console.print("[red]  Question not found in database.[/red]")
+                        time.sleep(2)
+            except Exception as e:
+                console.print(f"[red]  Invalid selection: {e}. Press Enter to retry.[/red]")
+                time.sleep(2)
+
+
 def run_library_submenu():
     while True:
         console.print("\n  [bold blue]📖 Reference Library & Progress[/bold blue]")
@@ -2194,7 +2333,8 @@ def run_library_submenu():
         console.print("    [bold cyan]c.[/bold cyan] 📚 Syllabus Coverage & Gap Report")
         console.print("    [bold cyan]d.[/bold cyan] 📊 Performance Analytics Dashboard")
         console.print("    [bold cyan]e.[/bold cyan] 💻 View Lexical Casing Contrast Sheet (mongosh vs PyMongo)")
-        console.print("    [bold cyan]f.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]f.[/bold cyan] 🛑 View Active Error Book (Mistake Log & Diagnostic Reviews)")
+        console.print("    [bold cyan]g.[/bold cyan] ⬅️  Back to Main Menu")
         console.print()
         
         try:
@@ -2212,37 +2352,17 @@ def run_library_submenu():
             show_analytics()
         elif ans == "e":
             show_casing_contrast_sheet()
-        elif ans in ("f", "back", "b", "q"):
+        elif ans == "f":
+            show_error_book_menu()
+        elif ans in ("g", "back", "b", "q"):
             break
 
 
 def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> tuple[bool, str]:
     """
-    Verifies casing rules:
-    - Standard topics must strictly use mongosh camelCase (insertOne, findOne, etc.) 
-      and avoid PyMongo snake_case driver methods.
-    - Python/Driver topics should compare or use PyMongo snake_case.
+    Verifies casing rules by routing to the shared planner utility.
     """
-    topic_lower = topic.lower()
-    is_driver = "pymongo" in topic_lower or "driver" in topic_lower or "topic 11" in topic_lower
-    
-    pymongo_methods = [
-        "insert_one", "insert_many", "find_one", "update_one", "update_many", 
-        "delete_one", "delete_many", "replace_one"
-    ]
-    
-    all_text = (question + " " + " ".join(options)).lower()
-    
-    if not is_driver:
-        for m in pymongo_methods:
-            if m.lower() in all_text:
-                return False, f"Standard topic contains PyMongo snake_case method: '{m}'. Standard topics must use mongosh camelCase (e.g. '{m.replace('_', '')[0].lower() + m.replace('_', '')[1:]}')."
-    else:
-        has_pymongo = any(m.lower() in all_text for m in pymongo_methods)
-        if not has_pymongo:
-            return False, "Driver topic lacks PyMongo snake_case driver syntax (e.g., insert_one, find_one)."
-            
-    return True, "Passed syntax guard."
+    return planner.validate_lexical_syntax_guard(topic, question, options)
 
 
 def run_ai_question_wizard():
@@ -2254,7 +2374,7 @@ def run_ai_question_wizard():
     
     console.print("  [bold cyan]1.[/bold cyan] Generate & Approve New AI Questions (Interactive Wizard)")
     console.print("  [bold cyan]2.[/bold cyan] View Question Quality Analytics & Difficulty Flags")
-    console.print("  [bold cyan]3.[/bold cyan] Audit 6-Part Explanation Coverage")
+    console.print("  [bold cyan]3.[/bold cyan] Audit Seven-Part Explanation Coverage")
     console.print("  [bold cyan]4.[/bold cyan] Return to Settings Submenu")
     console.print()
     
@@ -2438,7 +2558,7 @@ def run_ai_question_wizard():
 
     elif choice == "3":
         clear()
-        console.print(Rule("[bold cyan]📋 6-Part Explanation Coverage Audit[/bold cyan]"))
+        console.print(Rule("[bold cyan]📋 Seven-Part Explanation Coverage Audit[/bold cyan]"))
         console.print()
 
         audit = database.audit_question_explanations()
@@ -2470,10 +2590,10 @@ def run_ai_question_wizard():
             if len(audit["issues"]) > 75:
                 elements.append(Text.from_markup(f"\n[dim]Showing first 75 of {len(audit['issues'])} flagged questions.[/dim]"))
         else:
-            elements.append(Text.from_markup("[bold green]All questions have detailed 6-part explanations.[/bold green]"))
+            elements.append(Text.from_markup("[bold green]All questions have detailed seven-part explanations.[/bold green]"))
 
         from rich.console import Group
-        print_paginated(Group(*elements), title="6-Part Explanation Audit")
+        print_paginated(Group(*elements), title="Seven-Part Explanation Audit")
         try:
             Prompt.ask("\n  [dim]Press Enter to return[/dim]")
         except (KeyboardInterrupt, EOFError):
@@ -2871,7 +2991,7 @@ def main_menu():
             break
  
         if choice_raw == "1":
-            session_start = datetime.datetime.utcnow()
+            session_start = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
             readiness_before_session = current_readiness
             
             # Show skipped topics notice if any
@@ -2934,7 +3054,7 @@ def main_menu():
                 console.print("[green]  You have completed all agenda items for today! Great job.[/green]")
 
             # --- END STUDY SESSION TRACKING ---
-            session_end = datetime.datetime.utcnow()
+            session_end = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
             duration_minutes = (session_end - session_start).total_seconds() / 60.0
             
             # Fetch all user attempts since session_start

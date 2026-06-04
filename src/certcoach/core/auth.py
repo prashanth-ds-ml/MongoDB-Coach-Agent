@@ -1,6 +1,6 @@
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 
 from certcoach.core import database
 
@@ -29,7 +29,7 @@ def save_session(user: dict) -> None:
         "user_id": user["_id"],
         "email": user.get("email", ""),
         "display_name": user.get("display_name", ""),
-        "saved_at": datetime.utcnow().isoformat(),
+        "saved_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
     }
     with open(SESSION_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)

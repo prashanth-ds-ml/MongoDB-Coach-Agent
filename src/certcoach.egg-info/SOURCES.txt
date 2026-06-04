@@ -123,6 +123,7 @@ src/certcoach/data/raw_markdowns/topic_12_docs_atlas_tutorial_create_new_cluster
 src/certcoach/data/raw_markdowns/topic_12_docs_atlas_tutorial_deploy_free_tier_cluster__5819911ace.md
 src/certcoach/jobs/__init__.py
 src/certcoach/jobs/dedupe_questions.py
+src/certcoach/jobs/map_questions.py
 src/certcoach/jobs/nightly_seed_questions.py
 src/certcoach/jobs/repair_explanations.py
 src/scripts/scrape_docs.py

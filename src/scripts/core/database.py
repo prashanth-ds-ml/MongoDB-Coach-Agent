@@ -1,7 +1,7 @@
 import os
 import random
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from pymongo import MongoClient
 from dotenv import load_dotenv
 
@@ -68,7 +68,7 @@ def save_generated_question(mcq_data: dict):
             "topic": mcq_data.get("topic", "General"),
             "difficulty": mcq_data.get("difficulty", "Medium"),
             "citation_source": mcq_data.get("citation_source", ""),
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         },
         "context": {
             "scenario_description": mcq_data.get("scenario", ""),
@@ -115,7 +115,7 @@ def save_attempt(user_id: str, question_id: str, topic: str, user_selected_lette
         "user_selected_letter": user_selected_letter,
         "is_correct": is_correct,
         "confidence_level": confidence,
-        "timestamp": datetime.utcnow().isoformat()
+        "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     attempts_col.insert_one(attempt)
 
@@ -163,7 +163,7 @@ def get_user_profile(user_id: str):
             "exam_date": None,
             "study_preference": {"hours_per_week": 10},
             "progress": {"completed_topics": [], "current_agenda": []},
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
         }
         profiles_col.insert_one(profile)
     return profile

@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(_HERE, "../data"))
@@ -29,7 +29,7 @@ def log_interaction(role: str, content: str):
     init_memory()
     
     # 1. Append to Markdown Brain
-    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     with open(BRAIN_FILE, "a", encoding="utf-8") as f:
         if role == "user":
             f.write(f"\n### 🧑 You ({timestamp})\n")

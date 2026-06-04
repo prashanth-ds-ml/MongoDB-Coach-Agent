@@ -23,8 +23,35 @@ def load_syllabus() -> list:
         return json.load(f)
 
 
-def load_md_context(md_files: list) -> str:
+def prioritize_md_files(md_files: list[str], concept: str) -> list[str]:
+    if not concept:
+        return md_files
+    # Clean and split the concept into tokens
+    tokens = [t.lower() for t in concept.replace("()", " ").replace("/", " ").replace("-", " ").split() if len(t) > 2]
+    if not tokens:
+        return md_files
+        
+    def get_score(filename: str) -> int:
+        filename_lower = filename.lower()
+        score = 0
+        for token in tokens:
+            if token in filename_lower:
+                score += 10
+            # Give bonus if exact matches on specific words
+            if "bson" in token and "bson" in filename_lower:
+                score += 5
+            if "crud" in token and "crud" in filename_lower:
+                score += 5
+        return score
+        
+    return sorted(md_files, key=get_score, reverse=True)
+
+
+def load_md_context(md_files: list, prioritize_concept: str = None) -> str:
     """Load markdown file content as context for the LLM."""
+    if prioritize_concept:
+        md_files = prioritize_md_files(md_files, prioritize_concept)
+        
     texts = []
     CLEANED_MD_DIR = os.path.join(DATA_DIR, "cleaned_markdowns")
     RAW_MD_DIR_DYNAMIC = os.path.join(DATA_DIR, "raw_markdowns")
@@ -61,7 +88,7 @@ def calculate_days_left(exam_date_str: str) -> int:
         return 30
     try:
         exam_date = datetime.datetime.fromisoformat(exam_date_str)
-        delta = exam_date - datetime.datetime.utcnow()
+        delta = exam_date - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         return max(0, delta.days)
     except Exception:
         return 30
@@ -338,7 +365,7 @@ def get_due_review_topics(user_id: str) -> list:
         try:
             dt = datetime.datetime.fromisoformat(a.get("timestamp"))
         except Exception:
-            dt = datetime.datetime.utcnow()
+            dt = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
         if t not in last_attempts or dt > last_attempts[t]["dt"]:
             last_attempts[t] = {
                 "dt": dt,
@@ -347,7 +374,7 @@ def get_due_review_topics(user_id: str) -> list:
             }
             
     due_topics = []
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     for t, data in last_attempts.items():
         if not data["is_correct"] or data["confidence"] == "Low":
             interval = 1
@@ -552,3 +579,40 @@ def audit_documentation_files() -> dict:
         "incomplete": incomplete,
         "empty": empty
     }
+
+
+def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> tuple[bool, str]:
+    """
+    Verifies casing rules:
+    - Standard topics must strictly use mongosh camelCase (insertOne, findOne, etc.) 
+      and avoid PyMongo snake_case driver methods.
+    - Python/Driver topics should compare or use PyMongo snake_case.
+    """
+    topic_lower = topic.lower()
+    is_driver = "pymongo" in topic_lower or "driver" in topic_lower or "topic 11" in topic_lower
+    
+    pymongo_methods = [
+        "insert_one", "insert_many", "find_one", "update_one", "update_many", 
+        "delete_one", "delete_many", "replace_one"
+    ]
+    
+    # Extract option texts to handle both dictionary shapes and raw strings
+    option_texts = []
+    for opt in options:
+        if isinstance(opt, dict):
+            option_texts.append(opt.get("code_snippet", ""))
+        else:
+            option_texts.append(str(opt))
+            
+    all_text = (question + " " + " ".join(option_texts)).lower()
+    
+    if not is_driver:
+        for m in pymongo_methods:
+            if m.lower() in all_text:
+                return False, f"Standard topic contains PyMongo snake_case method: '{m}'. Standard topics must use mongosh camelCase (e.g. '{m.replace('_', '')[0].lower() + m.replace('_', '')[1:]}')."
+    else:
+        has_pymongo = any(m.lower() in all_text for m in pymongo_methods)
+        if not has_pymongo:
+            return False, "Driver topic lacks PyMongo snake_case driver syntax (e.g., insert_one, find_one)."
+            
+    return True, "Passed syntax guard."

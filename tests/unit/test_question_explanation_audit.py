@@ -23,7 +23,7 @@ def test_audit_question_explanations_flags_missing_template():
     assert "missing sections" in audit["issues"][0]["issues"][0]
 
 
-def test_audit_question_explanations_accepts_six_part_template():
+def test_audit_question_explanations_accepts_seven_part_template():
     from certcoach.core import database
 
     detailed = """
@@ -39,6 +39,8 @@ def test_audit_question_explanations_accepts_six_part_template():
     Memory Hook: insert means hand the document to MongoDB as-is.
     ### 6. Follow-Up Practice Recommendation
     Follow-Up Practice Recommendation: review insertOne documentation.
+    ### 7. Syntax Example
+    Syntax Example: db.collection.insertOne({name: 'test'})
     """ * 3
 
     questions_col = MagicMock()

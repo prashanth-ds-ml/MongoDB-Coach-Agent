@@ -104,7 +104,7 @@ def test_recalibrate_study_plan(mock_ask, mock_confirm, mock_planner, mock_datab
     import datetime
     from certcoach.cli import recalibrate_study_plan
     
-    future_date = (datetime.datetime.utcnow() + datetime.timedelta(days=30)).strftime("%Y-%m-%d")
+    future_date = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=30)).strftime("%Y-%m-%d")
     mock_ask.side_effect = [future_date, "2"]
     mock_confirm.return_value = False
     
@@ -380,7 +380,7 @@ def test_generate_daily_agenda_skipping_reviews(mock_load_syllabus, mock_get_pro
         mock_get_attempts.return_value = [
             {
                 "topic": "Topic 1",
-                "timestamp": (datetime.datetime.utcnow() - datetime.timedelta(days=5)).isoformat(),
+                "timestamp": (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=5)).isoformat(),
                 "is_correct": False,
                 "confidence_level": "Low"
             }
@@ -764,7 +764,7 @@ def test_run_practice_questions_adaptive_selection(mock_prompt, mock_database):
     from certcoach.cli import run_practice_questions
     
     # Mock database to return questions depending on difficulty argument
-    def mock_get_random(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False):
+    def mock_get_random(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False, *args, **kwargs):
         if difficulty == "Easy":
             return [
                 {"_id": f"easy_{i}", "question_text": f"Easy Q {i}", "metadata": {"topic": topic, "difficulty": "Easy"}, "options": [{"option_letter": "A", "code_snippet": "ans", "is_correct": True}]}
@@ -785,10 +785,10 @@ def test_run_practice_questions_adaptive_selection(mock_prompt, mock_database):
     
     # Assert get_random_questions was called separately for Easy and Medium difficulties
     mock_database.get_random_questions.assert_any_call(
-        topic="Topic A", limit=10, subtopic_keywords=None, difficulty="Easy", strict_keywords=True
+        topic="Topic A", limit=10, subtopic_keywords=None, difficulty="Easy", strict_keywords=True, topic_id=None, concepts=["concept_x"]
     )
     mock_database.get_random_questions.assert_any_call(
-        topic="Topic A", limit=10, subtopic_keywords=None, difficulty="Medium", strict_keywords=True
+        topic="Topic A", limit=10, subtopic_keywords=None, difficulty="Medium", strict_keywords=True, topic_id=None, concepts=["concept_x"]
     )
 
 
@@ -1233,12 +1233,12 @@ def test_exam_simulator_autosaver_resume(mock_confirm_ask, mock_prompt_ask, mock
 
 def test_streak_freeze_retention_and_decrement():
     from certcoach.core import database
-    from datetime import datetime, timedelta
+    from datetime import datetime, timedelta, timezone
     
     mock_profile = {
         "_id": "local_user_1",
         "streak_days": 5,
-        "last_login_date": (datetime.utcnow().date() - timedelta(days=2)).isoformat(),
+        "last_login_date": (datetime.now(timezone.utc).date() - timedelta(days=2)).isoformat(),
         "progress": {"streak_freezes": 2}
     }
     
@@ -1257,7 +1257,7 @@ def test_streak_freeze_retention_and_decrement():
         # The final call updates the streak to be retained (5) and sets today as last login
         second_call_args = mock_update_profile.call_args_list[1][0][1]
         assert second_call_args["streak_days"] == 5
-        assert second_call_args["last_login_date"] == datetime.utcnow().date().isoformat()
+        assert second_call_args["last_login_date"] == datetime.now(timezone.utc).date().isoformat()
         
         # Verify announcement printed
         mock_print.assert_called_once()
@@ -1336,7 +1336,7 @@ def test_show_casing_contrast_sheet(mock_prompt_ask, mock_database, mock_console
 def test_practice_questions_awards_freeze(mock_prompt_ask, mock_coach, mock_database, mock_console):
     from certcoach.cli import run_practice_questions
     
-    def mock_get_random(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False):
+    def mock_get_random(topic=None, limit=10, subtopic_keywords=None, difficulty=None, strict_keywords=False, *args, **kwargs):
         prefix = difficulty or "Any"
         return [
             {

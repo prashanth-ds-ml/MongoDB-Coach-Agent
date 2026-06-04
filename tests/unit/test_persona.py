@@ -24,9 +24,9 @@ def test_build_followup_prompt_requires_gap_correction():
         [{"role": "assistant", "content": "Answer the challenge."}],
     )
 
-    assert "first state what they got right" in prompt
-    assert "exact gap or trap" in prompt
-    assert "type `practice` when ready" in prompt
+    assert "state what is correct" in prompt
+    assert "exact code-smell or casing trap" in prompt
+    assert "practice" in prompt
 
 
 def test_build_free_chat_prompt_anchors_study_advice():

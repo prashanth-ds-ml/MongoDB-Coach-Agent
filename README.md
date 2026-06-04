@@ -19,8 +19,9 @@ Using a local Ollama instance (default: `gemma4:e4b`, configurable in `~/.certco
   - **Dynamic Pacing HUD**: Evaluates average target response times and displays active pacing alerts (Ahead, Behind, or On Track).
   - **Non-Linear Navigation**: Navigate freely using `[N]ext`, `[P]revious`, `[R]eview Flag`, and direct jumps to any question number.
   - **Summary Grid**: Renders a compact progress grid detailing completed, skipped, and flagged questions.
-  - **Delayed Review Mode**: Scrutinizes incorrect answers under a graded scorecard presenting comprehensive **6-Part Explanations**.
+  - **Delayed Review Mode**: Scrutinizes incorrect answers under a graded scorecard presenting comprehensive **Seven-Part Explanations**.
   - **Crash-Resilient Autosaver**: Automatically persists active exam state on every single question transition to survive crashes.
+- **🛑 Active Error Book**: Keeps a dedicated collection of historical study mistakes, tracking fail counts, timestamps, and error patterns. Offers targeted practice sessions and interactive reviews of your weakest concepts directly from the CLI.
 - **🧹 Startup VRAM Memory Manager**: Automatically scans and detects active models in graphics memory at launch, prompting to unload them (`keep_alive=0`) to clear VRAM space and prevent model weight-loading lag.
 - **📚 Syllabus Gap & Coverage Auditor**: Audits official study documents and maps file coverage status directly in the CLI using the canonical 12-topic syllabus map and concept checkpoints.
 - **💻 Scenario Simulator (Apply Mode)**: Generates and evaluates real-world coding/modeling scenarios tailored to the MongoDB exam.
@@ -150,7 +151,7 @@ Select `Option 1` from the main menu to start studying today's scheduled concept
 
 To count the concept as complete, clear the practice gate with **4/5 or better**. After the quiz:
 
-1. CertCoach shows the structured six-part answer review for every question.
+1. CertCoach shows the structured seven-part answer review for every question.
 2. CertCoach gives a recovery or reinforcement plan based on the score and the weak concepts just exposed.
 3. If the concept is locked in, CertCoach marks it complete, updates the cumulative cheat sheet for that topic, and keeps the existing mini-mock unlock rules intact.
 
@@ -219,7 +220,7 @@ To complete all missing weighted questions for a single topic, omit `--max-quest
 .\.venv\Scripts\certcoach-seed-nightly.exe --topic 11
 ```
 
-After activating the virtual environment, `certcoach`, `certcoach-seed-nightly`, `certcoach-repair-explanations`, and `certcoach-dedupe-questions` can be run from any folder. If a command is not on `PATH`, call the executable directly:
+After activating the virtual environment, `certcoach`, `certcoach-seed-nightly`, `certcoach-repair-explanations`, `certcoach-dedupe-questions`, and `certcoach-map-questions` can be run from any folder. If a command is not on `PATH`, call the executable directly:
 
 ```powershell
 C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-seed-nightly.exe --topic 11
@@ -227,7 +228,7 @@ C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-seed-nightly.exe --t
 
 ### 4. Repair Existing Question Explanations
 
-To audit and repair older question-bank items so answer reviews teach through the full six-part template:
+To audit and repair older question-bank items so answer reviews teach through the full seven-part template:
 
 ```powershell
 certcoach-repair-explanations --dry-run
@@ -267,13 +268,23 @@ certcoach-seed-nightly --topic 11 --dry-run
 certcoach-seed-nightly --topic 11
 ```
 
+### 6. Question Syllabus Mapping & Alignment
+
+To audit the database and automatically align any legacy or dynamic questions to the correct syllabus topics and concept subtopics using token and keyword matching:
+
+```powershell
+certcoach-map-questions --dry-run
+certcoach-map-questions
+```
+
 Recommended nightly order:
 
-1. Run `certcoach-repair-explanations` until the six-part explanation audit is clean enough for study.
+1. Run `certcoach-repair-explanations` until the seven-part explanation audit is clean enough for study.
 2. Run `certcoach-dedupe-questions`, review the duplicate summary, then run `certcoach-dedupe-questions --apply`.
-3. Run `certcoach-seed-nightly --dry-run` to see remaining weighted gaps.
-4. Run `certcoach-seed-nightly` overnight to populate all remaining weighted questions.
-5. Start study with `certcoach` the next morning.
+3. Run `certcoach-map-questions` to ensure all questions are accurately categorized and mapped to active syllabus topics and concepts.
+4. Run `certcoach-seed-nightly --dry-run` to see remaining weighted gaps.
+5. Run `certcoach-seed-nightly` overnight to populate all remaining weighted questions.
+6. Start study with `certcoach` the next morning.
 
 ### 2. General Data Ingestion Utilities
 If you want to re-ingest raw syllabus files, clean markdowns, or index files, use these helper scripts:

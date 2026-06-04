@@ -1,7 +1,7 @@
 import argparse
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from bson import ObjectId
 from langchain_ollama import ChatOllama
@@ -27,9 +27,22 @@ from certcoach.jobs.nightly_seed_questions import (
     clear_ollama_memory,
     preload_ollama_model,
     unload_ollama_model,
+    validate_question_quality,
 )
 
 console = Console()
+
+
+class RepairedExplanationSchema(BaseModel):
+    feedbacks: list[str] = Field(description="Exactly four detailed feedback strings matching options A, B, C, D in order.")
+    trap_analysis: str = Field(description="Detailed exam trap explanation.")
+    explanation_correct_answer: str = Field(description="What is the correct answer and a brief statement of it.")
+    explanation_why_correct: str = Field(description="Detailed explanation of why the correct option is correct.")
+    explanation_why_wrong: str = Field(description="Detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.")
+    explanation_exam_trap: str = Field(description="Description of the exam trap or common misconception related to this concept.")
+    explanation_memory_hook: str = Field(description="A compact mnemonic or memory hook with one or two concrete rules to remember.")
+    explanation_practice_recommendations: list[str] = Field(description="A list of 3 to 5 compact but specific action items or recall points for practice.")
+    explanation_syntax_example: str = Field(description="A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.")
 
 
 class RepairedExplanation(BaseModel):
@@ -109,11 +122,16 @@ Current explanation:
 Current trap analysis:
 {q.get('trap_analysis', '')}
 
-Return a repaired explanation with:
-- `explanation`: detailed markdown containing exactly these seven headings:
-  {chr(10).join("  " + heading for heading in SEVEN_PART_HEADINGS)}
+Return detailed explanation and feedback fields matching the schema:
 - `feedbacks`: exactly four detailed feedback strings matching options A, B, C, D in order.
 - `trap_analysis`: detailed exam-trap analysis.
+- `explanation_correct_answer`: brief statement of the correct option and why.
+- `explanation_why_correct`: detailed explanation of why the correct option is correct.
+- `explanation_why_wrong`: detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.
+- `explanation_exam_trap`: description of the exam trap or common misconception related to this concept.
+- `explanation_memory_hook`: a compact mnemonic or memory hook with one or two concrete rules.
+- `explanation_practice_recommendations`: a list of 3 to 5 compact but specific action items or recall points for practice. Do NOT add markdown hyphen prefixes (e.g. - ) inside the list items themselves; the system will format them.
+- `explanation_syntax_example`: a markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.
 
 Make it beginner-friendly but technically precise. Explain syntax tokens, method names, operators, return values, casing traps, and why each distractor is wrong.
 Syntax example rule:
@@ -123,15 +141,44 @@ Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 {QUALITY_RULES}
 """
     try:
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192)
-        repaired = llm.with_structured_output(RepairedExplanation).invoke(prompt)
+        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192, format="json")
+        repaired_raw = llm.with_structured_output(RepairedExplanationSchema).invoke(prompt)
     except Exception as exc:
         print(f"  [!] Repair generation failed: {exc}")
         return None
 
-    if not repaired or len(repaired.feedbacks) != 4:
+    if not repaired_raw or len(repaired_raw.feedbacks) != 4:
         return None
-    return repaired
+
+    rec_bullets = "\n".join(f"- {rec.strip()}" for rec in repaired_raw.explanation_practice_recommendations)
+    explanation_markdown = f"""
+### 1. Correct Answer
+{repaired_raw.explanation_correct_answer.strip()}
+
+### 2. Why Correct
+{repaired_raw.explanation_why_correct.strip()}
+
+### 3. Why Other Options Are Wrong
+{repaired_raw.explanation_why_wrong.strip()}
+
+### 4. Exam Trap
+{repaired_raw.explanation_exam_trap.strip()}
+
+### 5. Memory Hook
+{repaired_raw.explanation_memory_hook.strip()}
+
+### 6. Follow-Up Practice Recommendation
+{rec_bullets}
+
+### 7. Syntax Example
+{repaired_raw.explanation_syntax_example.strip()}
+""".strip()
+
+    return RepairedExplanation(
+        explanation=explanation_markdown,
+        feedbacks=repaired_raw.feedbacks,
+        trap_analysis=repaired_raw.trap_analysis,
+    )
 
 
 def apply_repair(q: dict, repaired: RepairedExplanation) -> None:
@@ -149,7 +196,7 @@ def apply_repair(q: dict, repaired: RepairedExplanation) -> None:
                 "trap_analysis": repaired.trap_analysis,
                 "options": options,
                 "metadata.explanation_repair_source": "certcoach_repair_explanations",
-                "metadata.explanation_repaired_at": datetime.utcnow().isoformat(),
+                "metadata.explanation_repaired_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             }
         },
     )
@@ -236,6 +283,24 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
                     failed.append((str(q.get("_id", "")), "generation failed"))
                     progress.advance(task_id)
                     continue
+
+                # Construct temporary repaired question dict for quality validation
+                repaired_q = dict(q)
+                repaired_q["explanation"] = repair.explanation
+                repaired_q["trap_analysis"] = repair.trap_analysis
+                options = []
+                for idx, opt in enumerate(q.get("options", [])):
+                    updated = dict(opt)
+                    updated["feedback"] = repair.feedbacks[idx]
+                    options.append(updated)
+                repaired_q["options"] = options
+
+                is_valid, quality_issues = validate_question_quality(repaired_q)
+                if not is_valid:
+                    failed.append((str(q.get("_id", "")), f"quality check failed: {'; '.join(quality_issues)}"))
+                    progress.advance(task_id)
+                    continue
+
                 apply_repair(q, repair)
                 repaired += 1
                 progress.advance(task_id)
