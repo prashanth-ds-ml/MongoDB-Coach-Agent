@@ -17,3 +17,9 @@
 - Added Anki-style spaced repetition to the daily agenda based on confidence and accuracy.
 - Upgraded the `run_teach_session` to chunk explanations and auto-advance through the daily agenda.
 - Shifted the CLI to a Hybrid Conversational interface, adding a persistent Smart Router and a `run_free_chat_session` mode.
+
+## 2026-06-06
+- Implemented the Casing Guard validation repair in `planner.py` to support python keywords and neutral methods in PyMongo topics.
+- Added strict Pydantic flat schema formatting rules to `nightly_seed_questions.py` prompt to prevent Ollama output formatting errors.
+- Declared a complete Feature Freeze across all features and UI modules.
+- Created `progress.md` and `decisions.md` Obsidian memory docs, and updated other memory guides to prioritize immediate exam preparation.

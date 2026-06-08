@@ -48,7 +48,7 @@ except Exception as e:
 
 def check_connection():
     if connection_error is not None:
-        print(f"\n⚠️  MongoDB Connection/Configuration Error: {connection_error}")
+        print(f"\n[!] MongoDB Connection/Configuration Error: {connection_error}")
         print("Could not connect to MongoDB. This usually happens due to:")
         print("  1. Network or DNS resolution timeouts (especially with mongodb+srv:// Atlas URIs)")
         print("  2. Missing internet access or a local server downtime")
@@ -58,7 +58,7 @@ def check_connection():
     try:
         client.admin.command("ping")
     except Exception as e:
-        print(f"\n⚠️  MongoDB Connection Error: {e}")
+        print(f"\n[!] MongoDB Connection Error: {e}")
         print("Could not ping MongoDB. Verify your network/database connection or update your connection string.")
         sys.exit(1)
 

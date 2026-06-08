@@ -141,7 +141,9 @@ Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 {QUALITY_RULES}
 """
     try:
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192, format="json")
+        import os
+        timeout_val = float(os.getenv("OLLAMA_TIMEOUT", "300.0"))
+        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=timeout_val, num_ctx=4096, format="json")
         repaired_raw = llm.with_structured_output(RepairedExplanationSchema).invoke(prompt)
     except Exception as exc:
         print(f"  [!] Repair generation failed: {exc}")

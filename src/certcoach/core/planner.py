@@ -585,9 +585,10 @@ def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> t
     """
     Verifies casing rules:
     - Standard topics must strictly use mongosh camelCase (insertOne, findOne, etc.) 
-      and avoid PyMongo snake_case driver methods.
-    - Python/Driver topics should compare or use PyMongo snake_case.
+      and avoid PyMongo snake_case driver methods in code blocks or options.
+    - Python/Driver topics should compare or use PyMongo snake_case in code blocks or options.
     """
+    import re
     topic_lower = topic.lower()
     is_driver = "pymongo" in topic_lower or "driver" in topic_lower or "topic 11" in topic_lower
     
@@ -604,15 +605,32 @@ def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> t
         else:
             option_texts.append(str(opt))
             
-    all_text = (question + " " + " ".join(option_texts)).lower()
+    # Extract only code sections from the question stem
+    # Includes inline code (backticks) and code blocks (triple backticks)
+    code_blocks = re.findall(r'```(?:[a-zA-Z0-9]+)?\n(.*?)\n```', question, re.DOTALL)
+    inline_codes = re.findall(r'`([^`]+)`', question)
+    question_code = " ".join(code_blocks + inline_codes)
+    
+    # Combined code text
+    code_text = (question_code + " " + " ".join(option_texts)).lower()
     
     if not is_driver:
         for m in pymongo_methods:
-            if m.lower() in all_text:
-                return False, f"Standard topic contains PyMongo snake_case method: '{m}'. Standard topics must use mongosh camelCase (e.g. '{m.replace('_', '')[0].lower() + m.replace('_', '')[1:]}')."
+            # Match method call syntax like .insert_one or insert_one as a full word
+            pattern = rf"\.?\b{re.escape(m)}\b"
+            if re.search(pattern, code_text):
+                return False, f"Standard topic contains PyMongo snake_case method in code: '{m}'. Standard topics must use mongosh camelCase (e.g. '{m.replace('_', '')[0].lower() + m.replace('_', '')[1:]}')."
     else:
-        has_pymongo = any(m.lower() in all_text for m in pymongo_methods)
-        if not has_pymongo:
-            return False, "Driver topic lacks PyMongo snake_case driver syntax (e.g., insert_one, find_one)."
+        has_pymongo = any(re.search(rf"\.?\b{re.escape(m)}\b", code_text) for m in pymongo_methods)
+        pymongo_conn_keywords = ["mongoclient", "uri", "pool", "timeout", "tls", "host", "port", "pymongo"]
+        # Search connection keywords in both the extracted code blocks and the plain question text
+        has_conn_keywords = any(k in code_text for k in pymongo_conn_keywords) or any(k in question.lower() for k in pymongo_conn_keywords)
+        
+        # Check if code exists in options or question code blocks
+        code_markers = [".", "()", "[", "]", "{", "}", "import ", "def ", " = ", "_id"]
+        has_code = any(any(m in opt for m in code_markers) for opt in option_texts) or any(m in question_code for m in code_markers)
+        
+        if has_code and not has_pymongo and not has_conn_keywords:
+            return False, "Driver topic lacks PyMongo snake_case driver syntax (e.g., insert_one, find_one) or connection keywords (e.g., MongoClient, URI) in code segments."
             
     return True, "Passed syntax guard."

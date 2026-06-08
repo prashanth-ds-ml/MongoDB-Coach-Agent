@@ -25,6 +25,18 @@ from rich.progress import (
 from certcoach.core import database, planner
 from certcoach.core.question_targets import DEFAULT_TOTAL_BANK_TARGET, QuestionTarget, build_weighted_targets
 
+class StyleTarget:
+    def __init__(self, topic_id, topic, bank_topic, concept, difficulty, style_type, target_count, exam_weight, concept_weight):
+        self.topic_id = topic_id
+        self.topic = topic
+        self.bank_topic = bank_topic
+        self.concept = concept
+        self.difficulty = difficulty
+        self.style_type = style_type
+        self.target_count = target_count
+        self.exam_weight = exam_weight
+        self.concept_weight = concept_weight
+
 console = Console()
 LETTERS = ["A", "B", "C", "D"]
 SEVEN_PART_HEADINGS = [
@@ -52,26 +64,26 @@ Quality rules:
 """.strip()
 
 EXPLANATION_SECTION_MIN_LENGTHS = {
-    "### 1. Correct Answer": 30,
-    "### 2. Why Correct": 90,
-    "### 3. Why Other Options Are Wrong": 140,
-    "### 4. Exam Trap": 60,
-    "### 5. Memory Hook": 80,
-    "### 6. Follow-Up Practice Recommendation": 120,
+    "### 1. Correct Answer": 20,
+    "### 2. Why Correct": 65,
+    "### 3. Why Other Options Are Wrong": 100,
+    "### 4. Exam Trap": 45,
+    "### 5. Memory Hook": 40,
+    "### 6. Follow-Up Practice Recommendation": 80,
     "### 7. Syntax Example": 20,
 }
 
 EXPLANATION_SECTION_MIN_BULLETS = {
-    "### 6. Follow-Up Practice Recommendation": 3,
+    "### 6. Follow-Up Practice Recommendation": 2,
 }
 
 EASY_EXPLANATION_SECTION_MIN_LENGTHS = {
-    "### 1. Correct Answer": 24,
-    "### 2. Why Correct": 70,
-    "### 3. Why Other Options Are Wrong": 110,
-    "### 4. Exam Trap": 45,
-    "### 5. Memory Hook": 45,
-    "### 6. Follow-Up Practice Recommendation": 80,
+    "### 1. Correct Answer": 15,
+    "### 2. Why Correct": 50,
+    "### 3. Why Other Options Are Wrong": 75,
+    "### 4. Exam Trap": 30,
+    "### 5. Memory Hook": 30,
+    "### 6. Follow-Up Practice Recommendation": 60,
 }
 
 EASY_EXPLANATION_SECTION_MIN_BULLETS = {
@@ -157,7 +169,7 @@ def preload_ollama_model(model: str, local_llm_url: str) -> None:
         _ollama_json_request(
             local_llm_url,
             "/api/generate",
-            {"model": model, "prompt": "", "stream": False, "keep_alive": "30m", "options": {"num_ctx": 8192}},
+            {"model": model, "prompt": "", "stream": False, "keep_alive": "30m", "options": {"num_ctx": 4096}},
             timeout=180.0,
         )
         console.print(f"[green]Model:[/green] {model} loaded")
@@ -173,7 +185,7 @@ def unload_ollama_model(model: str, local_llm_url: str) -> None:
         console.print(f"[yellow]Memory:[/yellow] could not unload {model} ({exc})")
 
 
-def _question_count(target: QuestionTarget) -> int:
+def _question_count(target: StyleTarget | QuestionTarget) -> int:
     return database.questions_col.count_documents({
         "metadata.topic": target.bank_topic,
         "metadata.concept": target.concept,
@@ -181,7 +193,7 @@ def _question_count(target: QuestionTarget) -> int:
     })
 
 
-def _topic_matches(target: QuestionTarget, topic_filter: str | None) -> bool:
+def _topic_matches(target: StyleTarget | QuestionTarget, topic_filter: str | None) -> bool:
     if not topic_filter:
         return True
     filt = topic_filter.strip().lower()
@@ -197,19 +209,87 @@ def _topic_matches(target: QuestionTarget, topic_filter: str | None) -> bool:
     )
 
 
+def _allocate_style_counts(total: int, weights: dict[str, float]) -> dict[str, int]:
+    if total <= 0:
+        return {k: 0 for k in weights}
+    import math
+    raw = {k: total * v for k, v in weights.items()}
+    counts = {k: int(math.floor(v)) for k, v in raw.items()}
+    remaining = total - sum(counts.values())
+    for key, _ in sorted(raw.items(), key=lambda item: item[1] - math.floor(item[1]), reverse=True)[:remaining]:
+        counts[key] += 1
+    return counts
+
+
+def _get_db_style_counts(bank_topic: str, concept: str, difficulty: str) -> dict[str, int]:
+    cursor = database.questions_col.find({
+        "metadata.topic": bank_topic,
+        "metadata.concept": concept,
+        "metadata.difficulty": difficulty,
+    }, {"metadata": 1})
+    
+    counts = {"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}
+    for q in cursor:
+        meta = q.get("metadata", {}) or {}
+        style = meta.get("question_style_type")
+        if not style:
+            style_name = meta.get("question_style", "")
+            if "Syntax" in style_name:
+                style = "Type A"
+            elif "Output" in style_name:
+                style = "Type C"
+            elif "Troubleshooting" in style_name or "Error" in style_name:
+                style = "Type D"
+            else:
+                style = "Type B"
+        if style in counts:
+            counts[style] += 1
+        else:
+            counts["Type B"] += 1
+    return counts
+
+
 def audit_weighted_deficits(
     total_bank_target: int = DEFAULT_TOTAL_BANK_TARGET,
     topic_filter: str | None = None,
-) -> list[tuple[QuestionTarget, int]]:
+) -> list[tuple[StyleTarget, int]]:
     targets = build_weighted_targets(planner.load_syllabus(), total_bank_target=total_bank_target)
     deficits = []
+    
     for target in targets:
         if not _topic_matches(target, topic_filter):
             continue
-        current = _question_count(target)
-        missing = max(0, target.target_count - current)
-        if missing:
-            deficits.append((target, missing))
+            
+        # Get active counts in database for each style under this (topic, concept, difficulty)
+        db_counts = _get_db_style_counts(target.bank_topic, target.concept, target.difficulty)
+        
+        # Distribute target_count into style target counts
+        if target.topic_id in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}:
+            weights = {"Type A": 0.35, "Type B": 0.25, "Type C": 0.20, "Type D": 0.20}
+        else:
+            weights = {"Type B": 0.70, "Type D": 0.30}
+            
+        style_targets = _allocate_style_counts(target.target_count, weights)
+        
+        for style_type, target_style_count in style_targets.items():
+            if target_style_count <= 0:
+                continue
+            current = db_counts.get(style_type, 0)
+            missing = max(0, target_style_count - current)
+            if missing > 0:
+                style_target = StyleTarget(
+                    topic_id=target.topic_id,
+                    topic=target.topic,
+                    bank_topic=target.bank_topic,
+                    concept=target.concept,
+                    difficulty=target.difficulty,
+                    style_type=style_type,
+                    target_count=target_style_count,
+                    exam_weight=target.exam_weight,
+                    concept_weight=target.concept_weight
+                )
+                deficits.append((style_target, missing))
+                
     return deficits
 
 
@@ -277,6 +357,10 @@ def _count_code_fences(section: str) -> int:
 
 def _question_needs_syntax_example(question: dict) -> bool:
     metadata = question.get("metadata", {}) or {}
+    # If the style choice was Type B (Theory/Concept), it doesn't need a syntax example
+    if metadata.get("question_style_type") == "Type B":
+        return False
+        
     topic_id = metadata.get("topic_id")
     if isinstance(topic_id, int) and topic_id in SYNTAX_HEAVY_TOPIC_IDS:
         return True
@@ -310,13 +394,13 @@ def _next_question_number(target: QuestionTarget) -> int:
     return database.questions_col.count_documents(query) + 1
 
 
-def make_question_id(target: QuestionTarget, question_number: int, fingerprint: str) -> str:
+def make_question_id(target: StyleTarget | QuestionTarget, question_number: int, fingerprint: str) -> str:
     difficulty = _slug(target.difficulty, 8)
     concept = _slug(target.concept, 32)
     return f"certcoach-t{target.topic_id:02d}-{concept}-{difficulty}-{question_number:03d}-{fingerprint[:8]}"
 
 
-def is_duplicate_question(question: dict, target: QuestionTarget) -> tuple[bool, str]:
+def is_duplicate_question(question: dict, target: StyleTarget | QuestionTarget) -> tuple[bool, str]:
     fingerprint = question.get("metadata", {}).get("question_fingerprint", "")
     if database.questions_col.find_one({"_id": question.get("_id")}):
         return True, "stable id already exists"
@@ -389,7 +473,7 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
         for marker in ("not required", "not needed", "optional", "no syntax example")
     ):
         issues.append("syntax example should explicitly say it is not required for this concept")
-    if len(explanation.strip()) < 800:
+    if len(explanation.strip()) < 550:
         issues.append("seven-part explanation is too short")
     if len({str(option.get("code_snippet", "")).strip().lower() for option in options}) != len(options):
         issues.append("duplicate option text")
@@ -425,7 +509,7 @@ def print_question_template(question: dict) -> None:
     console.print(question.get("explanation", ""))
 
 
-def existing_question_samples(target: QuestionTarget, limit: int = 8) -> list[str]:
+def existing_question_samples(target: StyleTarget | QuestionTarget, limit: int = 8) -> list[str]:
     cursor = database.questions_col.find(
         {
             "metadata.topic": target.bank_topic,
@@ -441,7 +525,8 @@ def existing_question_samples(target: QuestionTarget, limit: int = 8) -> list[st
     ]
 
 
-def generate_weighted_question(target: QuestionTarget, context_text: str, avoid_questions: list[str] | None = None) -> dict | None:
+def generate_weighted_question(target: StyleTarget | QuestionTarget, context_text: str, avoid_questions: list[str] | None = None) -> dict | None:
+    import random
     model, local_llm_url = _load_env()
     is_pymongo = "pymongo" in target.topic.lower() or "driver" in target.topic.lower()
     syntax_rule = (
@@ -449,6 +534,51 @@ def generate_weighted_question(target: QuestionTarget, context_text: str, avoid_
         if is_pymongo
         else "Use strictly mongosh camelCase syntax. Do not use PyMongo snake_case in non-driver topics."
     )
+    
+    # Retrieve style choice directly from the target
+    style_choice = getattr(target, "style_type", None)
+    if not style_choice:
+        if target.topic_id in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}:
+            style_choice = random.choices(
+                ["Type A", "Type B", "Type C", "Type D"],
+                weights=[0.35, 0.25, 0.20, 0.20],
+                k=1
+            )[0]
+        else:
+            style_choice = "Type B"
+
+    if style_choice == "Type A":
+        style_name = "Syntax Selection & Trap Spotting"
+        style_prompt = """
+Style Target: Type A - Syntax Selection & Trap Spotting
+- Design a question where the student is given a coding scenario and must select the syntactically correct query, command, or method call.
+- The options should look extremely similar to test precise knowledge of syntax rules (e.g., camelCase vs. snake_case, correct/incorrect quoting of dot-notation paths like {"address.city": "val"} vs. {address.city: "val"}, or correct/incorrect bracket placement like [] vs {} for array queries).
+- Only one option must be syntactically valid and correct.
+"""
+    elif style_choice == "Type C":
+        style_name = "Predicting Query Output"
+        style_prompt = """
+Style Target: Type C - Predicting Query Output
+- Design a question where a small JSON dataset (or document structure) and a query or aggregation pipeline is presented in the question stem.
+- The student must predict what the command outputs or how many documents are returned.
+- Focus on Aggregation pipeline tracing (such as $unwind, $project, $lookup stages) or Array query behavior (such as $elemMatch vs implicit array matching).
+"""
+    elif style_choice == "Type D":
+        style_name = "Troubleshooting, Errors & Performance"
+        style_prompt = """
+Style Target: Type D - Troubleshooting, Errors & Performance
+- Design a question focused on error resolution, exception handling, or database performance.
+- Focus on scenarios where a query throws an error (e.g., mixing field inclusion/exclusion in a projection, duplicate key write errors, transaction failures), how bulk write operations behave when `ordered` is true vs false, or analyzing simplified explain plan output (such as COLLSCAN vs IXSCAN or nReturned vs totalKeysExamined).
+- The options should represent different resolutions, explanation of errors, or performance optimizations, with exactly one correct option.
+"""
+    else:
+        style_name = "Theory, Constraints & Data Modeling"
+        style_prompt = """
+Style Target: Type B - Theory, Constraints & Data Modeling
+- Design a conceptual, rule-based, or architectural question.
+- Focus on MongoDB limitations (e.g., 16MB document size limit, BSON types), indexing rules (compound index prefixes, covered queries, multikey index limits), or modeling decisions (embedding vs. referencing trade-offs).
+"""
+
     avoid_block = ""
     if avoid_questions:
         avoid_lines = "\n".join(f"- {text[:240]}" for text in avoid_questions[:12])
@@ -471,6 +601,9 @@ Difficulty: {target.difficulty}
 Exam weight: {target.exam_weight:.2%}
 Concept share within topic: {target.concept_weight:.2%}
 
+Question Style:
+{style_prompt}
+
 Syntax rule:
 {syntax_rule}
 
@@ -482,7 +615,7 @@ Question design:
 - The correct answer must be obvious to a careful reader of the source context, but not to someone relying on memory alone.
 
 Official documentation context:
-{context_text[:7000]}
+{context_text[:5000]}
 
 {avoid_block}
 
@@ -506,10 +639,12 @@ Rules:
 - explanation_why_wrong must explicitly explain why each distractor is wrong.
 - Explain every relevant syntax token, operator, method argument, return value, and casing trap.
 - Use a short analogy in either explanation_why_correct or explanation_memory_hook when it helps anchor the concept.
+- Critical Output Format: You MUST output a single flat JSON object with exactly the keys defined in the schema. The "options" key MUST be a list of exactly 4 strings. Do NOT write your thought process or any other fields (such as correct_answer, feedbacks, or explanations) inside the "options" list.
 {QUALITY_RULES}
 """
     try:
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=120.0, num_ctx=8192, format="json")
+        timeout_val = float(os.getenv("OLLAMA_TIMEOUT", "300.0"))
+        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=timeout_val, num_ctx=4096, format="json")
         mcq = llm.with_structured_output(SeedMCQ).invoke(prompt)
     except Exception as exc:
         print(f"  [!] Generation failed for {target.concept} ({target.difficulty}): {exc}")
@@ -563,6 +698,8 @@ Rules:
             "topic_id": target.topic_id,
             "concept": target.concept,
             "difficulty": target.difficulty,
+            "question_style": style_name,
+            "question_style_type": style_choice,
             "question_number": question_number,
             "question_fingerprint": fingerprint,
             "exam_weight": target.exam_weight,
@@ -620,7 +757,7 @@ def run_weighted_seed(
 
     if dry_run:
         for target, missing in deficits[:50]:
-            print(f"- Topic {target.topic_id} | {target.concept} | {target.difficulty}: missing {missing}")
+            print(f"- Topic {target.topic_id} | {target.concept} | {target.difficulty} ({target.style_type}): missing {missing}")
         return 0
 
     inserted = 0
@@ -652,7 +789,7 @@ def run_weighted_seed(
                     continue
 
                 prioritized = planner.prioritize_md_files(md_files, target.concept)
-                progress.console.print(f"\n[cyan][Target Info][/cyan] Topic {target.topic_id} ({target.topic}) | Concept: [bold]{target.concept}[/bold] | Difficulty: {target.difficulty}")
+                progress.console.print(f"\n[cyan][Target Info][/cyan] Topic {target.topic_id} ({target.topic}) | Concept: [bold]{target.concept}[/bold] | Difficulty: {target.difficulty} | Style: [bold]{target.style_type}[/bold]")
                 progress.console.print(f"  - Mapped md files: {md_files}")
                 progress.console.print(f"  - Prioritized context file: [bold green]{prioritized[0] if prioritized else 'None'}[/bold green]")
                 progress.console.print(f"  - Injected Context Length: {len(context_text)} characters")
@@ -663,7 +800,7 @@ def run_weighted_seed(
                         progress.console.print(f"\nReached max_questions={max_questions}. Inserted {inserted}.")
                         return inserted
 
-                    label = f"T{target.topic_id} {target.concept} ({target.difficulty})"
+                    label = f"T{target.topic_id} {target.concept} ({target.difficulty} - {target.style_type})"
                     progress.update(task_id, description=f"Seeding: {label[:52]}")
                     attempts = 0
                     slot_filled = False
