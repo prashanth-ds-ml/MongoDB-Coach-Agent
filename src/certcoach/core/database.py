@@ -11,7 +11,8 @@ from dotenv import load_dotenv
 
 GLOBAL_CONFIG_DIR = os.path.expanduser("~/.certcoach")
 ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
-load_dotenv(ENV_PATH)
+load_dotenv()  # Load local workspace environment variables first
+load_dotenv(ENV_PATH)  # Fallback to global user settings
 
 MONGO_URI = os.getenv("MONGO_URI")
 if not MONGO_URI:

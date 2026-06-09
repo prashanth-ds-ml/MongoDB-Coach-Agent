@@ -16,7 +16,8 @@ from dotenv import load_dotenv
 
 GLOBAL_CONFIG_DIR = os.path.expanduser("~/.certcoach")
 ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
-load_dotenv(ENV_PATH)
+load_dotenv()  # Load local workspace environment variables first
+load_dotenv(ENV_PATH)  # Fallback to global user settings
 
 MODEL = os.getenv("MODEL", "gemma4:e4b")
 LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")

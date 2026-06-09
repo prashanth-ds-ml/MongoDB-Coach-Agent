@@ -26,6 +26,8 @@ Using a local Ollama instance (default: `gemma4:e4b`, configurable in `~/.certco
 - **📚 Syllabus Gap & Coverage Auditor**: Audits official study documents and maps file coverage status directly in the CLI using the canonical 12-topic syllabus map and concept checkpoints.
 - **💻 Scenario Simulator (Apply Mode)**: Generates and evaluates real-world coding/modeling scenarios tailored to the MongoDB exam.
 - **🔒 Gated Mock Exams**: Locks the timed and full mock exams (60 questions) until you master at least 70% of the syllabus.
+- **🔎 Local & Remote Document Reranking**: Enhances context accuracy by sorting vector database search results before sending them to the LLM. Supports OpenRouter API chat models (e.g., `gemma-2-9b-it`), local Ollama fallback, and dedicated local cross-encoder models like `dengcao/Qwen3-Reranker-4B:Q5_K_M`.
+- **⚡ Hardware Pacing Optimizer**: Automatically diagnoses your CPU, RAM, and GPU VRAM on startup using `nvidia-smi` and PowerShell, recommending the best model configuration (e.g. `qwen2.5-coder:7b` to fit within 6 GB VRAM) for lag-free performance.
 
 ---
 

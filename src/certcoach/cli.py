@@ -2907,6 +2907,98 @@ def clear_ollama_memory_on_startup():
         pass
 
 
+def check_system_specs_and_model_recommendations():
+    """
+    Analyzes local GPU VRAM and system RAM specs, checks the current configured model,
+    and warns/advises the user if the model doesn't fit in VRAM or is sub-optimal.
+    """
+    import subprocess
+    
+    # 1. Get GPU VRAM
+    vram_gb = 0.0
+    gpu_name = ""
+    try:
+        # Check NVIDIA VRAM and Name
+        res_vram = subprocess.run(["nvidia-smi", "--query-gpu=memory.total", "--format=csv,noheader,nounits"], capture_output=True, text=True, check=True)
+        res_name = subprocess.run(["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"], capture_output=True, text=True, check=True)
+        
+        lines_vram = res_vram.stdout.strip().splitlines()
+        lines_name = res_name.stdout.strip().splitlines()
+        
+        if lines_vram:
+            vram_gb = float(lines_vram[0]) / 1024.0
+        if lines_name:
+            gpu_name = lines_name[0].strip()
+    except Exception:
+        pass
+
+    # 2. Get System RAM
+    ram_gb = 16.0
+    try:
+        res_ram = subprocess.run(["powershell", "-Command", "[math]::round((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property Capacity -Sum).Sum / 1GB)"], capture_output=True, text=True)
+        ram_gb = float(res_ram.stdout.strip())
+    except Exception:
+        pass
+
+    # 3. Detect current configured model name
+    from certcoach.core.persona import MODEL
+    
+    # Heuristics for model sizes in GB
+    model_sizes = {
+        "14b": 8.5,
+        "12b": 7.5,
+        "9b": 5.8,
+        "8b": 4.8,
+        "7b": 4.4,
+        "3b": 2.2,
+        "2b": 1.6
+    }
+    
+    current_size_gb = 5.0 # default fallback
+    model_lower = MODEL.lower()
+    for key, size in model_sizes.items():
+        if key in model_lower:
+            current_size_gb = size
+            break
+            
+    # Recommendations based on VRAM
+    recommendation = ""
+    optimal_found = True
+    
+    # We reserve ~1.5 GB VRAM for OS/apps
+    available_vram_for_llm = max(0.0, vram_gb - 1.5)
+    
+    if vram_gb > 0.0:
+        if current_size_gb > available_vram_for_llm:
+            optimal_found = False
+            if vram_gb >= 12.0:
+                recommendation = "qwen2.5-coder:14b or gemma2:9b"
+            elif vram_gb >= 8.0:
+                recommendation = "qwen2.5-coder:7b or llama3.1:8b"
+            else: # e.g. 6 GB VRAM like RTX 3060
+                recommendation = "qwen2.5-coder:7b (4.36 GB) or gemma2:2b (1.6 GB)"
+    else:
+        # No NVIDIA GPU detected, running on CPU or integrated graphics
+        if current_size_gb > 4.0:
+            optimal_found = False
+            recommendation = "qwen2.5-coder:7b (faster response on CPU) or gemma2:2b (extremely fast)"
+
+    if not optimal_found:
+        console.print()
+        console.print(Panel(
+            f"[yellow]⚠️  Performance Warning: Configured model [bold cyan]{MODEL}[/bold cyan] might be too large for your system specs.[/yellow]\n\n"
+            f"💻  [bold]System Hardware Specs Detected:[/bold]\n"
+            f"   • GPU: {gpu_name or 'Integrated/CPU only'}\n"
+            f"   • GPU VRAM: {f'{vram_gb:.1f} GB' if vram_gb > 0.0 else 'None'}\n"
+            f"   • System RAM: {ram_gb:.0f} GB\n\n"
+            f"💡  [bold]Recommendation for your specs:[/bold]\n"
+            f"   Switch to [bold green]{recommendation}[/bold green] to fit completely in your VRAM for instant, lag-free responses.\n"
+            f"   You can change the `MODEL` setting in your [bold cyan]local .env[/bold cyan] file.",
+            title="[bold yellow]⚡ Hardware Pacing Optimizer[/bold yellow]",
+            border_style="yellow", box=box.ROUNDED
+        ))
+        time.sleep(2)
+
 
 # ---------------------------------------------------------------------------
 # MAIN MENU
@@ -2915,6 +3007,7 @@ def clear_ollama_memory_on_startup():
 def main_menu():
     database.check_connection()
     clear_ollama_memory_on_startup()
+    check_system_specs_and_model_recommendations()
     run_onboarding()
 
     database.update_streak(USER_ID)

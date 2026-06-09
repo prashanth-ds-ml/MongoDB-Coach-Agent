@@ -95,7 +95,7 @@ def extract_question_from_image(image_path: str) -> dict:
     try:
         print(f"  -> Pass 1: Running local vision OCR...")
         response_pass1 = ollama.chat(
-            model='llava',
+            model=vision_model,
             messages=[{
                 'role': 'user',
                 'content': pass1_prompt,
