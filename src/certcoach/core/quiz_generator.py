@@ -7,6 +7,7 @@ import requests
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from dotenv import load_dotenv
+from certcoach.core.config import get_local_llm_url, get_population_model
 
 # LangChain structured execution
 from langchain_ollama import ChatOllama
@@ -16,8 +17,8 @@ from retriever import CertCoachRetriever
 load_dotenv()
 
 # Single model for all tasks
-MODEL = os.getenv("MODEL", "gemma4:e4b")
-LOCAL_LLM_URL = os.getenv("LOCAL_LLM_URL", "http://localhost:11434")
+MODEL = get_population_model()
+LOCAL_LLM_URL = get_local_llm_url()
 
 
 # 1. Define strict output schema using Pydantic
@@ -107,7 +108,7 @@ Constraints:
 CONTEXT:
 {context_body}"""
 
-    # Use gemma4:e4b for structured question generation
+    # Use the configured population model for structured question generation.
     print(f"🧠 Generating with local {MODEL}...")
     try:
         llm = ChatOllama(model=MODEL, base_url=LOCAL_LLM_URL, temperature=0.2)

@@ -2,7 +2,7 @@
 
 CertCoach is a local, AI-driven learning and study companion designed to help developers master the syllabus and clear the **MongoDB Associate Python Developer Certification** in one disciplined attempt.
 
-Using a local Ollama instance (default: `gemma4:e4b`, configurable in `~/.certcoach/.env`), an interactive console interface, spaced-repetition quiz cycles, a question bank, and strict document-grounded teaching prompts, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
+Using local Ollama models with separate study and content-production roles, an interactive console interface, spaced-repetition quiz cycles, a question bank, and strict document-grounded teaching prompts, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
 
 ---
 
@@ -36,7 +36,7 @@ Using a local Ollama instance (default: `gemma4:e4b`, configurable in `~/.certco
 - **Core**: Python 3.10+
 - **Database**: MongoDB (Question Bank, Attempts, Streaks, User Profiles, Resumable Exam States)
 - **Document Grounding**: Direct Semantic Grounding (injects complete, un-fragmented official documentation text directly into optimized `8192` context windows, ensuring 100% accuracy and zero vector RAG chunk fragmentation)
-- **Local Intelligence**: Ollama (default `gemma4:e4b`, configurable)
+- **Local Intelligence**: Ollama (`qwen3.5:4b` for interactive study; `gemma4:12b` for question population and explanation repair)
 - **User Interface**: `rich` (glassmorphism panels, tables, line-by-line keyboard scroll pagers)
 
 ---
@@ -51,12 +51,13 @@ Ensure you have the following installed on your machine:
 - **MongoDB Server**: A running local instance (`mongodb://localhost:27017`) or an Atlas connection URI
 - **Ollama**: Installed and running in the background (`ollama serve`)
 
-### 2. Pull the Coach Model
-Before launching, make sure the local LLM model is pulled and ready in Ollama:
+### 2. Pull the Local Models
+Pull the fast interactive study model and the slower content-production model:
 ```bash
-ollama pull qwen2.5-coder:7b
+ollama pull qwen3.5:4b
+ollama pull gemma4:12b
 ```
-*(You can customize the model inside your environment configurations).*
+`qwen2.5-coder:7b` remains an optional study fallback.
 
 ### 3. Clone and Navigate
 ```bash
@@ -89,10 +90,17 @@ Setup your global configuration variables:
 2. Add a `.env` file inside that directory with your local Ollama connection details and MongoDB URI:
    ```env
    LOCAL_LLM_URL=http://localhost:11434
-   MODEL=qwen2.5-coder:7b
+   STUDY_MODEL=qwen3.5:4b
+   STUDY_NUM_CTX=8192
+   STUDY_REASONING=false
+   POPULATION_MODEL=gemma4:12b
+   POPULATION_NUM_CTX=4096
+   REPAIR_MODEL=gemma4:12b
+   REPAIR_NUM_CTX=8192
+   OLLAMA_TIMEOUT=600
    MONGO_URI="mongodb+srv://<username>:<password>@yourcluster.mongodb.net/"
    ```
-3. Copy this configuration file to your local workspace directory as well to keep configurations synchronized.
+3. Use `.env.example` as the public reference. A legacy `MODEL` value is still accepted as a study-model fallback, but it does not control population or repair.
 
 ---
 
@@ -204,11 +212,14 @@ Useful modes:
 
 ```bash
 certcoach-seed-nightly --dry-run
-certcoach-seed-nightly --target 540 --max-questions 50
+certcoach-seed-nightly --max-questions 50
 certcoach-seed-nightly --topic 11 --dry-run
 certcoach-seed-nightly --topic 11
 certcoach-seed-nightly --topic "MongoDB Drivers & PyMongo"
+certcoach-seed-nightly --topic 11 --extra-easy 3 --extra-medium 2 --max-questions 25
 ```
+
+Study readiness begins at `3 Easy + 2 Medium` active questions per concept, but population does not stop there. By default, ordered population builds each concept toward `5 Easy + 5 Medium`, configurable with `POPULATION_EASY_TARGET` and `POPULATION_MEDIUM_TARGET`. Explicit extras can still add more for variety, weak areas, or mock coverage.
 
 Recommended Windows Task Scheduler command:
 
@@ -216,7 +227,21 @@ Recommended Windows Task Scheduler command:
 .\.venv\Scripts\certcoach-seed-nightly.exe --max-questions 25
 ```
 
-To complete all missing weighted questions for a single topic, omit `--max-questions`:
+For controlled Phase 4 overnight batches, run the repository script. Each run creates a verified backup, repairs a bounded batch, populates a bounded batch, and records a log under `logs/`:
+
+```powershell
+.\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25
+```
+
+Without overrides, the runner automatically selects the first concept with pending repairs or an inventory below the configured population target. It repairs and populates only that concept, then advances through the remaining concepts and topics in canonical syllabus order.
+
+Optional topic-specific or extra-variety run:
+
+```powershell
+.\scripts\run_phase4_overnight.ps1 -Topic 11 -Concept "MongoClient" -RepairBatchSize 25 -PopulationBatchSize 25 -ExtraEasy 2 -ExtraMedium 1
+```
+
+To complete all missing study-readiness questions for a single topic, omit `--max-questions`:
 
 ```powershell
 .\.venv\Scripts\certcoach-seed-nightly.exe --topic 11
@@ -225,7 +250,7 @@ To complete all missing weighted questions for a single topic, omit `--max-quest
 After activating the virtual environment, `certcoach`, `certcoach-seed-nightly`, `certcoach-repair-explanations`, `certcoach-dedupe-questions`, and `certcoach-map-questions` can be run from any folder. If a command is not on `PATH`, call the executable directly:
 
 ```powershell
-C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-seed-nightly.exe --topic 11
+C:\Users\prash\projects\MongoDB-Coach-Agent\.venv\Scripts\certcoach-seed-nightly.exe --topic 11 --concept "MongoClient" --dry-run
 ```
 
 ### 4. Repair Existing Question Explanations
@@ -281,12 +306,10 @@ certcoach-map-questions
 
 Recommended nightly order:
 
-1. Run `certcoach-repair-explanations` until the seven-part explanation audit is clean enough for study.
-2. Run `certcoach-dedupe-questions`, review the duplicate summary, then run `certcoach-dedupe-questions --apply`.
-3. Run `certcoach-map-questions` to ensure all questions are accurately categorized and mapped to active syllabus topics and concepts.
-4. Run `certcoach-seed-nightly --dry-run` to see remaining weighted gaps.
-5. Run `certcoach-seed-nightly` overnight to populate all remaining weighted questions.
-6. Start study with `certcoach` the next morning.
+1. Run `.\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic` to preview the next ordered concept.
+2. Run `.\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25`.
+3. Review the generated log under `logs/` and rerun the selector.
+4. Start study with `certcoach` once the required concepts are study-ready.
 
 ### 2. General Data Ingestion Utilities
 If you want to re-ingest raw syllabus files, clean markdowns, or index files, use these helper scripts:

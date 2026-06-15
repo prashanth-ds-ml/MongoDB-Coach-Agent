@@ -152,8 +152,9 @@ def test_has_topic_documentation_and_get_syllabus_status(tmp_path):
 
 @patch("certcoach.core.database.get_analytics")
 @patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.database.get_active_question_counts_by_difficulty")
 @patch("certcoach.core.planner.load_syllabus")
-def test_get_syllabus_status_skipping(mock_load_syllabus, mock_get_profile, mock_get_analytics, tmp_path):
+def test_get_syllabus_status_skipping(mock_load_syllabus, mock_difficulty_counts, mock_get_profile, mock_get_analytics, tmp_path):
     from certcoach.core import planner
     
     original_data_dir = planner.DATA_DIR
@@ -166,6 +167,7 @@ def test_get_syllabus_status_skipping(mock_load_syllabus, mock_get_profile, mock
         
         mock_get_profile.return_value = {"progress": {"completed_topics": []}}
         mock_get_analytics.return_value = {"topic_stats": []}
+        mock_difficulty_counts.return_value = {"Easy": 3, "Medium": 2, "Hard": 0, "Other": 0}
         
         t1 = {"id": 1, "topic": "Topic 1", "md_files": ["missing.md"]}
         t2 = {"id": 2, "topic": "Topic 2", "md_files": ["present.md"]}
@@ -174,7 +176,7 @@ def test_get_syllabus_status_skipping(mock_load_syllabus, mock_get_profile, mock
         mock_load_syllabus.return_value = [t1, t2]
         
         status = planner.get_syllabus_status("test_user")
-        assert status["next_topic"] == t2
+        assert status["next_topic"]["topic"] == t2["topic"]
         assert len(status["skipped_unmapped_topics"]) == 1
         assert status["skipped_unmapped_topics"][0]["topic"] == "Topic 1"
     finally:
@@ -183,8 +185,9 @@ def test_get_syllabus_status_skipping(mock_load_syllabus, mock_get_profile, mock
 
 @patch("certcoach.core.database.get_analytics")
 @patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.database.get_active_question_counts_by_difficulty")
 @patch("certcoach.core.planner.load_syllabus")
-def test_get_syllabus_status_does_not_skip_uncompleted_concepts(mock_load_syllabus, mock_get_profile, mock_get_analytics, tmp_path):
+def test_get_syllabus_status_does_not_skip_uncompleted_concepts(mock_load_syllabus, mock_difficulty_counts, mock_get_profile, mock_get_analytics, tmp_path):
     from certcoach.core import planner
 
     original_data_dir = planner.DATA_DIR
@@ -207,6 +210,7 @@ def test_get_syllabus_status_does_not_skip_uncompleted_concepts(mock_load_syllab
                 {"topic": "Topic 1 Bank", "attempts": 5, "correct": 5}
             ]
         }
+        mock_difficulty_counts.return_value = {"Easy": 3, "Medium": 2, "Hard": 0, "Other": 0}
         mock_load_syllabus.return_value = [
             {
                 "id": 1,
@@ -248,6 +252,24 @@ def test_build_onboarding_commitment_text_sets_daily_loop():
     assert "Beginner" in text
     assert "Start Today's Agenda" in text
     assert "4/5" in text
+
+
+def test_get_current_user_label_prefers_display_name_and_email():
+    from certcoach import cli
+
+    with patch.object(cli.auth, "load_session", return_value={
+        "user_id": "abc123",
+        "email": "prash@example.com",
+        "display_name": "Prash",
+    }):
+        assert cli.get_current_user_label() == "Prash <prash@example.com>"
+
+
+def test_get_current_user_label_returns_none_when_not_signed_in():
+    from certcoach import cli
+
+    with patch.object(cli.auth, "load_session", return_value=None):
+        assert cli.get_current_user_label() is None
 
 
 def test_build_agenda_mission_text_for_learn_agenda():
@@ -501,17 +523,31 @@ def test_format_explanation_template_strips_labels_and_sanitizes_feedback():
     q = {
         "metadata": {"topic": "BSON Data Types"},
         "options": [
-            {"option_letter": "A", "code_snippet": "A) String", "is_correct": False, "feedback": "Correct. This stale feedback is wrong."},
-            {"option_letter": "B", "code_snippet": "B) Array", "is_correct": True, "feedback": "Incorrect. This stale feedback is wrong."},
+            {
+                "option_letter": "A",
+                "code_snippet": "A) String",
+                "is_correct": False,
+                "feedback": "### 1. Correct Answer\nWrong feedback.\n### 2. Why Correct\nStill wrong.",
+            },
+            {
+                "option_letter": "B",
+                "code_snippet": "B) Array",
+                "is_correct": True,
+                "feedback": "### 1. Correct Answer\n### 2. Why Correct\nArray is the right container.\n### 3. Why Other Options Are Wrong\nNo.",
+            },
         ],
+        "metadata": {"topic": "BSON Data Types", "trap_analysis": "### 4. Exam Trap\nUse the right BSON type."},
     }
 
     explanation = format_explanation_template("B", q)
 
+    assert "### 1. Correct Answer" in explanation
     assert "Option B (`Array`)" in explanation
-    assert "`A) String`" not in explanation
-    assert "`String`" in explanation
-    assert "stored feedback for this item needs editorial review" in explanation
+    assert "Wrong feedback." in explanation
+    assert "Still wrong." not in explanation
+    assert "[bold yellow]" not in explanation
+    assert "Array is the right container." in explanation
+    assert "Use the right BSON type." in explanation
 
 
 @patch("certcoach.cli.console")
@@ -875,11 +911,12 @@ def test_generate_daily_agenda_concept_level(mock_status, mock_database):
     
     mock_status.return_value = {
         "mastered_count": 0,
-        "next_topic": {
-            "id": 1,
-            "topic": "Topic 1",
-            "subtopics": ["Concept A", "Concept B", "Concept C"],
-            "bank_topic_keys": ["Topic 1"]
+            "next_topic": {
+                "id": 1,
+                "topic": "Topic 1",
+                "subtopics": ["Concept A", "Concept B", "Concept C"],
+                "next_ready_subtopic": "Concept B",
+                "bank_topic_keys": ["Topic 1"]
         },
         "status_list": []
     }
@@ -1382,6 +1419,88 @@ def test_run_practice_questions_missing_bank_does_not_insert_fallback(mock_datab
 
     assert score is None
     mock_database.questions_col.insert_one.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+def test_run_practice_questions_blocks_missing_difficulty_mix(mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    def get_questions(**kwargs):
+        difficulty = kwargs.get("difficulty")
+        count = 2 if difficulty == "Easy" else 3 if difficulty == "Medium" else 5
+        return [
+            {
+                "_id": f"{difficulty}_{i}",
+                "question_text": f"{difficulty} Question {i}",
+                "metadata": {"topic": "Topic A", "concept": "Concept X", "difficulty": difficulty},
+                "options": [{"option_letter": "A", "code_snippet": "answer", "is_correct": True}],
+            }
+            for i in range(count)
+        ]
+
+    mock_database.get_random_questions.side_effect = get_questions
+
+    with patch("time.sleep"):
+        score = run_practice_questions(
+            "Topic A",
+            ["Topic A"],
+            num=5,
+            is_mock=False,
+            concepts=["Concept X"],
+        )
+
+    assert score is None
+    mock_database.save_attempt.assert_not_called()
+
+
+@patch("certcoach.core.database.get_analytics")
+@patch("certcoach.core.database.get_user_profile")
+@patch("certcoach.core.database.get_active_question_counts_by_difficulty")
+@patch("certcoach.core.planner.load_syllabus")
+def test_get_syllabus_status_blocks_concept_without_required_difficulty_mix(
+    mock_load_syllabus,
+    mock_difficulty_counts,
+    mock_get_profile,
+    mock_get_analytics,
+    tmp_path,
+):
+    from certcoach.core import planner
+
+    original_data_dir = planner.DATA_DIR
+    try:
+        planner.DATA_DIR = str(tmp_path)
+        raw_dir = tmp_path / "raw_markdowns"
+        raw_dir.mkdir(parents=True, exist_ok=True)
+        (raw_dir / "present.md").write_text("grounded content", encoding="utf-8")
+
+        mock_get_profile.return_value = {"progress": {"completed_topics": [], "completed_subtopics": {}}}
+        mock_get_analytics.return_value = {"topic_stats": []}
+        mock_difficulty_counts.return_value = {"Easy": 2, "Medium": 2, "Hard": 4, "Other": 0}
+        mock_load_syllabus.return_value = [{
+            "id": 1,
+            "topic": "Topic 1",
+            "subtopics": ["Concept A"],
+            "md_files": ["present.md"],
+            "bank_topic_keys": ["Topic 1"],
+        }]
+
+        status = planner.get_syllabus_status("test_user")
+
+        assert status["next_topic"] is None
+        assert status["insufficient_concepts"] == [{
+            "topic_id": 1,
+            "topic": "Topic 1",
+            "concept": "Concept A",
+            "active_questions": 8,
+            "required_questions": 5,
+            "easy_questions": 2,
+            "required_easy": 3,
+            "medium_questions": 2,
+            "required_medium": 2,
+        }]
+    finally:
+        planner.DATA_DIR = original_data_dir
 
 
 

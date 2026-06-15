@@ -9,3 +9,6 @@ The most reliable method for building the knowledge base is to clone the officia
 4.  **Final Processing:** Process the resulting `.md` files through the existing Chunking $\rightarrow$ Embedding $\rightarrow$ Indexing pipeline.
 
 **Impact:** This method ensures we capture the *intended* documentation, rather than the *rendered* documentation, which is far more robust for LLM training and RAG.
+# Source Ingestion Pipeline
+
+Related: [[Memory Home]], [[project_layout|Project Layout]], [[active_context|Active Context]]

@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 
 def test_audit_weighted_deficits_filters_by_topic_id():
@@ -22,11 +22,30 @@ def test_audit_weighted_deficits_filters_by_topic_id():
     ]
 
     with patch.object(job.planner, "load_syllabus", return_value=syllabus), \
-         patch.object(job, "_question_count", return_value=0):
+         patch.object(job, "_get_db_style_counts", return_value={"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}):
         deficits = job.audit_weighted_deficits(total_bank_target=20, topic_filter="2")
 
     assert deficits
     assert all(target.topic_id == 2 for target, _ in deficits)
+
+
+def test_audit_weighted_deficits_filters_by_exact_concept():
+    from certcoach.jobs import nightly_seed_questions as job
+
+    syllabus = [{
+        "id": 1,
+        "topic": "Topic One",
+        "subtopics": ["First", "Second"],
+        "exam_weight": "10%",
+        "bank_topic_keys": ["Bank One"],
+    }]
+
+    with patch.object(job.planner, "load_syllabus", return_value=syllabus), \
+         patch.object(job, "_get_db_style_counts", return_value={"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}):
+        deficits = job.audit_weighted_deficits(topic_filter="1", concept_filter="Second")
+
+    assert deficits
+    assert all(target.concept == "Second" for target, _ in deficits)
 
 
 def test_topic_matches_bank_topic_substring():
@@ -47,6 +66,79 @@ def test_topic_matches_bank_topic_substring():
     assert _topic_matches(target, "pymongo")
     assert _topic_matches(target, "11")
     assert not _topic_matches(target, "aggregation")
+
+
+def test_style_counts_include_only_active_contract_questions():
+    from certcoach.jobs import nightly_seed_questions as job
+
+    active = {
+        "metadata": {
+            "question_style_type": "Type A",
+            "content_contract_version": 2,
+            "content_contract_status": "generated",
+        }
+    }
+    legacy = {"metadata": {"question_style_type": "Type B"}}
+    questions_col = MagicMock()
+    questions_col.find.return_value = [active, legacy]
+
+    with patch.object(job.database, "questions_col", questions_col):
+        counts = job._get_db_style_counts(1, "Concept", "Easy")
+
+    assert counts == {"Type A": 1, "Type B": 0, "Type C": 0, "Type D": 0}
+    questions_col.find.assert_called_once_with({
+        "metadata.topic_id": 1,
+        "metadata.concept": "Concept",
+        "metadata.difficulty": "Easy",
+    }, {"metadata": 1})
+
+
+def test_audit_does_not_overpopulate_to_force_style_distribution():
+    from certcoach.jobs import nightly_seed_questions as job
+
+    syllabus = [{
+        "id": 1,
+        "topic": "Topic One",
+        "subtopics": ["A"],
+        "exam_weight": "10%",
+        "bank_topic_keys": ["Bank One"],
+    }]
+
+    def style_counts(_topic_id, _concept, difficulty):
+        if difficulty == "Easy":
+            return {"Type A": 0, "Type B": 5, "Type C": 0, "Type D": 0}
+        return {"Type A": 0, "Type B": 5, "Type C": 0, "Type D": 0}
+
+    with patch.object(job.planner, "load_syllabus", return_value=syllabus), \
+         patch.object(job, "_get_db_style_counts", side_effect=style_counts):
+        deficits = job.audit_weighted_deficits(target_easy=5, target_medium=5)
+
+    assert deficits == []
+
+
+def test_audit_generates_explicit_extras_after_readiness():
+    from certcoach.jobs import nightly_seed_questions as job
+
+    syllabus = [{
+        "id": 1,
+        "topic": "Topic One",
+        "subtopics": ["A"],
+        "exam_weight": "10%",
+        "bank_topic_keys": ["Bank One"],
+    }]
+
+    def style_counts(_topic_id, _concept, difficulty):
+        if difficulty == "Easy":
+            return {"Type A": 1, "Type B": 4, "Type C": 0, "Type D": 0}
+        return {"Type A": 1, "Type B": 3, "Type C": 0, "Type D": 0}
+
+    with patch.object(job.planner, "load_syllabus", return_value=syllabus), \
+         patch.object(job, "_get_db_style_counts", side_effect=style_counts):
+        default_deficits = job.audit_weighted_deficits(target_easy=3, target_medium=2)
+        extra_deficits = job.audit_weighted_deficits(target_easy=3, target_medium=2, extra_easy=2, extra_medium=1)
+
+    assert default_deficits == []
+    assert sum(missing for _, missing in extra_deficits) == 3
 
 
 def test_validate_question_quality_rejects_shallow_six_part_explanation():
@@ -161,3 +253,40 @@ def test_validate_question_quality_allows_not_required_syntax_example_for_concep
 
     assert is_valid
     assert not issues
+
+
+def test_validate_question_quality_rejects_invented_bson_type_names():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which BSON type can store an array of documents within a single document?",
+        "metadata": {"topic_id": 1, "concept": "BSON Data Types"},
+        "options": [
+            {"code_snippet": "array", "is_correct": True},
+            {"code_snippet": "embeddedDocument", "is_correct": False},
+            {"code_snippet": "subdocumentArray", "is_correct": False},
+            {"code_snippet": "documentArray", "is_correct": False},
+        ],
+        "explanation": "\n".join([
+            "### 1. Correct Answer",
+            "array",
+            "### 2. Why Correct",
+            "Because arrays can hold nested documents in MongoDB.",
+            "### 3. Why Other Options Are Wrong",
+            "The invented names are not official BSON types.",
+            "### 4. Exam Trap",
+            "Invented BSON type names.",
+            "### 5. Memory Hook",
+            "Use the official BSON vocabulary only.",
+            "### 6. Follow-Up Practice Recommendation",
+            "- Review the BSON reference.",
+            "- Practice the official data types.",
+            "### 7. Syntax Example",
+            "Not required for this concept.",
+        ]),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("invented BSON type names" in issue for issue in issues)

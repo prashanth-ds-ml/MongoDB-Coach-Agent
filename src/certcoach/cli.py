@@ -11,6 +11,7 @@ import time
 import datetime
 import random
 import re
+import textwrap
 
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -112,6 +113,26 @@ def exit_message():
     console.print()
 
 
+def get_current_user_label() -> str | None:
+    session = auth.load_session()
+    if not session:
+        return None
+
+    display_name = (session.get("display_name") or "").strip()
+    email = (session.get("email") or "").strip()
+    user_id = (session.get("user_id") or "").strip()
+
+    if display_name and email:
+        return f"{display_name} <{email}>"
+    if email:
+        return email
+    if display_name:
+        return display_name
+    if user_id:
+        return user_id
+    return None
+
+
 def print_paginated(renderable, title: str = "CertCoach"):
     """
     Renders a Rich renderable directly to the console so that it is naturally
@@ -163,7 +184,7 @@ def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent
             f"Understand [bold]{focus_concept}[/bold], answer the Micro-Challenge, and score at least [bold green]4/5[/bold green] in practice so the concept counts as complete."
         )
         why_today = "One concept mastered properly each day is safer than skimming multiple topics."
-    flow_line = "Flow: teach one concept, clear the checkpoint, practice only that concept, then move on."
+    flow_line = "teach one concept, clear the checkpoint, practice only that concept, then move on."
 
     return (
         f"[bold]Mission[/bold]: {agenda_type}\n"
@@ -190,7 +211,7 @@ def build_practice_debrief(score: int | None, total_questions: int, topic: str, 
         )
 
     pct = (score / max(1, total_questions)) * 100
-    if score >= 4:
+    if total_questions == 5 and score >= 4:
         return (
             "✅ Concept Locked In",
             (
@@ -508,7 +529,7 @@ def run_teach_session(agenda_item: dict):
         chat_history = memory_manager.load_active_history()
         console.print()
         console.print(
-            "  [dim]Answer the challenge, ask a question about this concept, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
+            "  [dim]Answer the challenge using only this concept, ask a question about this concept, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
         )
 
         while True:
@@ -772,6 +793,58 @@ def clean_option_text(option_letter: str, option_text: str) -> str:
     return re.sub(rf"^{letter}\s*[\).:-]\s*", "", text, count=1, flags=re.IGNORECASE).strip()
 
 
+def _parse_feedback_sections(feedback: str) -> dict[str, str]:
+    canonical_labels = {
+        "correct answer": "Correct Answer",
+        "why correct": "Why Correct",
+        "why other options are wrong": "Why Other Options Are Wrong",
+        "exam trap": "Exam Trap",
+        "memory hook": "Memory Hook",
+        "follow-up practice recommendation": "Follow-Up Practice Recommendation",
+        "syntax example": "Syntax Example",
+    }
+    heading_pattern = re.compile(
+        r"^(?:#{1,6}\s*)?(?:\d+\.\s*)?(Correct Answer|Why Correct|Why Other Options Are Wrong|Exam Trap|Memory Hook|Follow-Up Practice Recommendation|Syntax Example)\b[:\-\)]?\s*(.*)$",
+        re.IGNORECASE,
+    )
+    sections: dict[str, list[str]] = {}
+    current_label: str | None = None
+    current_lines: list[str] = []
+
+    def flush_current() -> None:
+        nonlocal current_label, current_lines
+        if current_label is None:
+            return
+        content = "\n".join(current_lines).strip()
+        if content:
+            sections[current_label] = content
+        current_label = None
+        current_lines = []
+
+    for raw_line in textwrap.dedent(str(feedback or "")).splitlines():
+        line = raw_line.strip()
+        if not line:
+            if current_label is not None and current_lines and current_lines[-1] != "":
+                current_lines.append("")
+            continue
+
+        match = heading_pattern.match(line)
+        if match:
+            flush_current()
+            label = canonical_labels[match.group(1).strip().lower()]
+            current_label = label
+            remainder = match.group(2).strip()
+            current_lines = [remainder] if remainder else []
+            continue
+
+        if current_label is None:
+            continue
+        current_lines.append(line)
+
+    flush_current()
+    return sections
+
+
 def clean_feedback_for_role(feedback: str, is_correct: bool) -> str:
     """Avoid displaying stale/generated feedback that contradicts the option's stored role."""
     text = str(feedback or "").strip()
@@ -782,7 +855,42 @@ def clean_feedback_for_role(feedback: str, is_correct: bool) -> str:
             else "This option is not marked correct in the question bank."
         )
 
+    sections = _parse_feedback_sections(text)
+    preferred_labels = ["Why Correct", "Correct Answer"] if is_correct else ["Why Other Options Are Wrong", "Exam Trap", "Correct Answer"]
+    for label in preferred_labels:
+        candidate = sections.get(label, "").strip()
+        if candidate:
+            text = candidate
+            break
+    else:
+        cleaned_lines: list[str] = []
+        for raw_line in textwrap.dedent(text).splitlines():
+            line = raw_line.strip()
+            if not line:
+                if cleaned_lines and cleaned_lines[-1] != "":
+                    cleaned_lines.append("")
+                continue
+            if line.startswith("```"):
+                continue
+            if re.match(r"^#{1,6}\s+", line):
+                continue
+            cleaned_lines.append(line)
+        text = "\n".join(cleaned_lines).strip()
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    if not text:
+        return (
+            "This matches the question bank's marked correct answer."
+            if is_correct
+            else "This option is not marked correct in the question bank."
+        )
+
     lowered = text.lower()
+    if "review official mongodb documentation" in lowered or "review the official mongodb documentation" in lowered:
+        return (
+            "This matches the question bank's marked correct answer."
+            if is_correct
+            else "This option is not marked correct in the question bank."
+        )
     if is_correct and lowered.startswith(("incorrect", "wrong", "not correct")):
         return "This matches the question bank's marked correct answer. The stored feedback for this item needs editorial review."
     if not is_correct and lowered.startswith(("correct", "yes", "right")):
@@ -805,7 +913,7 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
             official_explanation = clean_feedback_for_role(opt.get("feedback", ""), True)
         else:
             feedback = clean_feedback_for_role(opt.get("feedback", ""), False)
-            wrong_snippets.append(f"  - [bold yellow]{letter})[/bold yellow] `{snippet}`: {feedback}")
+            wrong_snippets.append(f"- **{letter})** `{snippet}`: {feedback}")
 
     trap_desc = q_item.get("metadata", {}).get("trap_analysis", "")
     if not trap_desc:
@@ -829,13 +937,21 @@ def format_explanation_template(correct_option_letter: str, q_item: dict) -> str
             break
 
     explanation_text = (
-        f"### 1. Correct Answer\nOption {correct_option_letter} (`{correct_snippet}`)\n\n"
-        f"### 2. Why Correct\n{official_explanation or 'This query or operator matches the official MongoDB developer specification.'}\n\n"
-        f"### 3. Why Other Options Are Wrong\n" + "\n".join(wrong_snippets) + "\n\n"
-        f"### 4. Exam Trap\n{trap_desc}\n\n"
-        f"### 5. Memory Hook\n{hook}\n\n"
-        f"### 6. Follow-Up Practice Recommendation\nReview official MongoDB reference markdown documentation and practice syntax patterns in the Scenario Simulator.\n\n"
-        f"### 7. Syntax Example\nNot required for this concept."
+        f"### 1. Correct Answer\n"
+        f"Option {correct_option_letter} (`{correct_snippet}`)\n\n"
+        f"### 2. Why Correct\n"
+        f"{official_explanation or 'This query or operator matches the official MongoDB developer specification.'}\n\n"
+        f"### 3. Why Other Options Are Wrong\n"
+        + "\n".join(wrong_snippets)
+        + "\n\n"
+        f"### 4. Exam Trap\n"
+        f"{trap_desc}\n\n"
+        f"### 5. Memory Hook\n"
+        f"{hook}\n\n"
+        f"### 6. Follow-Up Practice Recommendation\n"
+        f"Review official MongoDB reference markdown documentation and practice syntax patterns in the Scenario Simulator.\n\n"
+        f"### 7. Syntax Example\n"
+        f"Not required for this concept."
     )
     return explanation_text
 
@@ -1316,7 +1432,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
     questions = []
     
     if not is_mock:
-        # Standard practice starts with exactly 3 easy and 2 medium questions
+        # Standard concept practice is exactly 3 Easy and 2 Medium questions.
         easy_qs = []
         medium_qs = []
         for key in bank_keys:
@@ -1358,39 +1474,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                 seen.add(qt)
                 unique_medium.append(q)
                 
-        selected_easy = unique_easy[:3]
-        needed_easy = 3 - len(selected_easy)
-        
-        selected_medium = unique_medium[:2]
-        needed_medium = 2 - len(selected_medium)
-        
-        if needed_easy > 0 or needed_medium > 0:
-            fallback_qs = []
-            for key in bank_keys:
-                fallback_qs.extend(
-                    database.get_random_questions(
-                        topic=key,
-                        limit=num * 2,
-                        subtopic_keywords=question_keywords,
-                        strict_keywords=True,
-                        topic_id=topic_id,
-                        concepts=concepts
-                    )
-                )
-            unique_fallback = []
-            for q in fallback_qs:
-                qt = q.get("question_text", "")
-                if qt not in seen:
-                    seen.add(qt)
-                    unique_fallback.append(q)
-                    
-            if needed_easy > 0:
-                selected_easy.extend(unique_fallback[:needed_easy])
-                unique_fallback = unique_fallback[needed_easy:]
-            if needed_medium > 0:
-                selected_medium.extend(unique_fallback[:needed_medium])
-                
-        questions = selected_easy[:3] + selected_medium[:2]
+        questions = unique_easy[:3] + unique_medium[:2]
     else:
         # Mock/Anki/Spaced repetition uses general random pool
         for key in bank_keys:
@@ -1414,15 +1498,13 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         random.shuffle(unique)
         questions = unique[:num]
 
-    if not questions:
-        console.print(f"\n  [bold yellow]🤖 No pre-seeded questions found in the database for this topic.[/bold yellow]")
+    if len(questions) < num:
+        console.print(f"\n  [bold yellow]The required 3 Easy + 2 Medium concept-practice mix is unavailable.[/bold yellow]")
         console.print(Panel(
-            "[bold]This topic is not ready for smooth practice yet.[/bold]\n\n"
-            "Run the weighted nightly seeder before the next study session:\n"
-            "[bold cyan]certcoach-seed-nightly --max-questions 25[/bold cyan]\n\n"
-            "The coach no longer creates generic production questions during live practice, "
-            "so the learner does not experience lag or low-quality fallback items.",
-            title="Question Bank Not Ready",
+            "[bold]This concept is not study-ready yet.[/bold]\n\n"
+            "Practice requires exactly three Easy and two Medium active, validated questions mapped directly to the current concept. "
+            "Hard questions and arbitrary difficulty substitutions are not used, and the concept will remain open.",
+            title="Concept Practice Blocked",
             border_style="yellow",
             box=box.ROUNDED
         ))
@@ -2368,7 +2450,8 @@ def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> t
 
 
 def run_ai_question_wizard():
-    from certcoach.core.persona import MODEL
+    from certcoach.core.config import get_population_model
+    population_model = get_population_model()
     clear()
     console.print(Rule("[bold cyan]🤖 AI Question Bank Management Wizard[/bold cyan]"))
     console.print("  [dim]Workflow: Generate ➔ Validate ➔ Duplicate Check ➔ Save Draft ➔ Approve ➔ Add to Production Bank[/dim]\n")
@@ -2404,7 +2487,7 @@ def run_ai_question_wizard():
         bank_key = selected_topic_item.get("bank_topic_keys", ["General"])[0]
         
         # 2. structured question generation
-        with console.status(f"[dim]🧠 Phase 1/6 (Generate): Generating high-fidelity MCQ for '{topic}' using local {MODEL}...[/dim]", spinner="dots"):
+        with console.status(f"[dim]🧠 Phase 1/6 (Generate): Generating high-fidelity MCQ for '{topic}' using local {population_model}...[/dim]", spinner="dots"):
             try:
                 from certcoach.core import quiz_generator
                 mcq = quiz_generator.generate_quiz_for_topic(bank_key)
@@ -2634,8 +2717,10 @@ def run_model_manager():
         return
 
     # Show active model configured
-    active_model = os.getenv("MODEL", "gemma4:e4b")
-    console.print(f"  Configured Active Model: [bold green]{active_model}[/bold green] (Ollama URL: {ollama_url})")
+    from certcoach.core.config import get_population_model, get_repair_model, get_study_model
+    active_model = get_study_model()
+    console.print(f"  Configured Study Model: [bold green]{active_model}[/bold green] (Ollama URL: {ollama_url})")
+    console.print(f"  Population Model: [bold]{get_population_model()}[/bold] | Repair Model: [bold]{get_repair_model()}[/bold]")
     console.print()
 
     if not loaded_models:
@@ -2952,6 +3037,7 @@ def check_system_specs_and_model_recommendations():
         "9b": 5.8,
         "8b": 4.8,
         "7b": 4.4,
+        "4b": 3.4,
         "3b": 2.2,
         "2b": 1.6
     }
@@ -2974,16 +3060,16 @@ def check_system_specs_and_model_recommendations():
         if current_size_gb > available_vram_for_llm:
             optimal_found = False
             if vram_gb >= 12.0:
-                recommendation = "qwen2.5-coder:14b or gemma2:9b"
+                recommendation = "qwen3.5:4b for study; reserve larger models for offline content work"
             elif vram_gb >= 8.0:
-                recommendation = "qwen2.5-coder:7b or llama3.1:8b"
+                recommendation = "qwen3.5:4b or qwen2.5-coder:7b"
             else: # e.g. 6 GB VRAM like RTX 3060
-                recommendation = "qwen2.5-coder:7b (4.36 GB) or gemma2:2b (1.6 GB)"
+                recommendation = "qwen3.5:4b (recommended) or qwen2.5-coder:7b"
     else:
         # No NVIDIA GPU detected, running on CPU or integrated graphics
         if current_size_gb > 4.0:
             optimal_found = False
-            recommendation = "qwen2.5-coder:7b (faster response on CPU) or gemma2:2b (extremely fast)"
+            recommendation = "qwen3.5:4b or a smaller local model"
 
     if not optimal_found:
         console.print()
@@ -2995,7 +3081,7 @@ def check_system_specs_and_model_recommendations():
             f"   • System RAM: {ram_gb:.0f} GB\n\n"
             f"💡  [bold]Recommendation for your specs:[/bold]\n"
             f"   Switch to [bold green]{recommendation}[/bold green] to fit completely in your VRAM for instant, lag-free responses.\n"
-            f"   You can change the `MODEL` setting in your [bold cyan]local .env[/bold cyan] file.",
+            f"   You can change the `STUDY_MODEL` setting in your [bold cyan]local .env[/bold cyan] file.",
             title="[bold yellow]⚡ Hardware Pacing Optimizer[/bold yellow]",
             border_style="yellow", box=box.ROUNDED
         ))
@@ -3035,9 +3121,16 @@ def main_menu():
         badge = " [bold red](🚨 Spaced-Repetition Quiz Due!)[/bold red]" if due_reviews else ""
         
         skipped_topics = status.get("skipped_unmapped_topics", [])
+        insufficient_concepts = status.get("insufficient_concepts", [])
+        if not isinstance(skipped_topics, list):
+            skipped_topics = []
+        if not isinstance(insufficient_concepts, list):
+            insufficient_concepts = []
         skipped_badge = ""
         if skipped_topics:
             skipped_badge = f" [bold yellow](⚠️ {len(skipped_topics)} topics skipped due to missing docs)[/bold yellow]"
+        if insufficient_concepts:
+            skipped_badge += f" [bold yellow](⚠️ {len(insufficient_concepts)} concepts blocked by question readiness)[/bold yellow]"
             
         lock_str = (
             "[bold green]🔓 Unlocked[/bold green]"
@@ -3063,10 +3156,13 @@ def main_menu():
             
         exam_day_mode = current_readiness >= 85.0
         exam_day_badge = " [bold gold]🏆 EXAM DAY MODE ACTIVE[/bold gold] |" if exam_day_mode else ""
+        current_user_label = get_current_user_label()
         
         # Sleek horizontally consolidated Status Bar
         console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] (❄️ Freezes: [bold blue]{streak_freezes}[/bold blue]) | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
         console.print(f"📈 [bold cyan]Readiness[/bold cyan]: [bold green]{current_readiness:.1f}%[/bold green] (Expected: {expected_readiness:.1f}%) | 🎲 [bold yellow]Pass Probability[/bold yellow]: {pass_probability:.1f}% |{exam_day_badge}")
+        if current_user_label:
+            console.print(f"👤 [bold cyan]Signed in as[/bold cyan]: [bold]{current_user_label}[/bold]")
         console.print("━"*80)
         console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}{skipped_badge}")
         console.print(f"  [bold cyan]2.[/bold cyan] 📖 Reference Library (Journal, Cheat Sheet, Syllabus, Analytics)")
@@ -3104,6 +3200,29 @@ def main_menu():
                     "\n".join(alert_lines),
                     title="[bold yellow]📂 Bypassed Topics Notice[/bold yellow]",
                     border_style="yellow", box=box.ROUNDED
+                ))
+                console.print()
+
+            if insufficient_concepts:
+                blocked_lines = [
+                    "[bold yellow]The following concepts are not scheduled because they do not have the required 3 Easy + 2 Medium active-question mix:[/bold yellow]\n"
+                ]
+                for item in insufficient_concepts[:10]:
+                    blocked_lines.append(
+                        f"  • [cyan]{item['topic']}[/cyan] → {item['concept']}: "
+                        f"Easy [bold]{item['easy_questions']}/{item['required_easy']}[/bold], "
+                        f"Medium [bold]{item['medium_questions']}/{item['required_medium']}[/bold]"
+                    )
+                if len(insufficient_concepts) > 10:
+                    blocked_lines.append(f"\n  ...and {len(insufficient_concepts) - 10} more concepts.")
+                blocked_lines.append(
+                    "\nThese concepts remain open and will become schedulable after the controlled Phase 4 bank work."
+                )
+                console.print(Panel(
+                    "\n".join(blocked_lines),
+                    title="[bold yellow]Concept Readiness Blockers[/bold yellow]",
+                    border_style="yellow",
+                    box=box.ROUNDED,
                 ))
                 console.print()
                 
@@ -3146,7 +3265,10 @@ def main_menu():
                         except (KeyboardInterrupt, EOFError):
                             break
             else:
-                console.print("[green]  You have completed all agenda items for today! Great job.[/green]")
+                if insufficient_concepts:
+                    console.print("[yellow]  No study concept is currently ready to schedule. Review the readiness blockers above.[/yellow]")
+                else:
+                    console.print("[green]  You have completed all agenda items for today! Great job.[/green]")
 
             # --- END STUDY SESSION TRACKING ---
             session_end = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)

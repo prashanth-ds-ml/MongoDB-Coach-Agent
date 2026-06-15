@@ -19,12 +19,18 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from certcoach.core import database
+from certcoach.core import database, planner
+from certcoach.core.config import (
+    get_local_llm_url,
+    get_ollama_timeout,
+    get_repair_model,
+    get_repair_num_ctx,
+)
+from certcoach.core.content_contract import contract_metadata
 from certcoach.jobs.nightly_seed_questions import (
     QUALITY_RULES,
     SEVEN_PART_HEADINGS,
     _question_needs_syntax_example,
-    _load_env,
     clear_ollama_memory,
     preload_ollama_model,
     validate_question_quality,
@@ -33,6 +39,11 @@ from certcoach.jobs.nightly_seed_questions import (
 
 console = Console()
 REPAIR_ATTEMPTS = 3
+REPAIR_PENDING_STATUS = "needs_explanation_repair"
+
+
+def _load_env() -> tuple[str, str]:
+    return get_repair_model(), get_local_llm_url()
 
 
 class RepairedExplanationSchema(BaseModel):
@@ -70,6 +81,11 @@ def _topic_matches(q: dict, topic_filter: str | None) -> bool:
     if not filt:
         return True
     meta = q.get("metadata", {})
+    if filt.isdigit():
+        try:
+            return int(meta.get("topic_id")) == int(filt)
+        except (TypeError, ValueError):
+            return False
     haystack = " ".join([
         str(meta.get("topic", "")),
         str(meta.get("syllabus_topic", "")),
@@ -77,6 +93,26 @@ def _topic_matches(q: dict, topic_filter: str | None) -> bool:
         str(meta.get("topic_id", "")),
     ]).lower()
     return filt in haystack
+
+
+def _concept_matches(q: dict, concept_filter: str | None) -> bool:
+    if not concept_filter:
+        return True
+    actual = str(q.get("metadata", {}).get("concept", "")).strip()
+    return actual.casefold() == concept_filter.strip().casefold()
+
+
+def _syllabus_order_key(q: dict, syllabus: list[dict]) -> tuple[int, int, str]:
+    metadata = q.get("metadata", {}) or {}
+    topic_id = metadata.get("topic_id")
+    concept = str(metadata.get("concept", ""))
+    for topic_index, topic_item in enumerate(syllabus):
+        if topic_item["id"] != topic_id:
+            continue
+        concepts = topic_item.get("subtopics", [])
+        concept_index = concepts.index(concept) if concept in concepts else len(concepts)
+        return topic_index, concept_index, str(q.get("_id", ""))
+    return len(syllabus), 0, str(q.get("_id", ""))
 
 
 def is_structurally_repairable(q: dict) -> tuple[bool, str]:
@@ -88,6 +124,11 @@ def is_structurally_repairable(q: dict) -> tuple[bool, str]:
     if sum(1 for opt in options if opt.get("is_correct")) != 1:
         return False, "does not have exactly one correct option"
     return True, "repairable"
+
+
+def is_marked_for_explanation_repair(q: dict) -> bool:
+    status = str(q.get("metadata", {}).get("content_contract_status", "")).strip().lower()
+    return status == REPAIR_PENDING_STATUS
 
 
 def _repair_quality_issues(q: dict, repaired: RepairedExplanation) -> list[str]:
@@ -156,13 +197,13 @@ Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 """
     for attempt in range(1, REPAIR_ATTEMPTS + 1):
         try:
-            timeout_val = float(os.getenv("OLLAMA_TIMEOUT", "300.0"))
+            timeout_val = get_ollama_timeout()
             llm = ChatOllama(
                 model=model,
                 base_url=local_llm_url,
                 temperature=0.25,
                 timeout=timeout_val,
-                num_ctx=8192,
+                num_ctx=get_repair_num_ctx(),
                 format="json",
             )
             repaired_raw = llm.with_structured_output(RepairedExplanationSchema).invoke(prompt)
@@ -230,12 +271,18 @@ def apply_repair(q: dict, repaired: RepairedExplanation) -> None:
                 "options": options,
                 "metadata.explanation_repair_source": "certcoach_repair_explanations",
                 "metadata.explanation_repaired_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+                **contract_metadata("repair_explanations"),
             }
         },
     )
 
 
-def run_repair(max_questions: int | None = None, topic_filter: str | None = None, dry_run: bool = False) -> dict:
+def run_repair(
+    max_questions: int | None = None,
+    topic_filter: str | None = None,
+    dry_run: bool = False,
+    concept_filter: str | None = None,
+) -> dict:
     database.check_connection()
     model, local_llm_url = _load_env()
     audit = database.audit_question_explanations()
@@ -250,6 +297,8 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
     console.print(f"Compliance: [bold yellow]{audit['compliance_percent']}%[/bold yellow]")
     if topic_filter:
         console.print(f"Topic filter: [bold]{topic_filter}[/bold]")
+    if concept_filter:
+        console.print(f"Concept filter: [bold]{concept_filter}[/bold]")
     if dry_run:
         console.print("Mode: [bold yellow]dry-run[/bold yellow]")
     console.print()
@@ -261,6 +310,11 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
             continue
         if not _topic_matches(q, topic_filter):
             continue
+        if not _concept_matches(q, concept_filter):
+            continue
+        if not is_marked_for_explanation_repair(q):
+            skipped.append((item["id"], "not marked needs_explanation_repair"))
+            continue
 
         ok, reason = is_structurally_repairable(q)
         if not ok:
@@ -268,6 +322,7 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
             continue
         candidate_items.append((item, q))
 
+    candidate_items.sort(key=lambda item: _syllabus_order_key(item[1], planner.load_syllabus()))
     if max_questions is not None:
         candidate_items = candidate_items[:max_questions]
 
@@ -358,11 +413,12 @@ def run_repair(max_questions: int | None = None, topic_filter: str | None = None
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Repair existing question explanations into the CertCoach seven-part template.")
     parser.add_argument("--topic", default=None, help="Repair only questions matching topic id/name/bank/concept text.")
+    parser.add_argument("--concept", default=None, help="Repair only questions mapped to this exact syllabus concept.")
     parser.add_argument("--max-questions", type=int, default=None, help="Cap repaired questions for this run.")
     parser.add_argument("--dry-run", action="store_true", help="Show repairable questions without calling the model.")
     args = parser.parse_args(argv)
 
-    run_repair(args.max_questions, args.topic, args.dry_run)
+    run_repair(args.max_questions, args.topic, args.dry_run, args.concept)
     return 0
 
 

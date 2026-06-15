@@ -16,6 +16,55 @@ def test_structural_repair_requires_four_options_and_one_correct():
     assert "exactly one correct" in reason
 
 
+def test_repair_selection_requires_explicit_pending_status():
+    from certcoach.jobs.repair_explanations import is_marked_for_explanation_repair
+
+    assert is_marked_for_explanation_repair({
+        "metadata": {"content_contract_status": "needs_explanation_repair"}
+    })
+    assert not is_marked_for_explanation_repair({
+        "metadata": {"content_contract_status": "quarantined"}
+    })
+    assert not is_marked_for_explanation_repair({
+        "metadata": {"content_contract_status": "migrated"}
+    })
+
+
+def test_numeric_topic_filter_matches_exact_topic_id_only():
+    from certcoach.jobs.repair_explanations import _topic_matches
+
+    assert _topic_matches({"metadata": {"topic_id": 1, "topic": "Topic 1"}}, "1")
+    assert not _topic_matches({"metadata": {"topic_id": 10, "topic": "Topic 10"}}, "1")
+    assert not _topic_matches({"metadata": {"topic_id": 11, "topic": "Topic 11"}}, "1")
+
+
+def test_concept_filter_matches_exact_concept_only():
+    from certcoach.jobs.repair_explanations import _concept_matches
+
+    question = {"metadata": {"concept": "BSON Data Types"}}
+
+    assert _concept_matches(question, "bson data types")
+    assert not _concept_matches(question, "BSON")
+
+
+def test_repair_order_key_uses_syllabus_topic_and_concept_order():
+    from certcoach.jobs.repair_explanations import _syllabus_order_key
+
+    syllabus = [
+        {"id": 1, "subtopics": ["First", "Second"]},
+        {"id": 2, "subtopics": ["Third"]},
+    ]
+    questions = [
+        {"_id": "q3", "metadata": {"topic_id": 2, "concept": "Third"}},
+        {"_id": "q2", "metadata": {"topic_id": 1, "concept": "Second"}},
+        {"_id": "q1", "metadata": {"topic_id": 1, "concept": "First"}},
+    ]
+
+    ordered = sorted(questions, key=lambda question: _syllabus_order_key(question, syllabus))
+
+    assert [question["_id"] for question in ordered] == ["q1", "q2", "q3"]
+
+
 def test_apply_repair_updates_explanation_and_feedbacks():
     from certcoach.jobs import repair_explanations as repair
 

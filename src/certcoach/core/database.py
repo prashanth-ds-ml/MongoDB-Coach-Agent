@@ -8,6 +8,7 @@ import secrets
 from datetime import datetime, timezone
 from pymongo import MongoClient
 from dotenv import load_dotenv
+from certcoach.core.content_contract import CONTENT_CONTRACT_VERSION, contract_metadata, is_contract_active
 
 GLOBAL_CONFIG_DIR = os.path.expanduser("~/.certcoach")
 ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
@@ -131,20 +132,21 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
     if difficulty:
         query["metadata.difficulty"] = {"$regex": f"^{difficulty}$", "$options": "i"}
 
-    # 1. First attempt: Direct concept matching on metadata.concept
     matched_questions = []
     if concepts:
         concept_query = dict(query)
-        # Match any of the concepts in a case-insensitive manner or direct mapping
         concept_query["metadata.concept"] = {"$in": concepts}
-        matched_questions = list(questions_col.find(concept_query))
+        matched_questions = [q for q in questions_col.find(concept_query) if is_contract_active(q)]
+
+        if strict_keywords:
+            random.shuffle(matched_questions)
+            return matched_questions[:limit]
         
     if len(matched_questions) >= limit:
         random.shuffle(matched_questions)
         return matched_questions[:limit]
         
-    # 2. Second attempt: Fall back to keyword/substring matching across all questions of the topic
-    all_topic_qs = list(questions_col.find(query))
+    all_topic_qs = [q for q in questions_col.find(query) if is_contract_active(q)]
     
     # Gather search keywords
     search_keywords = []
@@ -182,6 +184,33 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
     return combined[:limit]
 
 
+def get_active_question_count(topic_id=None, concepts=None) -> int:
+    """Count active-contract questions mapped directly to a topic/concept scope."""
+    query = {}
+    if topic_id is not None:
+        query["metadata.topic_id"] = int(topic_id)
+    if concepts:
+        query["metadata.concept"] = {"$in": concepts}
+    return sum(1 for question in questions_col.find(query) if is_contract_active(question))
+
+
+def get_active_question_counts_by_difficulty(topic_id=None, concepts=None) -> dict[str, int]:
+    """Count active-contract questions by normalized difficulty for a concept scope."""
+    query = {}
+    if topic_id is not None:
+        query["metadata.topic_id"] = int(topic_id)
+    if concepts:
+        query["metadata.concept"] = {"$in": concepts}
+
+    counts = {"Easy": 0, "Medium": 0, "Hard": 0, "Other": 0}
+    for question in questions_col.find(query):
+        if not is_contract_active(question):
+            continue
+        difficulty = str(question.get("metadata", {}).get("difficulty", "")).strip().title()
+        counts[difficulty if difficulty in counts else "Other"] += 1
+    return counts
+
+
 def get_all_topics():
     """Returns a list of all distinct topics available in the question bank."""
     return sorted(questions_col.distinct("metadata.topic"))
@@ -198,7 +227,8 @@ def save_generated_question(mcq_data: dict):
             "topic": mcq_data.get("topic", "General"),
             "difficulty": mcq_data.get("difficulty", "Medium"),
             "citation_source": mcq_data.get("citation_source", ""),
-            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            **contract_metadata("save_generated_question"),
         },
         "context": {
             "scenario_description": mcq_data.get("scenario", ""),
@@ -681,7 +711,7 @@ def audit_question_explanations(min_explanation_chars: int = 500) -> dict:
             for opt in q.get("options", [])
             if not str(opt.get("feedback", "") or "").strip()
         ]
-
+        contract_version = q.get("metadata", {}).get("content_contract_version")
         q_issues = []
         if missing_markers:
             q_issues.append("missing sections: " + ", ".join(missing_markers))
@@ -691,6 +721,10 @@ def audit_question_explanations(min_explanation_chars: int = 500) -> dict:
             q_issues.append("does not have exactly 4 options")
         if option_feedback_missing:
             q_issues.append("missing option feedback: " + ", ".join(option_feedback_missing))
+        if not contract_version or int(contract_version) < CONTENT_CONTRACT_VERSION:
+            q_issues.append(
+                f"legacy content contract version: {contract_version or 'missing'} < {CONTENT_CONTRACT_VERSION}"
+            )
 
         if q_issues:
             issues.append({
