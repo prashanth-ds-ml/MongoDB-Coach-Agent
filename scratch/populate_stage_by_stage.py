@@ -1,7 +1,7 @@
 import os
 import sys
 import json
-import uuid
+import hashlib
 import time
 from pymongo import MongoClient
 from dotenv import load_dotenv
@@ -17,21 +17,46 @@ from pydantic import BaseModel, Field
 from typing import List, Optional
 from certcoach.core import database, planner
 
-# 6-Part Explanation Compliant MCQ Pydantic Schema
+
+def slugify(text: str, max_len: int = 48) -> str:
+    slug = "".join(ch.lower() if ch.isalnum() else "-" for ch in (text or "").strip())
+    while "--" in slug:
+        slug = slug.replace("--", "-")
+    return (slug.strip("-") or "general")[:max_len]
+
+
+def normalize_question_for_duplicate_check(text: str) -> str:
+    text = (text or "").lower()
+    cleaned = []
+    for ch in text:
+        cleaned.append(ch if ch.isalnum() or ch in {"$", "_"} else " ")
+    return " ".join("".join(cleaned).split())
+
+
+def question_fingerprint(topic: str, concept: str, question_text: str) -> str:
+    basis = f"{slugify(topic, 48)}|{slugify(concept, 48)}|{normalize_question_for_duplicate_check(question_text)}"
+    return hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
+
+
+def make_question_id(topic_id: int, concept: str, difficulty: str, question_number: int, fingerprint: str) -> str:
+    return f"certcoach-t{topic_id:02d}-{slugify(concept, 32)}-{slugify(difficulty, 8)}-{question_number:03d}-{fingerprint[:8]}"
+
+# 7-Part Explanation Compliant MCQ Pydantic Schema
 class CertCoachMCQ(BaseModel):
     question: str = Field(description="The multiple choice question based strictly on MongoDB best practices.")
     options: List[str] = Field(description="List of 4 possible answers. Avoid generic or placeholders.")
     correct_answer: str = Field(description="The matching correct string from the options list.")
     feedbacks: List[str] = Field(description="List of 4 feedback strings matching the options in order.")
     trap_analysis: str = Field(description="Explain which option is the gotcha trap and why a student might fall for it.")
-    six_part_explanation: str = Field(
-        description="Detailed explanation strictly structured into 6 parts: "
+    seven_part_explanation: str = Field(
+        description="Detailed explanation strictly structured into 7 parts: "
                     "1. Correct Answer: State correct letter and syntax. "
                     "2. Why Correct: Why the syntax satisfies requirements. "
                     "3. Why Other Options Are Wrong: Line-by-line teardown of the remaining 3 distractors. "
                     "4. Exam Trap: Misconception warning. "
                     "5. Memory Hook: Mnemonic device/logic rule to anchor the concept. "
-                    "6. Follow-Up Practice Recommendation: specific official documentation page/topic reference."
+                    "6. Follow-Up Practice Recommendation: specific official documentation page/topic reference. "
+                    "7. Syntax Example: include a short fenced example when relevant; otherwise explicitly say it is not required."
     )
     citation_source: str = Field(description="Reference source name or official doc section.")
 
@@ -102,7 +127,7 @@ def unload_seeder_model():
     except Exception as e:
         print(f"  [🧠 Memory Manager] Alert: Could not unload model '{model}' ({e}).")
 
-def generate_concept_question(topic: str, concept: str, difficulty: str, context_text: str) -> Optional[dict]:
+def generate_concept_question(questions_col, topic_id: int, topic: str, concept: str, difficulty: str, context_text: str) -> Optional[dict]:
     # Load global configs
     GLOBAL_CONFIG_DIR = os.path.expanduser("~/.certcoach")
     ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
@@ -140,7 +165,7 @@ Constraints:
 1. Return strictly 4 options, with exactly one matching correct answer.
 2. Provide a highly plausible "gotcha" or "trap" option.
 3. Fill out all fields of the schema. Ensure each option has its own customized feedback in the `feedbacks` array.
-4. The `six_part_explanation` field MUST follow this strict 6-part structure exactly:
+4. The `seven_part_explanation` field MUST follow this strict 7-part structure exactly:
    ### 1. Correct Answer
    State the letter (A, B, C, or D) and the correct syntax.
    ### 2. Why Correct
@@ -153,6 +178,8 @@ Constraints:
    Provide a mnemonic or quick logic rule to anchor the core concept.
    ### 6. Follow-Up Practice Recommendation
    Mention the official documentation page name to reinforce study.
+   ### 7. Syntax Example
+   If syntax is relevant, show one short fenced example plus 2 short bullets. Otherwise write exactly: Not required for this concept.
 """
     try:
         # 120-second robust timeout, and 8192 context window to keep 100% in GPU VRAM while preventing JSON truncation
@@ -173,8 +200,8 @@ Constraints:
                 res.feedbacks = []
             if len(res.feedbacks) == 1:
                 # Recover full explanation block from single feedbacks element
-                if not res.six_part_explanation:
-                    res.six_part_explanation = res.feedbacks[0]
+                if not res.seven_part_explanation:
+                    res.seven_part_explanation = res.feedbacks[0]
                 # Provide standard high-quality option-specific feedbacks
                 res.feedbacks = [
                     "This option correctly matches the documented behavior in MongoDB.",
@@ -207,6 +234,12 @@ Constraints:
             
             # Map trap index to the second element by default if not specified
             trap_idx = 1 if correct_idx != 1 else 0
+            question_number = questions_col.count_documents({
+                "metadata.topic_id": topic_id,
+                "metadata.concept": concept,
+                "metadata.difficulty": difficulty,
+            }) + 1
+            fingerprint = question_fingerprint(topic, concept, res.question)
             
             options_mapped = []
             for idx, opt in enumerate(res.options):
@@ -219,11 +252,14 @@ Constraints:
                 })
                 
             return {
-                "_id": str(uuid.uuid4()),
+                "_id": make_question_id(topic_id, concept, difficulty, question_number, fingerprint),
                 "metadata": {
                     "topic": topic,
+                    "topic_id": topic_id,
                     "concept": concept,
                     "difficulty": difficulty,
+                    "question_number": question_number,
+                    "question_fingerprint": fingerprint,
                     "citation_source": res.citation_source or f"{topic.replace(' ', '_')}_{difficulty.lower()}_auto.md",
                     "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ")
                 },
@@ -233,7 +269,7 @@ Constraints:
                 },
                 "question_text": res.question,
                 "options": options_mapped,
-                "explanation": res.six_part_explanation,
+                "explanation": res.seven_part_explanation,
                 "trap_analysis": res.trap_analysis,
                 "citation_source": res.citation_source or "Syllabus_Sourced.md",
                 "global_metrics": {
@@ -359,7 +395,7 @@ def main():
                 print(f"\n  [Progress: {questions_completed}/{total_missing_for_topic}] Sending prompt to Ollama for '{concept}' ({difficulty})...", flush=True)
                 
                 start_time = time.time()
-                q = generate_concept_question(primary_key, concept, difficulty, context_text)
+                q = generate_concept_question(questions_col, t_item["id"], primary_key, concept, difficulty, context_text)
                 elapsed = time.time() - start_time
                 
                 if q:
@@ -384,7 +420,7 @@ def main():
                         trap_tag = " [Trap distractor]" if opt["is_trap"] else ""
                         print(f"      [{opt['option_letter']}] {opt['code_snippet']}{correct_tag}{trap_tag}", flush=True)
                     
-                    print("    • 6-Part Explanation structured successfully.", flush=True)
+                    print("    • 7-Part Explanation structured successfully.", flush=True)
                     print(f"    • Trap Analysis: {q['trap_analysis']}", flush=True)
                     print(f"  [DB Ingestion] Verified duplicate clearance. Successfully inserted into MongoDB (ID: {q['_id']}).", flush=True)
                 else:

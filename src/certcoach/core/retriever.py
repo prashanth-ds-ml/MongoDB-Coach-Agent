@@ -9,6 +9,7 @@ from typing import List
 from dotenv import load_dotenv
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings.sentence_transformer import SentenceTransformerEmbeddings
+from certcoach.core.config import get_local_llm_url, get_study_model
 
 # Load environment variables
 load_dotenv()
@@ -58,8 +59,8 @@ class CertCoachRetriever:
         content = ""
 
         if use_ollama:
-            local_url = os.getenv("LOCAL_LLM_URL", "http://localhost:11434").rstrip("/")
-            model_name = os.getenv("RERANK_MODEL") or os.getenv("MODEL", "qwen2.5-coder:7b")
+            local_url = get_local_llm_url().rstrip("/")
+            model_name = os.getenv("RERANK_MODEL") or get_study_model()
             
             # Check if the user specified a dedicated local reranker model (like Qwen3-Reranker-4B)
             if "reranker" in model_name.lower():

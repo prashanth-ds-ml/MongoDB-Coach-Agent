@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 
-DEFAULT_TOTAL_BANK_TARGET = 540
+STUDY_READY_TARGETS = {"Easy": 3, "Medium": 2}
 
 
 @dataclass(frozen=True)
@@ -67,41 +66,31 @@ def concept_weight_map(topic_item: dict) -> dict[str, float]:
     return {concept: score / total for concept, score in raw_scores.items()}
 
 
-def _largest_remainder_counts(total: int, weights: dict[str, float]) -> dict[str, int]:
-    if total <= 0:
-        return {k: 0 for k in weights}
-    raw = {k: total * v for k, v in weights.items()}
-    counts = {k: int(math.floor(v)) for k, v in raw.items()}
-    remaining = total - sum(counts.values())
-    for key, _ in sorted(raw.items(), key=lambda item: item[1] - math.floor(item[1]), reverse=True)[:remaining]:
-        counts[key] += 1
-    return counts
+def build_weighted_targets(
+    syllabus: list[dict],
+    total_bank_target: int | None = None,
+    *,
+    extra_easy: int = 0,
+    extra_medium: int = 0,
+) -> list[QuestionTarget]:
+    """Build per-concept readiness targets plus explicitly requested extras.
 
-
-def build_weighted_targets(syllabus: list[dict], total_bank_target: int = DEFAULT_TOTAL_BANK_TARGET) -> list[QuestionTarget]:
-    weighted_topics = [(item, parse_exam_weight(item.get("exam_weight"))) for item in syllabus]
-    total_weight = sum(weight for _, weight in weighted_topics) or 1.0
-
-    topic_counts = {}
-    raw_topic_weights = {str(item["id"]): weight / total_weight for item, weight in weighted_topics}
-    allocated = _largest_remainder_counts(total_bank_target, raw_topic_weights)
-
-    for item, weight in weighted_topics:
-        # Keep a useful minimum for low-weight topics while respecting overall allocation.
-        topic_counts[item["id"]] = max(len(item.get("subtopics") or [item["topic"]]) * 3, allocated[str(item["id"])])
-
+    `total_bank_target` remains accepted for compatibility but is intentionally
+    ignored. CertCoach no longer uses a fixed global question-bank target.
+    """
+    requested_targets = {
+        "Easy": STUDY_READY_TARGETS["Easy"] + max(0, extra_easy),
+        "Medium": STUDY_READY_TARGETS["Medium"] + max(0, extra_medium),
+    }
     targets: list[QuestionTarget] = []
-    for item, weight in weighted_topics:
+    for item in syllabus:
+        weight = parse_exam_weight(item.get("exam_weight"))
         subtopics = item.get("subtopics") or [item["topic"]]
         bank_topic = (item.get("bank_topic_keys") or [item["topic"]])[0]
-        concept_counts = _largest_remainder_counts(topic_counts[item["id"]], concept_weight_map(item))
+        concept_weights = concept_weight_map(item)
 
-        for concept, concept_total in concept_counts.items():
-            diff_counts = _largest_remainder_counts(concept_total, difficulty_distribution(weight))
-            concept_weight = concept_counts[concept] / max(1, topic_counts[item["id"]])
-            for difficulty, target_count in diff_counts.items():
-                if target_count <= 0:
-                    continue
+        for concept in subtopics:
+            for difficulty, target_count in requested_targets.items():
                 targets.append(QuestionTarget(
                     topic_id=item["id"],
                     topic=item["topic"],
@@ -110,6 +99,6 @@ def build_weighted_targets(syllabus: list[dict], total_bank_target: int = DEFAUL
                     difficulty=difficulty,
                     target_count=target_count,
                     exam_weight=weight,
-                    concept_weight=concept_weight,
+                    concept_weight=concept_weights[concept],
                 ))
     return targets

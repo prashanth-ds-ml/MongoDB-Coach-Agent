@@ -7,7 +7,7 @@ Windows PowerShell command reference for running CertCoach from any folder.
 Run these from the repo folder when installing or after adding new command entry points:
 
 ```powershell
-cd C:\Users\prash\Projects\mongodbcret
+cd C:\Users\prash\projects\MongoDB-Coach-Agent
 .\.venv\Scripts\Activate.ps1
 pip install -e .
 ```
@@ -29,7 +29,7 @@ certcoach
 Direct fallback:
 
 ```powershell
-C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach.exe
+C:\Users\prash\projects\MongoDB-Coach-Agent\.venv\Scripts\certcoach.exe
 ```
 
 What the current study loop looks like inside the CLI:
@@ -62,66 +62,56 @@ After login, progress is stored in MongoDB and follows the learner across machin
 
 ## Populate Questions
 
-Preview weighted gaps without creating questions:
+Preview the next concept needing repair or population:
 
 ```powershell
-certcoach-seed-nightly --dry-run
+.\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic
 ```
 
-Populate all remaining weighted questions:
+Run the controlled syllabus-ordered overnight workflow:
 
 ```powershell
-certcoach-seed-nightly
+.\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25
 ```
 
-Populate a single topic fully:
+Preview population for one exact concept:
 
 ```powershell
-certcoach-seed-nightly --topic 11
+certcoach-seed-nightly --topic 1 --concept "BSON Data Types" --dry-run
 ```
 
-Populate a smaller overnight batch:
+Populate one exact concept toward configured inventory targets:
 
 ```powershell
-certcoach-seed-nightly --max-questions 50
+certcoach-seed-nightly --topic 1 --concept "BSON Data Types" --max-questions 25
 ```
 
-Direct fallback:
+Override the configured inventory targets for one run:
 
 ```powershell
-C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-seed-nightly.exe --dry-run
+certcoach-seed-nightly --topic 1 --concept "BSON Data Types" --target-easy 7 --target-medium 7 --max-questions 25
 ```
 
-## Repair Six-Part Explanations
+Study readiness begins at `3 Easy + 2 Medium`; default ordered population continues toward `5 Easy + 5 Medium`, configurable through `POPULATION_EASY_TARGET` and `POPULATION_MEDIUM_TARGET`.
 
-Preview repairable questions:
+## Repair Seven-Part Explanations
+
+Preview repairable questions for one exact concept:
 
 ```powershell
-certcoach-repair-explanations --dry-run
+certcoach-repair-explanations --topic 1 --concept "BSON Data Types" --dry-run
 ```
 
-Repair every structurally valid question that is missing the six-part template:
+Repair a controlled concept-scoped batch:
 
 ```powershell
-certcoach-repair-explanations
-```
-
-Repair one topic:
-
-```powershell
-certcoach-repair-explanations --topic 11
-```
-
-Repair a small batch:
-
-```powershell
-certcoach-repair-explanations --max-questions 25
+certcoach-repair-explanations --topic 1 --concept "BSON Data Types" --max-questions 25
 ```
 
 Direct fallback:
 
 ```powershell
-C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-repair-explanations.exe
+C:\Users\prash\projects\MongoDB-Coach-Agent\.venv\Scripts\certcoach-repair-explanations.exe --topic 1 --concept "BSON Data Types" --dry-run
 ```
 
 ## Remove Duplicate Questions
@@ -147,29 +137,16 @@ certcoach-dedupe-questions --apply
 Direct fallback:
 
 ```powershell
-C:\Users\prash\Projects\mongodbcret\.venv\Scripts\certcoach-dedupe-questions.exe --apply
+C:\Users\prash\projects\MongoDB-Coach-Agent\.venv\Scripts\certcoach-dedupe-questions.exe --apply
 ```
 
 ## Recommended Maintenance Flow
 
-After the repair job finishes, run this sequence before overnight population:
+Use the bounded runner for normal maintenance:
 
 ```powershell
-certcoach-repair-explanations
-certcoach-dedupe-questions
-certcoach-dedupe-questions --apply
-certcoach-seed-nightly --dry-run
-certcoach-seed-nightly
-```
-
-Topic-specific version:
-
-```powershell
-certcoach-repair-explanations --topic 11
-certcoach-dedupe-questions --topic 11
-certcoach-dedupe-questions --topic 11 --apply
-certcoach-seed-nightly --topic 11 --dry-run
-certcoach-seed-nightly --topic 11
+.\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic
+.\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25
 ```
 
 ## Tests
@@ -177,7 +154,7 @@ certcoach-seed-nightly --topic 11
 Run the full unit test suite:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests
+.\.venv\Scripts\python.exe -m pytest tests\unit -q
 ```
 
 Compile-check a changed job:

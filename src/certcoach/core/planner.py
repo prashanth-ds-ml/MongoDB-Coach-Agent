@@ -10,6 +10,9 @@ SYLLABUS_FILE = os.path.join(DATA_DIR, "syllabus.json")
 RAW_MD_DIR = os.path.join(DATA_DIR, "raw_markdowns")
 
 MOCK_EXAM_UNLOCK_THRESHOLD = 0.70  # 70% topics mastered required
+PRACTICE_QUESTION_COUNT = 5
+PRACTICE_EASY_COUNT = 3
+PRACTICE_MEDIUM_COUNT = 2
 
 from certcoach.core import database
 
@@ -23,34 +26,37 @@ def load_syllabus() -> list:
         return json.load(f)
 
 
+def score_md_file_for_concept(filename: str, concept: str) -> int:
+    if not concept:
+        return 0
+    tokens = [t.lower() for t in concept.replace("()", " ").replace("/", " ").replace("-", " ").split() if len(t) > 2]
+    filename_lower = filename.lower()
+    score = 0
+    for token in tokens:
+        if token in filename_lower:
+            score += 10
+        if "bson" in token and "bson" in filename_lower:
+            score += 5
+        if "crud" in token and "crud" in filename_lower:
+            score += 5
+    return score
+
+
 def prioritize_md_files(md_files: list[str], concept: str) -> list[str]:
     if not concept:
         return md_files
-    # Clean and split the concept into tokens
-    tokens = [t.lower() for t in concept.replace("()", " ").replace("/", " ").replace("-", " ").split() if len(t) > 2]
-    if not tokens:
-        return md_files
-        
-    def get_score(filename: str) -> int:
-        filename_lower = filename.lower()
-        score = 0
-        for token in tokens:
-            if token in filename_lower:
-                score += 10
-            # Give bonus if exact matches on specific words
-            if "bson" in token and "bson" in filename_lower:
-                score += 5
-            if "crud" in token and "crud" in filename_lower:
-                score += 5
-        return score
-        
-    return sorted(md_files, key=get_score, reverse=True)
+    return sorted(md_files, key=lambda filename: score_md_file_for_concept(filename, concept), reverse=True)
 
 
 def load_md_context(md_files: list, prioritize_concept: str = None) -> str:
     """Load markdown file content as context for the LLM."""
     if prioritize_concept:
         md_files = prioritize_md_files(md_files, prioritize_concept)
+        relevant_files = [
+            filename for filename in md_files
+            if score_md_file_for_concept(filename, prioritize_concept) > 0
+        ]
+        md_files = (relevant_files or md_files[:2])[:3]
         
     texts = []
     CLEANED_MD_DIR = os.path.join(DATA_DIR, "cleaned_markdowns")
@@ -198,6 +204,7 @@ def get_syllabus_status(user_id: str) -> dict:
     next_topic = None
     skipped_unmapped_topics = []
     gap_topics = []
+    insufficient_concepts = []
     status_list = []
 
     for item in syllabus:
@@ -215,6 +222,42 @@ def get_syllabus_status(user_id: str) -> dict:
         subtopics = item.get("subtopics", [])
         completed_subtopics = completed_subtopics_map.get(syllabus_topic, [])
         uncompleted_subtopics = [s for s in subtopics if s not in completed_subtopics]
+        readiness_concepts = (
+            uncompleted_subtopics
+            if subtopics
+            else ([] if syllabus_topic in completed else [syllabus_topic])
+        )
+        concept_difficulty_counts = {
+            concept: database.get_active_question_counts_by_difficulty(topic_id=item["id"], concepts=[concept])
+            for concept in readiness_concepts
+        }
+        concept_question_counts = {
+            concept: sum(counts.values())
+            for concept, counts in concept_difficulty_counts.items()
+        }
+        ready_subtopics = [
+            concept for concept in readiness_concepts
+            if concept_difficulty_counts.get(concept, {}).get("Easy", 0) >= PRACTICE_EASY_COUNT
+            and concept_difficulty_counts.get(concept, {}).get("Medium", 0) >= PRACTICE_MEDIUM_COUNT
+        ]
+        insufficient_subtopics = [
+            concept for concept in readiness_concepts
+            if concept not in ready_subtopics
+        ]
+        insufficient_concepts.extend(
+            {
+                "topic_id": item["id"],
+                "topic": syllabus_topic,
+                "concept": concept,
+                "active_questions": concept_question_counts.get(concept, 0),
+                "required_questions": PRACTICE_QUESTION_COUNT,
+                "easy_questions": concept_difficulty_counts.get(concept, {}).get("Easy", 0),
+                "required_easy": PRACTICE_EASY_COUNT,
+                "medium_questions": concept_difficulty_counts.get(concept, {}).get("Medium", 0),
+                "required_medium": PRACTICE_MEDIUM_COUNT,
+            }
+            for concept in insufficient_subtopics
+        )
         concept_coverage = (len(completed_subtopics) / len(subtopics) * 100) if subtopics else 100
         # Do not let quiz analytics skip syllabus concepts. Analytics informs readiness;
         # mastery requires explicit coverage of every mapped concept.
@@ -223,21 +266,22 @@ def get_syllabus_status(user_id: str) -> dict:
             or (not subtopics and syllabus_topic in completed)
         )
 
-        has_questions = item.get("in_question_bank", False)
+        has_questions = bool(ready_subtopics)
         if not has_questions:
             gap_topics.append(syllabus_topic)
 
         if is_mastered:
             mastered_count += 1
         else:
-            if has_topic_documentation(item):
+            if has_topic_documentation(item) and ready_subtopics:
                 if next_topic is None:
-                    next_topic = item
+                    next_topic = {**item, "next_ready_subtopic": ready_subtopics[0]}
             else:
-                skipped_unmapped_topics.append({
-                    "id": item["id"],
-                    "topic": syllabus_topic
-                })
+                if not has_topic_documentation(item):
+                    skipped_unmapped_topics.append({
+                        "id": item["id"],
+                        "topic": syllabus_topic
+                    })
 
         status_list.append({
             "id": item["id"],
@@ -246,6 +290,10 @@ def get_syllabus_status(user_id: str) -> dict:
             "subtopics": item.get("subtopics", []),
             "completed_subtopics": completed_subtopics,
             "uncompleted_subtopics": uncompleted_subtopics,
+            "ready_subtopics": ready_subtopics,
+            "insufficient_subtopics": insufficient_subtopics,
+            "concept_question_counts": concept_question_counts,
+            "concept_difficulty_counts": concept_difficulty_counts,
             "concept_coverage": round(concept_coverage, 1),
             "question_keywords": item.get("question_keywords", []),
             "md_files": item.get("md_files", []),
@@ -268,6 +316,7 @@ def get_syllabus_status(user_id: str) -> dict:
         "next_topic": next_topic,
         "skipped_unmapped_topics": skipped_unmapped_topics,
         "gap_topics": gap_topics,
+        "insufficient_concepts": insufficient_concepts,
         "status_list": status_list,
     }
 
@@ -432,7 +481,12 @@ def generate_daily_agenda(user_id: str) -> list:
                 completed_subtopics = profile.get("progress", {}).get("completed_subtopics", {}).get(nt["topic"], [])
                 uncompleted_subtopics = [s for s in nt.get("subtopics", []) if s not in completed_subtopics]
                 
-                active_subtopic = uncompleted_subtopics[0] if uncompleted_subtopics else (nt["subtopics"][0] if nt.get("subtopics") else nt["topic"])
+                active_subtopic = nt.get("next_ready_subtopic")
+                if not active_subtopic:
+                    ready_subtopics = nt.get("ready_subtopics", [])
+                    active_subtopic = ready_subtopics[0] if ready_subtopics else None
+                if not active_subtopic:
+                    return agenda
                 
                 agenda.append({
                     "type": "Learn",

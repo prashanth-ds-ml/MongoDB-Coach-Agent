@@ -1,13 +1,12 @@
-# 📊 Feature Progress & Feature Freeze State
+# Feature Progress and Freeze Readiness
 
-This document captures the current status of all features and flows in the CertCoach platform, establishing a strict **Feature Freeze** to focus entirely on exam preparation.
+This document tracks the remaining study-readiness work required before declaring the final feature freeze.
 
 ---
 
-## 🔒 Feature Freeze Status
-* **Status:** **FROZEN & LOCKED**
-* **Effective Date:** June 6, 2026
-* **Rule:** No new feature development, architectural changes, or CLI UI refactorings are permitted. The code is locked in its current functional state. Any future edits are strictly limited to content quality correction or bug fixes.
+## Freeze Status
+* **Status:** **STUDY-READINESS STABILIZATION**
+* **Rule:** Only work required to make the daily study, five-question practice, progress persistence, and mixed-mock path reliable is allowed. Optional feature work is deferred until after the exam.
 
 ---
 
@@ -54,18 +53,39 @@ This document captures the current status of all features and flows in the CertC
 
 ---
 
-## 📈 Content Generation & Database Quality Metrics
+## Content Readiness Snapshot
 
 * **Premium Extracted Questions:** 69 official exam screenshots extracted to the DB.
-* **Target Question Bank:** 540 questions.
-* **Current Missing Slots:** 463 slots.
-* **Legacy Explanations Needing Repair:** ~280 questions need conversion to the 7-part compliance format.
+* **Canonical syllabus:** 12 topics and 58 concepts.
+* **Fixed question-bank target:** None.
+* **Readiness rule:** Each scheduled concept must have official documentation plus at least three active Easy and two active Medium questions.
+* **Current blocker:** The live bank has legacy content but no active-contract questions available to practice.
 
 ---
 
-## 🎯 Plan for Exam Preparation (Starting Tomorrow)
+## Path to Exam Preparation
 
-To prepare for the exam, the focus shifts entirely to consuming and testing:
-1. **Bulk Ingestion (Overnight):** Run the seeder to populate all remaining 463 questions using `gemma4:12b` overnight.
-2. **Explanation Compliance:** Run the repair script (`certcoach-repair-explanations`) to fix the formatting of the 280+ legacy questions.
-3. **Practice & Mocks:** Start using the CLI app from tomorrow morning to take daily pop quizzes, concept practice sessions, and timed mock exams.
+1. Complete the approved build order one phase at a time.
+2. Make every scheduled concept study-ready.
+3. Verify one full study flow and one timed mixed mock.
+4. Freeze features.
+5. Use CertCoach daily for exam preparation.
+
+---
+
+## Phase Checkpoint
+
+* **Phase 0:** Complete and reviewed.
+* **Phase 1:** Complete and reviewed.
+* **Phase 2:** Complete and reviewed.
+* **Phase 3:** Complete and reviewed.
+* **Phase 4:** In progress; backup and deterministic migration complete, overnight repair/population pending.
+* **Phase 1 result:** Model roles are separated, public defaults are documented, runtime/generated artifacts are excluded from Git, and no live database writes were performed.
+* **Phase 2 result:** Lessons are concept-bounded; scheduling, practice, and completion share a strict `3 Easy + 2 Medium` active-question gate.
+* **Live readiness snapshot:** Zero ready topics and 57 blocked concepts.
+* **Phase 3 result:** The fixed global bank total is retired; lifecycle classification, active-only study-readiness reporting, and configurable per-concept inventory targets are ready for controlled database operations.
+* **Full lifecycle snapshot:** 351 total records, 69 migratable, 216 needing explanation repair, and 66 quarantined.
+* **Readiness-only deficits before migration/repair:** 174 Easy and 116 Medium.
+* **Post-migration live state:** 69 active, 216 repair-pending, 66 quarantined, 2 study-ready concepts, 162 Easy and 93 Medium deficits.
+* **Phase 4 daytime verification:** 111 tests passed and the post-migration backup was reverified.
+* **Next allowed work:** Bounded overnight explanation repair and ordered population toward the configured per-concept inventory targets.

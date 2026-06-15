@@ -6,14 +6,19 @@ This document records the definitive technical decisions made for the CertCoach 
 
 ## 🖥️ Local Model Selection & Hardware Strategy
 
-### 1. Primary Model: `gemma4:12b`
-* **Decision:** Selected `gemma4:12b` as the primary LLM for all question generation, coaching, and explanation repair.
-* **Rationale:** In testing, `gemma4:12b` displayed perfect reasoning on array query evaluations and 0 quality retries, whereas larger model alternatives (e.g. Qwen-14B) hallucinated PyMongo methods and made pipeline tracing errors.
-* **Configuration:** Timeout is configured to `600.0` (10 minutes) to allow for CPU offloading of the 8.9 GB model weights on laptops with 6 GB VRAM and 16 GB RAM (offload ratio ~58% CPU / 42% GPU).
+### 1. Interactive Study Model: `qwen3.5:4b`
+* **Decision:** Use `qwen3.5:4b` for lessons, follow-up Q&A, feedback, and daily coaching.
+* **Rationale:** It provides good teaching quality while leaving enough VRAM headroom on the minimum supported 16 GB RAM / 6 GB NVIDIA GPU laptop.
+* **Configuration:** Disable reasoning output and use an `8192` context window for interactive study.
 
-### 2. Alternative Model for Faster Development: `qwen2.5-coder:7b`
-* **Decision:** Maintain `qwen2.5-coder:7b` as the fallback model for rapid testing/development.
-* **Rationale:** Its smaller memory footprint (4.7 GB) fits entirely within GPU VRAM, allowing instant response times for quick debugging cycles, though final production seeding is deferred to the 12B model.
+### 2. Population and Repair Model: `gemma4:12b`
+* **Decision:** Use `gemma4:12b` for question generation and explanation repair.
+* **Rationale:** Content production prioritizes MongoDB reasoning quality over interactive latency.
+* **Configuration:** Use a `600.0` second timeout to allow CPU offloading on the minimum supported laptop.
+
+### 3. Study Fallback: `qwen2.5-coder:7b`
+* **Decision:** Keep `qwen2.5-coder:7b` as an optional study and development fallback.
+* **Rationale:** It is fast and code-focused, but leaves less VRAM headroom than the default study model.
 
 ---
 

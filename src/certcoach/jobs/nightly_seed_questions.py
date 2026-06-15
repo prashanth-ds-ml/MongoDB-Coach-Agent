@@ -23,7 +23,22 @@ from rich.progress import (
 )
 
 from certcoach.core import database, planner
-from certcoach.core.question_targets import DEFAULT_TOTAL_BANK_TARGET, QuestionTarget, build_weighted_targets
+from certcoach.core.config import (
+    get_local_llm_url,
+    get_ollama_timeout,
+    get_population_model,
+    get_population_num_ctx,
+    get_population_easy_target,
+    get_population_medium_target,
+    get_population_source_chars,
+)
+from certcoach.core.content_contract import (
+    contract_metadata,
+    has_invented_topic1_type,
+    is_contract_active,
+    is_topic1_concept_only,
+)
+from certcoach.core.question_targets import QuestionTarget, build_weighted_targets
 
 class StyleTarget:
     def __init__(self, topic_id, topic, bank_topic, concept, difficulty, style_type, target_count, exam_weight, concept_weight):
@@ -60,6 +75,8 @@ Quality rules:
 - The explanation must use the seven required headings and teach the beginner why the correct answer works and why every distractor fails.
 - Each explanation section must be substantive. A heading without useful content is a failure.
 - If a syntax example is not required, Section 7 must explicitly say so.
+- For Topic 1 and other concept-only topics, use only official BSON/document vocabulary. Do not invent type names such as subdocumentArray, documentArray, embeddedDocument, or subdocument.
+- For Topic 1 prompts, prefer asking about BSON types, document shape, arrays, embedded documents, or _id behavior. Do not frame the question around a made-up BSON type.
 - Avoid duplicates, near-duplicates, cosmetic rewrites of existing questions, and repeated scenarios for the same topic/concept/difficulty.
 """.strip()
 
@@ -116,13 +133,7 @@ class SeedMCQ(BaseModel):
 
 
 def _load_env() -> tuple[str, str]:
-    load_dotenv()
-    env_path = os.path.join(database.GLOBAL_CONFIG_DIR, ".env")
-    load_dotenv(env_path)
-    return (
-        os.getenv("MODEL", "qwen2.5-coder:7b"),
-        os.getenv("LOCAL_LLM_URL", "http://localhost:11434"),
-    )
+    return get_population_model(), get_local_llm_url()
 
 
 def _ollama_json_request(local_llm_url: str, path: str, payload: dict | None = None, timeout: float = 10.0) -> dict:
@@ -221,15 +232,17 @@ def _allocate_style_counts(total: int, weights: dict[str, float]) -> dict[str, i
     return counts
 
 
-def _get_db_style_counts(bank_topic: str, concept: str, difficulty: str) -> dict[str, int]:
+def _get_db_style_counts(topic_id: int, concept: str, difficulty: str) -> dict[str, int]:
     cursor = database.questions_col.find({
-        "metadata.topic": bank_topic,
+        "metadata.topic_id": topic_id,
         "metadata.concept": concept,
         "metadata.difficulty": difficulty,
     }, {"metadata": 1})
     
     counts = {"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}
     for q in cursor:
+        if not is_contract_active(q):
+            continue
         meta = q.get("metadata", {}) or {}
         style = meta.get("question_style_type")
         if not style:
@@ -250,32 +263,59 @@ def _get_db_style_counts(bank_topic: str, concept: str, difficulty: str) -> dict
 
 
 def audit_weighted_deficits(
-    total_bank_target: int = DEFAULT_TOTAL_BANK_TARGET,
+    total_bank_target: int | None = None,
     topic_filter: str | None = None,
+    concept_filter: str | None = None,
+    target_easy: int | None = None,
+    target_medium: int | None = None,
+    extra_easy: int = 0,
+    extra_medium: int = 0,
 ) -> list[tuple[StyleTarget, int]]:
-    targets = build_weighted_targets(planner.load_syllabus(), total_bank_target=total_bank_target)
+    targets = build_weighted_targets(
+        planner.load_syllabus(),
+        total_bank_target=total_bank_target,
+        extra_easy=extra_easy,
+        extra_medium=extra_medium,
+    )
     deficits = []
+    population_targets = {
+        "Easy": max(3, target_easy if target_easy is not None else get_population_easy_target()),
+        "Medium": max(2, target_medium if target_medium is not None else get_population_medium_target()),
+    }
     
     for target in targets:
         if not _topic_matches(target, topic_filter):
             continue
+        if concept_filter and target.concept.casefold() != concept_filter.strip().casefold():
+            continue
             
         # Get active counts in database for each style under this (topic, concept, difficulty)
-        db_counts = _get_db_style_counts(target.bank_topic, target.concept, target.difficulty)
+        db_counts = _get_db_style_counts(target.topic_id, target.concept, target.difficulty)
         
-        # Distribute target_count into style target counts
+        current_total = sum(db_counts.values())
+        requested_extra = extra_easy if target.difficulty == "Easy" else extra_medium
+        requested_count = max(population_targets[target.difficulty], current_total) + requested_extra
+
+        # Distribute the requested count into style guidance.
         if target.topic_id in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}:
             weights = {"Type A": 0.35, "Type B": 0.25, "Type C": 0.20, "Type D": 0.20}
         else:
             weights = {"Type B": 0.70, "Type D": 0.30}
             
-        style_targets = _allocate_style_counts(target.target_count, weights)
-        
-        for style_type, target_style_count in style_targets.items():
-            if target_style_count <= 0:
-                continue
-            current = db_counts.get(style_type, 0)
-            missing = max(0, target_style_count - current)
+        style_targets = _allocate_style_counts(requested_count, weights)
+
+        remaining_missing = max(0, requested_count - current_total)
+        style_order = sorted(
+            style_targets,
+            key=lambda style: style_targets[style] - db_counts.get(style, 0),
+            reverse=True,
+        )
+        for style_type in style_order:
+            if remaining_missing <= 0:
+                break
+            target_style_count = style_targets[style_type]
+            style_gap = max(0, target_style_count - db_counts.get(style_type, 0))
+            missing = min(style_gap, remaining_missing)
             if missing > 0:
                 style_target = StyleTarget(
                     topic_id=target.topic_id,
@@ -289,6 +329,7 @@ def audit_weighted_deficits(
                     concept_weight=target.concept_weight
                 )
                 deficits.append((style_target, missing))
+                remaining_missing -= missing
                 
     return deficits
 
@@ -426,6 +467,18 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
     explanation = str(question.get("explanation", "") or "")
     needs_syntax_example = _question_needs_syntax_example(question)
     difficulty = _difficulty_key(question)
+    metadata = question.get("metadata", {}) or {}
+    topic_id = metadata.get("topic_id")
+    topic_text = " ".join(
+        str(part or "")
+        for part in (
+            metadata.get("topic"),
+            metadata.get("syllabus_topic"),
+            metadata.get("concept"),
+            question.get("question_text"),
+            " ".join(str(option.get("code_snippet", "")) for option in options),
+        )
+    ).lower()
     if not str(question.get("question_text", "")).strip():
         issues.append("missing question text")
     if len(options) != 4:
@@ -436,6 +489,11 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
         issues.append("does not have exactly one correct option")
     if any("placeholder" in str(option.get("code_snippet", "")).lower() for option in options):
         issues.append("contains placeholder option text")
+    if is_topic1_concept_only(metadata, topic_text):
+        if any(has_invented_topic1_type(str(option.get("code_snippet", ""))) for option in options):
+            issues.append("contains invented BSON type names")
+        if has_invented_topic1_type(str(question.get("question_text", ""))):
+            issues.append("question text contains invented BSON type names")
     sections = _parse_six_part_explanation(explanation)
     missing_headings = [heading for heading, content in sections.items() if not content]
     if not needs_syntax_example:
@@ -579,6 +637,15 @@ Style Target: Type B - Theory, Constraints & Data Modeling
 - Focus on MongoDB limitations (e.g., 16MB document size limit, BSON types), indexing rules (compound index prefixes, covered queries, multikey index limits), or modeling decisions (embedding vs. referencing trade-offs).
 """
 
+    syntax_example_rule = (
+        "Set explanation_syntax_example to exactly 'Not required for this concept.'"
+        if style_choice == "Type B"
+        else (
+            "Set explanation_syntax_example to a relevant fenced code block plus a short explanation. "
+            "The complete field must be at least 80 characters."
+        )
+    )
+
     avoid_block = ""
     if avoid_questions:
         avoid_lines = "\n".join(f"- {text[:240]}" for text in avoid_questions[:12])
@@ -615,7 +682,7 @@ Question design:
 - The correct answer must be obvious to a careful reader of the source context, but not to someone relying on memory alone.
 
 Official documentation context:
-{context_text[:5000]}
+{context_text[:get_population_source_chars()]}
 
 {avoid_block}
 
@@ -639,13 +706,42 @@ Rules:
 - explanation_why_wrong must explicitly explain why each distractor is wrong.
 - Explain every relevant syntax token, operator, method argument, return value, and casing trap.
 - Use a short analogy in either explanation_why_correct or explanation_memory_hook when it helps anchor the concept.
+- Finish the complete JSON response within 1,800 output tokens.
+- Keep the question under 70 words and each option under 35 words.
+- Keep explanation_correct_answer between 25 and 45 words.
+- Keep explanation_why_correct and explanation_why_wrong between 80 and 150 words each.
+- Keep explanation_exam_trap and explanation_memory_hook between 45 and 90 words each.
+- Provide exactly 3 compact explanation_practice_recommendations.
+- Keep explanation_syntax_example under 120 words.
+- {syntax_example_rule}
 - Critical Output Format: You MUST output a single flat JSON object with exactly the keys defined in the schema. The "options" key MUST be a list of exactly 4 strings. Do NOT write your thought process or any other fields (such as correct_answer, feedbacks, or explanations) inside the "options" list.
 {QUALITY_RULES}
 """
     try:
-        timeout_val = float(os.getenv("OLLAMA_TIMEOUT", "300.0"))
-        llm = ChatOllama(model=model, base_url=local_llm_url, temperature=0.25, timeout=timeout_val, num_ctx=4096, format="json")
-        mcq = llm.with_structured_output(SeedMCQ).invoke(prompt)
+        timeout_val = get_ollama_timeout()
+        llm = ChatOllama(
+            model=model,
+            base_url=local_llm_url,
+            temperature=0.25,
+            timeout=timeout_val,
+            num_ctx=get_population_num_ctx(),
+            reasoning=False,
+            format="json",
+        )
+        structured = llm.with_structured_output(SeedMCQ, include_raw=True).invoke(prompt)
+        mcq = structured.get("parsed")
+        if mcq is None:
+            raw = structured.get("raw")
+            metadata = getattr(raw, "response_metadata", {}) or {}
+            content = str(getattr(raw, "content", "") or "")
+            print(
+                "  [!] Structured output parsing failed "
+                f"(reason={metadata.get('done_reason')}, "
+                f"prompt_tokens={metadata.get('prompt_eval_count')}, "
+                f"output_tokens={metadata.get('eval_count')}, "
+                f"content_chars={len(content)}): {structured.get('parsing_error')}"
+            )
+            return None
     except Exception as exc:
         print(f"  [!] Generation failed for {target.concept} ({target.difficulty}): {exc}")
         return None
@@ -707,6 +803,7 @@ Rules:
             "generation_source": "nightly_weighted_seed",
             "citation_source": mcq.citation_source,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            **contract_metadata("nightly_weighted_seed"),
         },
         "context": {
             "scenario_description": f"Weighted {target.difficulty.lower()} practice for {target.concept}.",
@@ -736,24 +833,55 @@ Rules:
 
 
 def run_weighted_seed(
-    total_bank_target: int = DEFAULT_TOTAL_BANK_TARGET,
+    total_bank_target: int | None = None,
     max_questions: int | None = None,
     dry_run: bool = False,
     topic_filter: str | None = None,
+    concept_filter: str | None = None,
     max_attempts_per_slot: int = 5,
+    extra_easy: int = 0,
+    extra_medium: int = 0,
+    target_easy: int | None = None,
+    target_medium: int | None = None,
 ) -> int:
     database.check_connection()
     model, local_llm_url = _load_env()
     syllabus_by_id = {item["id"]: item for item in planner.load_syllabus()}
-    deficits = audit_weighted_deficits(total_bank_target=total_bank_target, topic_filter=topic_filter)
-    deficits.sort(key=lambda item: (item[0].exam_weight, item[1]), reverse=True)
+    deficits = audit_weighted_deficits(
+        total_bank_target=total_bank_target,
+        topic_filter=topic_filter,
+        concept_filter=concept_filter,
+        target_easy=target_easy,
+        target_medium=target_medium,
+        extra_easy=extra_easy,
+        extra_medium=extra_medium,
+    )
+    concept_order = {
+        (item["id"], concept): concept_index
+        for item in planner.load_syllabus()
+        for concept_index, concept in enumerate(item.get("subtopics", []))
+    }
+    difficulty_order = {"Easy": 0, "Medium": 1}
+    deficits.sort(key=lambda item: (
+        item[0].topic_id,
+        concept_order.get((item[0].topic_id, item[0].concept), 10_000),
+        difficulty_order.get(item[0].difficulty, 10),
+        item[0].style_type,
+    ))
 
     total_missing = sum(missing for _, missing in deficits)
     print(f"\nCertCoach Weighted Nightly Seeder")
-    print(f"Target bank size: {total_bank_target}")
+    effective_easy_target = max(3, target_easy if target_easy is not None else get_population_easy_target())
+    effective_medium_target = max(2, target_medium if target_medium is not None else get_population_medium_target())
+    print("Study-ready threshold: 3 Easy + 2 Medium per concept")
+    print(f"Population inventory target: {effective_easy_target} Easy + {effective_medium_target} Medium per concept")
+    if extra_easy or extra_medium:
+        print(f"Explicit extras requested per concept: +{extra_easy} Easy, +{extra_medium} Medium")
     if topic_filter:
         print(f"Topic filter: {topic_filter}")
-    print(f"Missing weighted slots: {total_missing}\n")
+    if concept_filter:
+        print(f"Concept filter: {concept_filter}")
+    print(f"Requested generation slots: {total_missing}\n")
 
     if dry_run:
         for target, missing in deficits[:50]:
@@ -762,6 +890,7 @@ def run_weighted_seed(
 
     inserted = 0
     failures = 0
+    attempted_slots = 0
     total_to_attempt = min(total_missing, max_questions) if max_questions is not None else total_missing
 
     clear_ollama_memory(local_llm_url)
@@ -796,10 +925,14 @@ def run_weighted_seed(
 
                 generated_for_target = 0
                 while generated_for_target < missing:
-                    if max_questions is not None and inserted >= max_questions:
-                        progress.console.print(f"\nReached max_questions={max_questions}. Inserted {inserted}.")
+                    if max_questions is not None and attempted_slots >= max_questions:
+                        progress.console.print(
+                            f"\nReached max_questions={max_questions}. "
+                            f"Attempted {attempted_slots} slots and inserted {inserted}."
+                        )
                         return inserted
 
+                    attempted_slots += 1
                     label = f"T{target.topic_id} {target.concept} ({target.difficulty} - {target.style_type})"
                     progress.update(task_id, description=f"Seeding: {label[:52]}")
                     attempts = 0
@@ -846,19 +979,34 @@ def run_weighted_seed(
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Populate CertCoach questions by exam/topic/concept weight.")
-    parser.add_argument("--target", type=int, default=DEFAULT_TOTAL_BANK_TARGET, help="Total weighted question-bank target.")
+    parser = argparse.ArgumentParser(description="Populate concepts toward configured inventory targets, with optional explicit extras.")
     parser.add_argument(
         "--topic",
         default=None,
         help="Populate one topic only. Accepts syllabus id, topic name, or question-bank topic key.",
     )
+    parser.add_argument("--concept", default=None, help="Populate only this exact syllabus concept.")
     parser.add_argument("--max-questions", type=int, default=None, help="Cap generated questions for this run.")
+    parser.add_argument("--extra-easy", type=int, default=0, help="Explicit additional Easy questions requested per selected concept.")
+    parser.add_argument("--extra-medium", type=int, default=0, help="Explicit additional Medium questions requested per selected concept.")
+    parser.add_argument("--target-easy", type=int, default=None, help="Override the configured Easy inventory target.")
+    parser.add_argument("--target-medium", type=int, default=None, help="Override the configured Medium inventory target.")
     parser.add_argument("--max-attempts", type=int, default=5, help="Retry attempts per missing slot when the model returns duplicates or low-quality output.")
     parser.add_argument("--dry-run", action="store_true", help="Print deficits without generating questions.")
     args = parser.parse_args(argv)
 
-    inserted = run_weighted_seed(args.target, args.max_questions, args.dry_run, args.topic, args.max_attempts)
+    inserted = run_weighted_seed(
+        None,
+        args.max_questions,
+        args.dry_run,
+        args.topic,
+        args.concept,
+        args.max_attempts,
+        args.extra_easy,
+        args.extra_medium,
+        args.target_easy,
+        args.target_medium,
+    )
     return 0 if args.dry_run or inserted >= 0 else 1
 
 

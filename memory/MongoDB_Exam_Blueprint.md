@@ -37,3 +37,6 @@ This document outlines the definitive examinable structure for the CertCoach pla
 *   **Main Focus Areas:** CRUD, Indexing, Drivers/PyMongo, Document Model, Data Modeling, Tools/Data Explorer.
 
 **Action Item:** This blueprint must guide all future content generation. Transactions should not be treated as a standalone Associate Developer exam domain unless a newer guide explicitly adds them.
+# MongoDB Exam Blueprint
+
+Related: [[Memory Home]], [[project_exam_scope|Project Exam Scope]]

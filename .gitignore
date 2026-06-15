@@ -3,6 +3,7 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+*.egg-info/
 
 # Virtual environment
 .venv/
@@ -40,6 +41,8 @@ data/mongodb_docs/
 # Scratch and Temporary directories
 scratch/
 memory/
+backups/
+logs/
 
 # User Profile, Attempt Histories & Chat Logs (Confidential Data)
 **/user_profiles.json
