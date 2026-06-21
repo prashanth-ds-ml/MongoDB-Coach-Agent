@@ -141,6 +141,192 @@ def print_paginated(renderable, title: str = "CertCoach"):
     console.print(renderable)
 
 
+def print_paced_lesson(explanation: str, subtopic: str):
+    """
+    Splits the lesson explanation into four segments, displaying each segment
+    with a prompt to continue to keep the reading paced and clean.
+    """
+    is_test = "PYTEST_CURRENT_TEST" in os.environ
+
+    # 1. Parse into sections
+    headers = [
+        "### 1. Core Concept",
+        "### 2. Level-Based Breakdown",
+        "### 3. Syntax & Code Examples (Do's & Don'ts)",
+        "### 4. Exam Radar",
+        "### 5. Micro-Challenge",
+        "### 6. 30-Second Recall",
+    ]
+
+    sections = {}
+    positions = []
+    for h in headers:
+        pos = explanation.find(h)
+        if pos != -1:
+            positions.append((pos, h))
+
+    positions.sort()
+
+    for i in range(len(positions)):
+        pos, h = positions[i]
+        start = pos + len(h)
+        end = positions[i + 1][0] if i + 1 < len(positions) else len(explanation)
+        sections[h] = explanation[start:end].strip()
+
+    if not sections:
+        # Fallback to single panel
+        panel = Panel(
+            Markdown(explanation, code_theme="monokai"),
+            title=f"🧑‍🏫  CertCoach teaches: {subtopic}",
+            border_style="cyan",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        )
+        console.print(panel)
+        return
+
+    # ----------------------------------------------------
+    # Segment 1: Core Concept & Level Breakdown
+    # ----------------------------------------------------
+    if not is_test:
+        clear()
+    console.print(Rule(f"[bold cyan]🧑‍🏫  Lesson Segment 1/4: {subtopic} Overview[/bold cyan]", style="cyan"))
+    console.print()
+
+    if "### 1. Core Concept" in sections:
+        console.print(Panel(
+            Markdown(sections["### 1. Core Concept"], code_theme="monokai"),
+            title="📖 1. Core Concept",
+            border_style="cyan",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        ))
+        console.print()
+
+    if "### 2. Level-Based Breakdown" in sections:
+        console.print(Panel(
+            Markdown(sections["### 2. Level-Based Breakdown"], code_theme="monokai"),
+            title="🎯 2. Level-Based Breakdown",
+            border_style="blue",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        ))
+        console.print()
+
+    if not is_test:
+        Prompt.ask("  [bold cyan]Press Enter to view Segment 2/4 (Syntax & Traps)...[/bold cyan]")
+
+    # ----------------------------------------------------
+    # Segment 2: Syntax & Exam Radar
+    # ----------------------------------------------------
+    if not is_test:
+        clear()
+    console.print(Rule(f"[bold cyan]🧑‍🏫  Lesson Segment 2/4: Syntax & Exam Radar[/bold cyan]", style="cyan"))
+    console.print()
+
+    if "### 3. Syntax & Code Examples (Do's & Don'ts)" in sections:
+        syntax_content = sections["### 3. Syntax & Code Examples (Do's & Don'ts)"]
+
+        do_match = re.search(r"####\s*DO:\s*Best\s*Practice", syntax_content, re.IGNORECASE)
+        dont_match = re.search(r"####\s*DON\'T\s*/\s*EXAM\s*TRAP", syntax_content, re.IGNORECASE)
+
+        if do_match and dont_match:
+            intro = syntax_content[:do_match.start()].strip()
+            do_start = do_match.end()
+            dont_start = dont_match.start()
+            do_content = syntax_content[do_start:dont_start].strip()
+            dont_content = syntax_content[dont_match.end():].strip()
+
+            if intro:
+                console.print(Panel(
+                    Markdown(intro, code_theme="monokai"),
+                    title="💡 Syntax Walkthrough",
+                    border_style="magenta",
+                    box=box.ROUNDED,
+                    padding=(1, 2),
+                ))
+                console.print()
+
+            console.print(Panel(
+                Markdown(do_content, code_theme="monokai"),
+                title="✅ DO: Best Practice",
+                border_style="green",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            ))
+            console.print()
+
+            console.print(Panel(
+                Markdown(dont_content, code_theme="monokai"),
+                title="❌ DON'T / EXAM TRAP",
+                border_style="red",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            ))
+            console.print()
+        else:
+            console.print(Panel(
+                Markdown(syntax_content, code_theme="monokai"),
+                title="💻 3. Syntax & Code Examples",
+                border_style="magenta",
+                box=box.ROUNDED,
+                padding=(1, 2),
+            ))
+            console.print()
+
+    if "### 4. Exam Radar" in sections:
+        console.print(Panel(
+            Markdown(sections["### 4. Exam Radar"], code_theme="monokai"),
+            title="⚡ 4. Exam Radar (Watch Out!)",
+            border_style="yellow",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        ))
+        console.print()
+
+    if not is_test:
+        Prompt.ask("  [bold cyan]Press Enter to view Segment 3/4 (30-Second Recall)...[/bold cyan]")
+
+    # ----------------------------------------------------
+    # Segment 3: 30-Second Recall
+    # ----------------------------------------------------
+    if not is_test:
+        clear()
+    console.print(Rule(f"[bold cyan]🧑‍🏫  Lesson Segment 3/4: 30-Second Recall[/bold cyan]", style="cyan"))
+    console.print()
+
+    if "### 6. 30-Second Recall" in sections:
+        console.print(Panel(
+            Markdown(sections["### 6. 30-Second Recall"], code_theme="monokai"),
+            title="🧠 6. 30-Second Recall",
+            border_style="green",
+            box=box.ROUNDED,
+            padding=(1, 2),
+        ))
+        console.print()
+
+    if not is_test:
+        Prompt.ask("  [bold cyan]Press Enter to unlock Segment 4/4 (Micro-Challenge)...[/bold cyan]")
+
+    # ----------------------------------------------------
+    # Segment 4: Micro-Challenge
+    # ----------------------------------------------------
+    if not is_test:
+        clear()
+    console.print(Rule(f"[bold cyan]🧑‍🏫  Lesson Segment 4/4: Micro-Challenge for {subtopic}[/bold cyan]", style="cyan"))
+    console.print()
+
+    if "### 5. Micro-Challenge" in sections:
+        console.print(Panel(
+            Markdown(sections["### 5. Micro-Challenge"], code_theme="monokai"),
+            title="🔥 5. Micro-Challenge",
+            border_style="bold red",
+            box=box.DOUBLE,
+            padding=(1, 2),
+        ))
+        console.print()
+
+
 def build_onboarding_commitment_text(total_days: int, experience_level: str) -> str:
     return (
         f"[bold]Daily Discipline Contract[/bold]\n"
@@ -525,13 +711,7 @@ def run_teach_session(agenda_item: dict):
         explanation = clean_lesson_explanation(explanation)
             
         explained_subtopics.append(subtopic)
-        panel = Panel(
-            Markdown(explanation, code_theme="monokai"),
-            title=f"🧑‍🏫  CertCoach teaches: {subtopic}",
-            border_style="cyan", box=box.ROUNDED,
-            padding=(1, 2),
-        )
-        print_paginated(panel, title=f"Lesson: {subtopic}")
+        print_paced_lesson(explanation, subtopic)
         
         memory_manager.log_interaction("assistant", explanation)
         chat_history = memory_manager.load_active_history()

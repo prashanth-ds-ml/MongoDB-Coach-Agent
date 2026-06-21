@@ -1511,5 +1511,46 @@ def test_get_syllabus_status_blocks_concept_without_required_difficulty_mix(
         planner.DATA_DIR = original_data_dir
 
 
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.Prompt.ask")
+def test_print_paced_lesson_normal_sections(mock_prompt_ask, mock_console):
+    from certcoach.cli import print_paced_lesson
+
+    explanation = (
+        "### 1. Core Concept\n"
+        "This is core concept content.\n"
+        "### 2. Level-Based Breakdown\n"
+        "This is level content.\n"
+        "### 3. Syntax & Code Examples (Do's & Don'ts)\n"
+        "#### DO: Best Practice\n"
+        "```javascript\ndb.c.insertOne({a: 1})\n```\n"
+        "#### DON'T / EXAM TRAP\n"
+        "```javascript\ndb.c.insert({a: 1})\n```\n"
+        "### 4. Exam Radar\n"
+        "This is exam radar content.\n"
+        "### 5. Micro-Challenge\n"
+        "This is challenge content.\n"
+        "### 6. 30-Second Recall\n"
+        "This is recall content.\n"
+    )
+
+    print_paced_lesson(explanation, "Concept X")
+
+    # In test context, PYTEST_CURRENT_TEST is set, so Prompt.ask is NOT called.
+    mock_prompt_ask.assert_not_called()
+
+    # Verify console.print is called for panels
+    assert mock_console.print.call_count >= 5
+
+
+@patch("certcoach.cli.console")
+def test_print_paced_lesson_fallback(mock_console):
+    from certcoach.cli import print_paced_lesson
+
+    # No headers matches fallback
+    print_paced_lesson("Simple unstructured text", "Concept X")
+    mock_console.print.assert_called_once()
+
+
 
 
