@@ -68,3 +68,10 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[session_handoff|S
 - Current operating target is Topic 1 -> `Collections vs Tables`.
 - Current maintained unit suite is 123 passing tests.
 - Current Phase 4 blocker is throughput tuning for bounded local-first population batches.
+
+## 2026-06-21
+- Synchronized local repository with remote branch `codex/publish-bank-loop` (commit `4bfb761`), merging 6,000+ lines of codebase improvements (RAG-grounded LLM Judge, quality gates, quarantine triage).
+- Resolved the plain pytest discovery blocker by updating `pyproject.toml` to ignore `scratch` and `.venv` directories.
+- Verified that all 149 unit tests pass successfully in 20.40 seconds.
+- Created the git sync and state report artifact detailing the database snapshot (516 total questions, 223 active, 130 repair-pending, 163 quarantined) and next steps.
+

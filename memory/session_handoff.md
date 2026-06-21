@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-20
+Last updated: 2026-06-21
 
 Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[canonical_state_flow|Canonical State Flow]], [[preparation_tool_gap_assessment|Preparation Tool Gap Assessment]]
 
@@ -69,12 +69,11 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 
 ## Next Action
 
-1. **Continue the canonical quarantine queue** with `certcoach-t01-bson-data-types-easy-004-0ccef6dd` in Topic 1 `BSON Data Types`.
+1. **Continue the canonical quarantine queue** with `certcoach-t01-bson-data-types-easy-005-a625ca47` in Topic 1 `BSON Data Types`.
 2. Review one record at a time: confirm target, repair/regenerate, validate, duplicate-check, scope-audit, and only then promote.
 3. Continue Topic 4 `replaceOne()` population separately; do not advance to `updateOne()` until the selector advances.
-4. Fix plain pytest discovery.
-5. Execute Phase 5 manual full-flow and mixed-mock verification.
-6. Freeze features and begin daily exam preparation.
+4. Execute Phase 5 manual full-flow and mixed-mock verification.
+5. Freeze features and begin daily exam preparation.
 
 ## Recent Note
 
@@ -92,7 +91,6 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 ## Known Blockers
 
 - 50 concepts not study-ready (need Phase 4 batches)
-- Plain `pytest` collects `scratch/test_zhipu_vision.py` (optional `zhipuai`)
 - Phase 5 full study-flow and mixed-mock smoke tests remain manual
 
 ## Commands
@@ -104,6 +102,6 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 # Run overnight batch (current)
 .\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25
 
-# Run unit tests
-.\.venv\Scripts\python.exe -m pytest tests\unit -q
+# Run unit tests (now fully configured and ignores scratch)
+.\.venv\Scripts\pytest
 ```
