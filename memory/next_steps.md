@@ -1,12 +1,12 @@
 # Next Steps: Study-Readiness Build Order
 
-Related: [[Memory Home]], [[active_context|Active Context]], [[decision_log|Decision Log]]
+Related: [[Memory Home]], [[active_context|Active Context]], [[decision_log|Decision Log]], [[preparation_tool_gap_assessment|Preparation Tool Gap Assessment]]
 
 The project is not frozen yet. Complete and review one phase at a time. Do not run live-bank repair, migration, or population early.
 
 ---
 
-## Current Phase: Phase 4 - Live Database Operations (Daytime Checkpoint Complete)
+## Current Phase: Phase 4 - Live Database Operations (Quality Gates Complete)
 
 Completed daytime operations:
 
@@ -17,6 +17,10 @@ Completed daytime operations:
 - Restricted explanation repair to records explicitly marked `needs_explanation_repair`.
 - Made the overnight runner automatically select the first concept with pending repairs or inventory below the configured target, in canonical syllabus order.
 - Aligned repair and population filters with exact canonical topic IDs so Topic 1 cannot touch or count Topics 10-12.
+- **Implemented quality gates**: `model_runner.py` + `judge_questions.py` with local-first multi-provider fallback (local Ollama, OpenRouter gpt-oss-120b/20b, Cloudflare Llama 3.3 70B).
+- **Wired quality gates into population and repair jobs** — replaced direct LLM calls.
+- **Added `source_files` tracking** to `database.save_generated_question()` for judge verification.
+- **Patched HTTP providers** — direct HTTP for OpenRouter/Cloudflare, normalized chat outputs.
 
 Recovery points:
 
@@ -25,16 +29,21 @@ Recovery points:
 
 Current live snapshot:
 
-- 351 total records.
-- 69 active records.
-- 216 pending explanation repair.
-- 66 quarantined.
-- 2 study-ready concepts.
-- Readiness deficits: 162 Easy and 93 Medium.
+- 400 total records.
+- Topic 2 concepts are now split into `insertOne()`, `insertMany()`, and `_id and ObjectId`.
+- Topic 2 backlog is complete and the selector has advanced to Topic 4 `replaceOne()`.
+- The `question_shell` population contract is live, and successful shells are repaired immediately in the same run.
+- The scope-audit loop now quarantines future-scope leaks before learner-facing use.
+- The overnight runner now supports `-SingleQuestion` mode so repair and population can be forced to one record at a time when a concept is failing batch-level quality gates.
+- The remaining work is to continue in canonical order and keep Topic 4 focused on the concepts that still have inventory gaps.
+- The learner-facing study pattern is now captured in `memory/study_pattern_guardrails.md`: keep the micro-challenge question-only and keep lesson examples inside the active concept boundary.
+- Resume point: continue Topic 4 from `replaceOne()` and do not skip to `updateOne()` until the selector advances.
 
-Next operation: run bounded repair and ordered inventory-population batches overnight only.
+Next operation: continue from the selector's current target and keep the repair/populate loop scoped to the exact concept.
 
-Current sequential target: Topic 1, `MongoDB Overview & The Document Model` -> `BSON Data Types`; study-ready but still has 9 pending repairs and is missing 1 Medium question toward the default `5 Easy + 5 Medium` inventory target.
+Current sequential target: Topic 4, `CRUD Operations - Update` -> `replaceOne()`.
+
+The complete release-blocker checklist and final-freeze standard are documented in `memory/preparation_tool_gap_assessment.md`.
 
 ## Approved Build Order
 
@@ -57,15 +66,34 @@ Current sequential target: Topic 1, `MongoDB Overview & The Document Model` -> `
 - Count only active questions for practice readiness.
 - Correct migration classification before live-bank writes.
 
-### Phase 4 - Live Database Operations
+### Phase 4 - Content Benchmark Integration
+- Build a combined benchmark from the official MongoDB docs in this repo and `yixin0829/mongodb-dev-cert-prep`.
+- Create a source-coverage matrix that maps local topics and subtopics to official sections and reference objectives.
+- Tag each concept with authoritative source files, objective wording, example patterns, and exam traps.
+- Use the combined benchmark to improve lesson prompts, question population, and explanation repair.
+- Preserve CertCoach's workflow, readiness gates, and lifecycle rules unchanged.
+- Start with Topic 1 and expand only after the first benchmark record is validated.
+- Topic 1 is now recorded; Topic 2 is the next benchmark record in order.
+- Topics 1 through 12 now have benchmark records; the remaining work is wiring the benchmark into prompts and validation.
+- The benchmark layer is now wired in; the next tuning step is weak-focus prioritization and throughput stabilization.
+- The scope-audit loop is now part of the runner: quarantine future-scope leaks before repair/population and recheck after each pass.
+- Topic 2 concept tagging was corrected by the bank-wide remap, the `insertMany()` prompt now includes a concept-specific variation brief so the generator does not keep producing the same return-type question, and the `_id and ObjectId` validator now rejects stems that do not explicitly mention `_id` or `ObjectId`.
+
+### Phase 5 - Live Database Operations
 - Back up the `questions` collection.
 - Apply mapping and corrected migration.
-- Repair explanations in controlled `gemma4:12b` batches.
+- Repair explanations in controlled batches with quality gates.
+- Current live focus is Topic 4, starting with `replaceOne()`; the selector now honors the stored repair backlog by exact `topic_id + concept` scope.
+- Use the study-pattern guardrails when drafting lessons or micro-challenges so later-topic material does not leak into the active concept.
+- Treat structurally salvageable records as `needs_question_regeneration` instead of forcing them into explanation repair.
 - Recalculate concept and difficulty deficits after migration and repair.
 - Populate concepts toward the configured inventory target even after they become study-ready.
 - Populate beyond readiness toward the configured inventory target and allow explicit Easy/Medium extras beyond it.
+- **Quality gates**: Deterministic checks → Duplicate (stem hash) → LLM Judge (RAG-grounded) → Retry → Fallback model → Log.
+- **Multi-provider chain**: Local Ollama → OpenRouter gpt-oss-120b/20b → Cloudflare Llama 3.3 70B.
+- Canonical state flow is documented in [[canonical_state_flow|Canonical State Flow]] and should be treated as the routing rule for repair/regeneration/legacy decisions.
 
-### Phase 5 - Smoke Test and Freeze
+### Phase 6 - Smoke Test and Freeze
 - Verify one full study flow and one timed mixed mock.
 - Verify MongoDB persistence and insufficient-question behavior.
 - Run the full automated suite.

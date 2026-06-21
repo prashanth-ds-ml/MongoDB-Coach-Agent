@@ -4,6 +4,19 @@ CertCoach is a local, AI-driven learning and study companion designed to help de
 
 Using local Ollama models with separate study and content-production roles, an interactive console interface, spaced-repetition quiz cycles, a question bank, and strict document-grounded teaching prompts, CertCoach acts as your personal instructor to systematically guide you through exam topics, scenarios, and syntactic traps.
 
+### Agent And Obsidian Workspace
+
+The repository root is an Obsidian vault and includes vendor-neutral agent instructions:
+
+- `AGENTS.md`: authoritative instructions for Codex, OpenCode, and compatible agents
+- `CLAUDE.md`: Claude adapter
+- `.github/copilot-instructions.md`: GitHub Copilot adapter
+- `memory/Memory Home.md`: Obsidian navigation hub
+- `memory/agent_context.md`: compact current context
+- `memory/session_handoff.md`: latest checkpoint and next action
+
+Agents should load only the startup files above, then follow links to task-specific references. This avoids loading the full project memory or source corpus into context.
+
 ---
 
 ## ✨ Features

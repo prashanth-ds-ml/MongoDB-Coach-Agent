@@ -40,6 +40,19 @@ def test_build_inventory_report_counts_active_legacy_and_targets():
                 "syllabus_topic": "MongoDB Overview & The Document Model",
                 "concept": "BSON Data Types",
                 "difficulty": "Easy",
+                "content_contract_status": "needs_explanation_repair",
+            },
+        },
+        {
+            "_id": "hard-repair",
+            "question_text": "Hard repair question",
+            "metadata": {
+                "topic_id": 1,
+                "topic": "BSON Data Types",
+                "syllabus_topic": "MongoDB Overview & The Document Model",
+                "concept": "BSON Data Types",
+                "difficulty": "Hard",
+                "content_contract_status": "needs_explanation_repair",
             },
         },
     ]
@@ -47,20 +60,21 @@ def test_build_inventory_report_counts_active_legacy_and_targets():
     with patch.object(report.database, "check_connection", return_value=None), \
          patch.object(report.database, "questions_col", questions_col), \
          patch.object(report.planner, "load_syllabus", return_value=[{"id": 1, "topic": target.topic, "subtopics": [target.concept]}]), \
-         patch.object(report, "build_weighted_targets", return_value=[target]), \
-         patch.object(report, "migrate_question", return_value=("repair", {"metadata": {"content_contract_status": "needs_explanation_repair"}}, [])):
+         patch.object(report, "build_weighted_targets", return_value=[target]):
         inventory = report.build_inventory_report()
 
-    assert inventory["total"] == 2
+    assert inventory["total"] == 3
     assert inventory["active"] == 1
-    assert inventory["inactive"] == 1
-    assert inventory["needs_explanation_repair"] == 1
-    assert inventory["migratable"] == 0
+    assert inventory["inactive"] == 2
+    assert inventory["needs_explanation_repair"] == 2
+    assert inventory["needs_question_regeneration"] == 0
+    assert inventory["legacy_pending"] == 0
     assert inventory["quarantined"] == 0
     assert inventory["targets"][0]["active_count"] == 1
-    assert inventory["targets"][0]["legacy_count"] == 1
+    assert inventory["targets"][0]["legacy_count"] == 0
     assert inventory["targets"][0]["readiness_deficit"] == 2
     assert inventory["targets"][0]["study_ready"] is False
     assert inventory["concepts"][0]["easy_active"] == 1
+    assert inventory["concepts"][0]["repair_pending"] == 2
     assert inventory["concepts"][0]["easy_readiness_deficit"] == 2
     assert inventory["concepts"][0]["study_ready"] is False

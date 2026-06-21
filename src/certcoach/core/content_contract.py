@@ -4,7 +4,7 @@ import re
 
 CONTENT_CONTRACT_VERSION = 2
 ACTIVE_CONTRACT_STATUSES = {"generated", "migrated"}
-LEGACY_CONTRACT_STATUSES = {"legacy", "needs_explanation_repair", "quarantined"}
+LEGACY_CONTRACT_STATUSES = {"legacy", "needs_explanation_repair", "needs_question_regeneration", "quarantined"}
 
 TOPIC1_MARKERS = (
     "bson data types",

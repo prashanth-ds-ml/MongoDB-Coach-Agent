@@ -228,6 +228,7 @@ def save_generated_question(mcq_data: dict):
             "difficulty": mcq_data.get("difficulty", "Medium"),
             "citation_source": mcq_data.get("citation_source", ""),
             "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "source_files": mcq_data.get("source_files", []),
             **contract_metadata("save_generated_question"),
         },
         "context": {

@@ -1194,8 +1194,16 @@ def test_validate_lexical_syntax_guard():
     )
     assert ok is False
     assert "contains PyMongo snake_case method" in err
-    
-    # 3. Python topic - contains PyMongo snake_case - should pass
+
+    # 3. Standard topic with explicit PyMongo context - should pass
+    ok, err = validate_lexical_syntax_guard(
+        "CRUD Operations - Read",
+        "Which PyMongo method returns the first matching document?",
+        ["client.db.coll.find_one({'x': 1})", "client.db.coll.find()"]
+    )
+    assert ok is True
+
+    # 4. Python topic - contains PyMongo snake_case - should pass
     ok, err = validate_lexical_syntax_guard(
         "MongoDB Drivers & PyMongo",
         "How do you insert a document in PyMongo?",
@@ -1203,7 +1211,7 @@ def test_validate_lexical_syntax_guard():
     )
     assert ok is True
     
-    # 4. Python topic - lacks PyMongo snake_case - should fail
+    # 5. Python topic - lacks PyMongo snake_case - should fail
     ok, err = validate_lexical_syntax_guard(
         "MongoDB Drivers & PyMongo",
         "How do you query documents?",

@@ -12,10 +12,8 @@ from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.progress import (
-    BarColumn,
     MofNCompleteColumn,
     Progress,
-    SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
@@ -27,6 +25,7 @@ from certcoach.core.config import (
     get_local_llm_url,
     get_ollama_timeout,
     get_population_model,
+    get_population_model_chain,
     get_population_num_ctx,
     get_population_easy_target,
     get_population_medium_target,
@@ -39,6 +38,8 @@ from certcoach.core.content_contract import (
     is_topic1_concept_only,
 )
 from certcoach.core.question_targets import QuestionTarget, build_weighted_targets
+from certcoach.core.model_runner import get_model_runner
+from certcoach.core.judge_questions import judge_question
 
 class StyleTarget:
     def __init__(self, topic_id, topic, bank_topic, concept, difficulty, style_type, target_count, exam_weight, concept_weight):
@@ -80,6 +81,17 @@ Quality rules:
 - Avoid duplicates, near-duplicates, cosmetic rewrites of existing questions, and repeated scenarios for the same topic/concept/difficulty.
 """.strip()
 
+POPULATION_RULES = """
+Population rules:
+- Produce a lean MCQ shell only.
+- Do not write the seven-part explanation in this response.
+- Ask one narrow question with exactly four short options and exactly one correct answer.
+- Prefer `correct_option_letter` when it is simpler, but `correct_answer` as exact option text is also acceptable.
+- Include `citation_source` as one official filename or section from the provided docs.
+- If you include `trap_analysis`, keep it short and concrete.
+- Keep the output tightly grounded in the provided documentation context.
+""".strip()
+
 EXPLANATION_SECTION_MIN_LENGTHS = {
     "### 1. Correct Answer": 20,
     "### 2. Why Correct": 65,
@@ -117,19 +129,19 @@ SYNTAX_EXAMPLE_HINTS = (
 
 
 class SeedMCQ(BaseModel):
-    question: str = Field(description="The multiple choice question.")
-    options: list[str] = Field(description="Exactly four options.")
-    correct_answer: str = Field(description="The exact correct option text or letter.")
-    feedbacks: list[str] = Field(description="Exactly four feedback strings, one per option.")
-    trap_analysis: str = Field(description="The main exam trap.")
-    explanation_correct_answer: str = Field(description="What is the correct answer and a brief statement of it.")
-    explanation_why_correct: str = Field(description="Detailed explanation of why the correct option is correct.")
-    explanation_why_wrong: str = Field(description="Detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.")
-    explanation_exam_trap: str = Field(description="Description of the exam trap or common misconception related to this concept.")
-    explanation_memory_hook: str = Field(description="A compact mnemonic or memory hook with one or two concrete rules to remember.")
-    explanation_practice_recommendations: list[str] = Field(description="A list of 3 to 5 compact but specific action items or recall points for practice.")
-    explanation_syntax_example: str = Field(description="A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.")
-    citation_source: str = Field(description="Official source filename or section.")
+    question: str = Field(default="", description="The multiple choice question.")
+    options: list[str] = Field(default_factory=list, description="Exactly four options.")
+    correct_answer: str = Field(default="", description="The exact correct option text or a single letter A/B/C/D.")
+    feedbacks: list[str] = Field(default_factory=list, description="Exactly four feedback strings, one per option.")
+    trap_analysis: str = Field(default="", description="The main exam trap.")
+    explanation_correct_answer: str = Field(default="", description="What is the correct answer and a brief statement of it.")
+    explanation_why_correct: str = Field(default="", description="Detailed explanation of why the correct option is correct.")
+    explanation_why_wrong: str = Field(default="", description="Detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.")
+    explanation_exam_trap: str = Field(default="", description="Description of the exam trap or common misconception related to this concept.")
+    explanation_memory_hook: str = Field(default="", description="A compact mnemonic or memory hook with one or two concrete rules to remember.")
+    explanation_practice_recommendations: list[str] = Field(default_factory=list, description="A list of 3 to 5 compact but specific action items or recall points for practice.")
+    explanation_syntax_example: str = Field(default="", description="A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.")
+    citation_source: str = Field(default="", description="Official source filename or section.")
 
 
 def _load_env() -> tuple[str, str]:
@@ -461,7 +473,7 @@ def is_duplicate_question(question: dict, target: StyleTarget | QuestionTarget) 
     return False, ""
 
 
-def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
+def validate_question_quality(question: dict, require_explanation: bool = True) -> tuple[bool, list[str]]:
     issues = []
     options = question.get("options", [])
     explanation = str(question.get("explanation", "") or "")
@@ -494,45 +506,67 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
             issues.append("contains invented BSON type names")
         if has_invented_topic1_type(str(question.get("question_text", ""))):
             issues.append("question text contains invented BSON type names")
-    sections = _parse_six_part_explanation(explanation)
-    missing_headings = [heading for heading, content in sections.items() if not content]
-    if not needs_syntax_example:
-        missing_headings = [heading for heading in missing_headings if heading != "### 7. Syntax Example"]
-    if missing_headings:
-        issues.append("missing seven-part headings or content: " + ", ".join(missing_headings))
-    min_lengths = EASY_EXPLANATION_SECTION_MIN_LENGTHS if difficulty == "easy" else EXPLANATION_SECTION_MIN_LENGTHS
-    short_sections = [
-        heading
-        for heading, min_length in min_lengths.items()
-        if len(sections.get(heading, "")) < min_length
-    ]
-    if not needs_syntax_example:
-        short_sections = [heading for heading in short_sections if heading != "### 7. Syntax Example"]
-    if short_sections:
-        issues.append("seven-part explanation sections are too short: " + ", ".join(short_sections))
-    min_bullets = EASY_EXPLANATION_SECTION_MIN_BULLETS if difficulty == "easy" else EXPLANATION_SECTION_MIN_BULLETS
-    short_bullet_sections = [
-        heading
-        for heading, min_bullet_count in min_bullets.items()
-        if _count_bullet_lines(sections.get(heading, "")) < min_bullet_count
-    ]
-    if short_bullet_sections:
-        issues.append("seven-part explanation sections need more bullets: " + ", ".join(short_bullet_sections))
-    syntax_section = sections.get("### 7. Syntax Example", "")
-    if needs_syntax_example:
-        if "```" not in syntax_section:
-            issues.append("missing syntax example code block for a syntax-heavy concept")
-        if _count_code_fences(syntax_section) < 1:
-            issues.append("syntax example needs a fenced code block")
-        if len(syntax_section.strip()) < 80:
-            issues.append("syntax example is too short")
-    elif syntax_section.strip() and not any(
-        marker in syntax_section.strip().lower()
-        for marker in ("not required", "not needed", "optional", "no syntax example")
-    ):
-        issues.append("syntax example should explicitly say it is not required for this concept")
-    if len(explanation.strip()) < 550:
-        issues.append("seven-part explanation is too short")
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "replaceone()":
+        leak_terms = (
+            "update_one",
+            "update_many",
+            "find_one_and_update",
+            "find_and_modify",
+            "upsert",
+            "$set",
+            "$inc",
+            "$push",
+            "$unset",
+            "$rename",
+        )
+        leaked = [term for term in leak_terms if term in topic_text]
+        if leaked:
+            issues.append("replaceOne() question leaks future-scope terms: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 2 and str(metadata.get("concept", "")).strip().lower() == "_id and objectid":
+        question_text = str(question.get("question_text", "")).lower()
+        option_text = " ".join(str(option.get("code_snippet", "")) for option in options).lower()
+        if "_id" not in question_text and "objectid" not in question_text and "_id" not in option_text and "objectid" not in option_text:
+            issues.append("question text for _id and ObjectId must explicitly reference _id or ObjectId")
+    if require_explanation:
+        sections = _parse_six_part_explanation(explanation)
+        missing_headings = [heading for heading, content in sections.items() if not content]
+        if not needs_syntax_example:
+            missing_headings = [heading for heading in missing_headings if heading != "### 7. Syntax Example"]
+        if missing_headings:
+            issues.append("missing seven-part headings or content: " + ", ".join(missing_headings))
+        min_lengths = EASY_EXPLANATION_SECTION_MIN_LENGTHS if difficulty == "easy" else EXPLANATION_SECTION_MIN_LENGTHS
+        short_sections = [
+            heading
+            for heading, min_length in min_lengths.items()
+            if len(sections.get(heading, "")) < min_length
+        ]
+        if not needs_syntax_example:
+            short_sections = [heading for heading in short_sections if heading != "### 7. Syntax Example"]
+        if short_sections:
+            issues.append("seven-part explanation sections are too short: " + ", ".join(short_sections))
+        min_bullets = EASY_EXPLANATION_SECTION_MIN_BULLETS if difficulty == "easy" else EXPLANATION_SECTION_MIN_BULLETS
+        short_bullet_sections = [
+            heading
+            for heading, min_bullet_count in min_bullets.items()
+            if _count_bullet_lines(sections.get(heading, "")) < min_bullet_count
+        ]
+        if short_bullet_sections:
+            issues.append("seven-part explanation sections need more bullets: " + ", ".join(short_bullet_sections))
+        syntax_section = sections.get("### 7. Syntax Example", "")
+        if needs_syntax_example:
+            if "```" not in syntax_section:
+                issues.append("missing syntax example code block for a syntax-heavy concept")
+            if _count_code_fences(syntax_section) < 1:
+                issues.append("syntax example needs a fenced code block")
+            if len(syntax_section.strip()) < 80:
+                issues.append("syntax example is too short")
+        elif syntax_section.strip() and not any(
+            marker in syntax_section.strip().lower()
+            for marker in ("not required", "not needed", "optional", "no syntax example")
+        ):
+            issues.append("syntax example should explicitly say it is not required for this concept")
+        if len(explanation.strip()) < 550:
+            issues.append("seven-part explanation is too short")
     if len({str(option.get("code_snippet", "")).strip().lower() for option in options}) != len(options):
         issues.append("duplicate option text")
         
@@ -553,8 +587,12 @@ def validate_question_quality(question: dict) -> tuple[bool, list[str]]:
 def print_question_template(question: dict) -> None:
     meta = question.get("metadata", {})
     console.print(f"\n[bold green]Inserted {question.get('_id')}[/bold green]")
-    console.print(f"[cyan]Topic:[/cyan] {meta.get('topic')} | [cyan]Concept:[/cyan] {meta.get('concept')} | [cyan]Difficulty:[/cyan] {meta.get('difficulty')}")
-    console.print(f"[bold]Question:[/bold] {question.get('question_text', '')}")
+    console.print(
+        f"[cyan]Topic:[/cyan] {(meta.get('topic') or '').encode('ascii', 'replace').decode('ascii')} | "
+        f"[cyan]Concept:[/cyan] {(meta.get('concept') or '').encode('ascii', 'replace').decode('ascii')} | "
+        f"[cyan]Difficulty:[/cyan] {(meta.get('difficulty') or '').encode('ascii', 'replace').decode('ascii')}"
+    )
+    console.print(f"[bold]Question:[/bold] {(question.get('question_text', '') or '').encode('ascii', 'replace').decode('ascii')}")
     for option in question.get("options", []):
         tags = []
         if option.get("is_correct"):
@@ -562,9 +600,9 @@ def print_question_template(question: dict) -> None:
         if option.get("is_trap"):
             tags.append("trap")
         suffix = f" [{' / '.join(tags)}]" if tags else ""
-        console.print(f"  {option.get('option_letter')}. {option.get('code_snippet', '')}{suffix}")
+        console.print(f"  {(option.get('option_letter') or '').encode('ascii', 'replace').decode('ascii')}. {(option.get('code_snippet', '') or '').encode('ascii', 'replace').decode('ascii')}{suffix}")
     console.print("[bold]Seven-Part Explanation:[/bold]")
-    console.print(question.get("explanation", ""))
+    console.print((question.get("explanation", "") or "").encode("ascii", "replace").decode("ascii"))
 
 
 def existing_question_samples(target: StyleTarget | QuestionTarget, limit: int = 8) -> list[str]:
@@ -583,9 +621,56 @@ def existing_question_samples(target: StyleTarget | QuestionTarget, limit: int =
     ]
 
 
-def generate_weighted_question(target: StyleTarget | QuestionTarget, context_text: str, avoid_questions: list[str] | None = None) -> dict | None:
+def _concept_variation_guidance(target: StyleTarget | QuestionTarget, avoid_questions: list[str] | None = None) -> str:
+    avoid_text = " ".join(avoid_questions or []).lower()
+    concept = str(target.concept or "").strip().lower()
+    topic_id = int(target.topic_id or 0)
+
+    if topic_id == 4 and concept == "replaceone()":
+        return (
+            "Variation requirement for replaceOne(): do NOT mention later CRUD concepts or update operators in the stem or options. "
+            "Avoid terms like update_one, update_many, $set, $inc, $push, $unset, upsert, findAndModify, or any other later-scope method/operator names. "
+            "Build distractors from unrelated earlier-scope methods such as insert_one or find_one, or from wrong argument order, wrong replacement shape, or wrong filter placement."
+        )
+
+    if topic_id == 2:
+        if concept == "insertmany()":
+            return (
+                "Variation requirement for insertMany(): do NOT ask the return-type / insertedIds question again. "
+                "Choose a different decision point such as ordered vs unordered behavior, array-vs-object syntax, "
+                "duplicate-key handling, or the difference between insertMany() and insertOne(). "
+                "Prefer a fresh scenario that uses a new document shape, a new error condition, or a new option flag."
+            )
+        if concept == "insertone()":
+            return (
+                "Variation requirement for insertOne(): do NOT ask the same single-document syntax question again. "
+                "Choose a different decision point such as explicit _id handling, return-value semantics, collection path placement, "
+                "or a mongosh-vs-PyMongo syntax contrast. "
+                "Prefer a fresh scenario that changes the context, not just the wording."
+            )
+        if concept == "_id and objectid":
+            return (
+                "Variation requirement for _id and ObjectId: do NOT ask another generic 'what is _id' question. "
+                "Choose a different decision point such as automatic ObjectId generation, custom _id values, querying by _id, "
+                "or why ObjectId is used as a unique identifier. "
+                "Prefer a fresh scenario with a different data shape or insert/query action."
+            )
+
+    if "return" in avoid_text and "insertmany" in concept:
+        return "Return-value questions are already overused here. Ask a different insertMany() decision point."
+    if "syntax" in avoid_text and "insertone" in concept:
+        return "Syntax questions are already overused here. Ask a different insertOne() decision point."
+
+    return ""
+
+
+def generate_weighted_question(
+    target: StyleTarget | QuestionTarget,
+    context_text: str,
+    avoid_questions: list[str] | None = None,
+    citation_source: str = "",
+) -> dict | None:
     import random
-    model, local_llm_url = _load_env()
     is_pymongo = "pymongo" in target.topic.lower() or "driver" in target.topic.lower()
     syntax_rule = (
         "Use PyMongo snake_case where the question is driver-specific, and contrast with mongosh only when useful."
@@ -637,15 +722,6 @@ Style Target: Type B - Theory, Constraints & Data Modeling
 - Focus on MongoDB limitations (e.g., 16MB document size limit, BSON types), indexing rules (compound index prefixes, covered queries, multikey index limits), or modeling decisions (embedding vs. referencing trade-offs).
 """
 
-    syntax_example_rule = (
-        "Set explanation_syntax_example to exactly 'Not required for this concept.'"
-        if style_choice == "Type B"
-        else (
-            "Set explanation_syntax_example to a relevant fenced code block plus a short explanation. "
-            "The complete field must be at least 80 characters."
-        )
-    )
-
     avoid_block = ""
     if avoid_questions:
         avoid_lines = "\n".join(f"- {text[:240]}" for text in avoid_questions[:12])
@@ -655,6 +731,13 @@ Existing questions to avoid for this exact topic/concept/difficulty:
 
 You must create a genuinely different scenario, ask for a different decision point, and avoid reusing the same wording.
 Do not reuse the same code shape, error condition, or return-value framing from these examples.
+"""
+
+    variation_block = _concept_variation_guidance(target, avoid_questions)
+    if variation_block:
+        variation_block = f"""
+Variation guidance:
+- {variation_block}
 """
 
     prompt = f"""You are CertCoach, an expert MongoDB Associate Python Developer exam question writer.
@@ -685,72 +768,57 @@ Official documentation context:
 {context_text[:get_population_source_chars()]}
 
 {avoid_block}
+{variation_block}
 
 Rules:
 - Produce exactly 4 options with exactly 1 correct answer.
+- The JSON object must use the field name `question`, not `question_text`.
+- Prefer `correct_option_letter` with a single value A, B, C, or D if that is easier; `correct_answer` may also be the exact option text.
 - Include at least one subtle exam-trap distractor.
 - Make the difficulty match the requested level.
 - Do not invent unsupported MongoDB behavior.
 - Be strictly grounded in the provided documentation context. Do not test on concepts, APIs, commands, or drivers that are not explicitly documented in the provided source text.
 - Do not jump ahead to advanced concepts (like indexing, aggregation, or PyMongo connection options) if the current topic/concept doesn't cover them. If the topic is Topic 1 (Overview & Document Model), keep the focus purely on BSON data types, fields, and collections.
 - Do not create a cosmetic rewrite of a common MongoDB docs example; create a fresh scenario grounded in the context.
-- Provide detailed structured explanation fields:
-  - explanation_correct_answer: What is the correct answer and a brief statement of it.
-  - explanation_why_correct: Detailed explanation of why the correct option is correct.
-  - explanation_why_wrong: Detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.
-  - explanation_exam_trap: Description of the exam trap or common misconception related to this concept.
-  - explanation_memory_hook: A compact mnemonic or memory hook with one or two concrete rules to remember.
-  - explanation_practice_recommendations: A list of 3 to 5 compact but specific action items or recall points for practice. Do NOT add markdown hyphen prefixes (e.g. - ) inside the list items themselves; the system will format them.
-  - explanation_syntax_example: A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.
-- Each explanation field must be detailed enough for a beginner to learn from the answer review.
-- explanation_why_wrong must explicitly explain why each distractor is wrong.
-- Explain every relevant syntax token, operator, method argument, return value, and casing trap.
-- Use a short analogy in either explanation_why_correct or explanation_memory_hook when it helps anchor the concept.
-- Finish the complete JSON response within 1,800 output tokens.
-- Keep the question under 70 words and each option under 35 words.
-- Keep explanation_correct_answer between 25 and 45 words.
-- Keep explanation_why_correct and explanation_why_wrong between 80 and 150 words each.
-- Keep explanation_exam_trap and explanation_memory_hook between 45 and 90 words each.
-- Provide exactly 3 compact explanation_practice_recommendations.
-- Keep explanation_syntax_example under 120 words.
-- {syntax_example_rule}
-- Critical Output Format: You MUST output a single flat JSON object with exactly the keys defined in the schema. The "options" key MUST be a list of exactly 4 strings. Do NOT write your thought process or any other fields (such as correct_answer, feedbacks, or explanations) inside the "options" list.
-{QUALITY_RULES}
+- Keep the output lean:
+  - question: one sentence, under 70 words.
+  - options: exactly four short strings, each under 35 words.
+  - correct_answer or correct_option_letter: one clear answer marker.
+  - citation_source: one official filename or section from the provided docs.
+- Optional fields are allowed, but do not spend tokens on long explanations here.
+- Do not include the seven-part explanation in this response; explanation repair will add it later.
+- If you include trap_analysis, keep it short and concrete.
+- Critical Output Format: You MUST output a single flat JSON object with exactly the keys defined in the schema. The "options" key MUST be a list of exactly 4 strings. Do NOT write your thought process or any other fields inside the "options" list.
+- If you use a letter, set `correct_option_letter` to exactly one of A, B, C, or D. Do not invent any other answer marker.
+{POPULATION_RULES}
 """
-    try:
-        timeout_val = get_ollama_timeout()
-        llm = ChatOllama(
-            model=model,
-            base_url=local_llm_url,
-            temperature=0.25,
-            timeout=timeout_val,
-            num_ctx=get_population_num_ctx(),
-            reasoning=False,
-            format="json",
-        )
-        structured = llm.with_structured_output(SeedMCQ, include_raw=True).invoke(prompt)
-        mcq = structured.get("parsed")
-        if mcq is None:
-            raw = structured.get("raw")
-            metadata = getattr(raw, "response_metadata", {}) or {}
-            content = str(getattr(raw, "content", "") or "")
-            print(
-                "  [!] Structured output parsing failed "
-                f"(reason={metadata.get('done_reason')}, "
-                f"prompt_tokens={metadata.get('prompt_eval_count')}, "
-                f"output_tokens={metadata.get('eval_count')}, "
-                f"content_chars={len(content)}): {structured.get('parsing_error')}"
-            )
-            return None
-    except Exception as exc:
-        print(f"  [!] Generation failed for {target.concept} ({target.difficulty}): {exc}")
+    
+    # Use model_runner with quality gates
+    model_runner = get_model_runner()
+    
+    # Extract source files from context for judge verification
+    source_files = []
+    if context_text:
+        source_files = [f"context_{hash(context_text) % 10000}"]
+    
+    model_chain = get_population_model_chain()
+    
+    result = model_runner.generate_with_quality_gate(
+        prompt=prompt,
+        model_chain=model_chain,
+        max_retries=2,
+        source_files=source_files,
+        context_text=context_text,
+        response_kind="question_shell"
+    )
+    
+    if not result["success"]:
+        print(f"  [!] Quality gate failed for {target.concept} ({target.difficulty}): {result['quality_issues']}")
         return None
-
+    
+    mcq = SeedMCQ(**result["result"])
     if not mcq or len(mcq.options) != 4:
         return None
-    while len(mcq.feedbacks) < 4:
-        mcq.feedbacks.append("Review the official MongoDB documentation for this concept.")
-    mcq.feedbacks = mcq.feedbacks[:4]
 
     correct_answer = _resolve_correct_answer(mcq)
     if not correct_answer:
@@ -762,30 +830,7 @@ Rules:
     question_number = _next_question_number(target)
     q_id = make_question_id(target, question_number, fingerprint)
 
-    rec_bullets = "\n".join(f"- {rec.strip()}" for rec in mcq.explanation_practice_recommendations)
-    explanation_markdown = f"""
-### 1. Correct Answer
-{mcq.explanation_correct_answer.strip()}
-
-### 2. Why Correct
-{mcq.explanation_why_correct.strip()}
-
-### 3. Why Other Options Are Wrong
-{mcq.explanation_why_wrong.strip()}
-
-### 4. Exam Trap
-{mcq.explanation_exam_trap.strip()}
-
-### 5. Memory Hook
-{mcq.explanation_memory_hook.strip()}
-
-### 6. Follow-Up Practice Recommendation
-{rec_bullets}
-
-### 7. Syntax Example
-{mcq.explanation_syntax_example.strip()}
-""".strip()
-
+    chosen_citation_source = (mcq.citation_source or citation_source or "").strip()
     return {
         "_id": q_id,
         "metadata": {
@@ -801,7 +846,7 @@ Rules:
             "exam_weight": target.exam_weight,
             "concept_weight": target.concept_weight,
             "generation_source": "nightly_weighted_seed",
-            "citation_source": mcq.citation_source,
+            "citation_source": chosen_citation_source,
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             **contract_metadata("nightly_weighted_seed"),
         },
@@ -816,13 +861,13 @@ Rules:
                 "code_snippet": option,
                 "is_correct": idx == correct_idx,
                 "is_trap": idx == trap_idx,
-                "feedback": mcq.feedbacks[idx],
+                "feedback": mcq.feedbacks[idx] if idx < len(mcq.feedbacks) else "",
             }
             for idx, option in enumerate(mcq.options)
         ],
-        "explanation": explanation_markdown,
+        "explanation": "",
         "trap_analysis": mcq.trap_analysis,
-        "citation_source": mcq.citation_source,
+        "citation_source": chosen_citation_source,
         "global_metrics": {
             "times_seen": 0,
             "times_correct": 0,
@@ -893,12 +938,8 @@ def run_weighted_seed(
     attempted_slots = 0
     total_to_attempt = min(total_missing, max_questions) if max_questions is not None else total_missing
 
-    clear_ollama_memory(local_llm_url)
-    preload_ollama_model(model, local_llm_url)
     progress = Progress(
-        SpinnerColumn(),
         TextColumn("[bold cyan]{task.description}[/bold cyan]"),
-        BarColumn(bar_width=34),
         TaskProgressColumn(),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
@@ -913,6 +954,12 @@ def run_weighted_seed(
                 topic_item = syllabus_by_id[target.topic_id]
                 md_files = topic_item.get("md_files", [])
                 context_text = planner.load_md_context(md_files, prioritize_concept=target.concept)
+                weak_focus_context = planner.load_topic_benchmark_focus(target.topic_id, target.concept)
+                if isinstance(weak_focus_context, str) and weak_focus_context.strip():
+                    context_text = "\n\n---\n\n".join(
+                        part for part in (weak_focus_context, context_text)
+                        if isinstance(part, str) and part.strip()
+                    )
                 if not context_text:
                     progress.console.print(f"  [yellow][skip][/yellow] No docs for Topic {target.topic_id}: {target.topic}")
                     continue
@@ -940,13 +987,14 @@ def run_weighted_seed(
                     avoid_questions = existing_question_samples(target)
                     while attempts < max_attempts_per_slot and not slot_filled:
                         attempts += 1
-                        question = generate_weighted_question(target, context_text, avoid_questions)
+                        primary_source = prioritized[0] if prioritized else (md_files[0] if md_files else "")
+                        question = generate_weighted_question(target, context_text, avoid_questions, primary_source)
                         if not question:
                             failures += 1
                             progress.console.print(f"[yellow]Generation retry:[/yellow] empty/invalid response for {label} ({attempts}/{max_attempts_per_slot})")
                             continue
 
-                        is_valid, quality_issues = validate_question_quality(question)
+                        is_valid, quality_issues = validate_question_quality(question, require_explanation=False)
                         if not is_valid:
                             failures += 1
                             progress.console.print(f"[yellow]Quality retry:[/yellow] {question.get('_id')} - {'; '.join(quality_issues)} ({attempts}/{max_attempts_per_slot})")
@@ -959,12 +1007,33 @@ def run_weighted_seed(
                             avoid_questions.append(question.get("question_text", ""))
                             continue
 
+                        question["metadata"]["content_contract_status"] = "needs_explanation_repair"
                         database.questions_col.insert_one(question)
-                        inserted += 1
-                        generated_for_target += 1
-                        progress.advance(task_id)
-                        print_question_template(question)
-                        slot_filled = True
+                        try:
+                            from certcoach.jobs.repair_explanations import apply_repair, generate_repair
+
+                            repair_candidate = database.questions_col.find_one({"_id": question["_id"]}) or question
+                            repair = generate_repair(repair_candidate)
+                            if repair:
+                                apply_repair(repair_candidate, repair)
+                                repaired_question = database.questions_col.find_one({"_id": question["_id"]}) or repair_candidate
+                                inserted += 1
+                                generated_for_target += 1
+                                progress.advance(task_id)
+                                print_question_template(repaired_question)
+                                slot_filled = True
+                            else:
+                                progress.console.print(f"[yellow]Repair pending:[/yellow] inserted shell for {label} but explanation repair failed")
+                                failures += 1
+                                generated_for_target += 1
+                                progress.advance(task_id)
+                                slot_filled = True
+                        except Exception as exc:
+                            progress.console.print(f"[yellow]Repair handoff failed:[/yellow] {exc}")
+                            failures += 1
+                            generated_for_target += 1
+                            progress.advance(task_id)
+                            slot_filled = True
 
                     if not slot_filled:
                         failures += 1
@@ -972,7 +1041,8 @@ def run_weighted_seed(
                         progress.advance(task_id)
                         progress.console.print(f"[red]Slot failed:[/red] {label} after {max_attempts_per_slot} attempts")
     finally:
-        unload_ollama_model(model, local_llm_url)
+        # Model unloading is now handled by model_runner internally
+        pass
 
     print(f"\nWeighted seeding complete. Inserted {inserted} questions. Failed/skipped quality generations: {failures}.")
     return inserted

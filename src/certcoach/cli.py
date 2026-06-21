@@ -506,6 +506,14 @@ def run_teach_session(agenda_item: dict):
     explained_subtopics = []
     for idx, subtopic in enumerate(subtopics):
         md_context = planner.load_md_context(md_files, prioritize_concept=subtopic)
+        topic_id = agenda_item.get("topic_id") or agenda_item.get("id") or planner.resolve_topic_id(topic)
+        weak_focus_context = planner.load_topic_benchmark_focus(topic_id, subtopic)
+        benchmark_context = planner.load_topic_benchmark_context(topic_id, subtopic)
+        if isinstance(weak_focus_context, str) and weak_focus_context.strip():
+            md_context = "\n\n---\n\n".join(
+                part for part in (weak_focus_context, md_context, benchmark_context)
+                if isinstance(part, str) and part.strip()
+            )
         with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
             explanation = coach.explain_topic(topic, subtopic, md_context)
         

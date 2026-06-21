@@ -82,7 +82,7 @@ def test_migrate_question_repairs_topic1_invented_types():
     with patch.object(job, "validate_question_quality", return_value=(True, [])):
         action, updated, issues = job.migrate_question(question)
 
-    assert action == "repair"
+    assert action == "regenerate"
     assert updated["question_text"] == "Which BSON type should you use to store multiple values under one field?"
     assert updated["metadata"]["content_contract_version"] == 2
     assert updated["metadata"]["content_contract_status"] == "migrated"
@@ -128,8 +128,8 @@ def test_migrate_question_quarantines_structural_failures():
     with patch.object(job, "validate_question_quality", return_value=(False, issues)):
         action, updated, returned_issues = job.migrate_question(question)
 
-    assert action == "quarantine"
-    assert updated["metadata"]["content_contract_status"] == "quarantined"
+    assert action == "regenerate"
+    assert updated["metadata"]["content_contract_status"] == "needs_question_regeneration"
     assert returned_issues == issues
 
 
@@ -174,4 +174,23 @@ def test_migrate_topic1_explanation_only_failure_routes_to_repair():
 
     assert action == "repair"
     assert updated["metadata"]["content_contract_status"] == "needs_explanation_repair"
+    assert returned_issues == issues
+
+
+def test_migrate_question_marks_structural_topic1_failures_for_regeneration():
+    from certcoach.jobs import migrate_legacy_question_bank as job
+
+    question = {
+        "_id": "q6",
+        "question_text": "Broken BSON question",
+        "metadata": {"topic_id": 1, "concept": "BSON Data Types", "difficulty": "Easy"},
+        "options": [],
+    }
+    issues = ["does not have exactly four options"]
+
+    with patch.object(job, "validate_question_quality", return_value=(False, issues)):
+        action, updated, returned_issues = job.migrate_question(question)
+
+    assert action == "regenerate"
+    assert updated["metadata"]["content_contract_status"] == "needs_question_regeneration"
     assert returned_issues == issues

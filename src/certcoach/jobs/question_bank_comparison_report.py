@@ -8,9 +8,8 @@ from rich.console import Console
 from rich.table import Table
 
 from certcoach.core import database, planner
-from certcoach.core.content_contract import is_contract_active
+from certcoach.core.bank_state import canonical_status, question_scope_key
 from certcoach.core.question_targets import build_weighted_targets
-from certcoach.jobs.migrate_legacy_question_bank import migrate_question
 
 console = Console()
 
@@ -24,11 +23,8 @@ def _target_key(target: dict | object) -> tuple:
 
 
 def _question_key(question: dict) -> tuple:
-    metadata = question.get("metadata", {}) or {}
     return (
-        metadata.get("topic_id"),
-        str(metadata.get("concept") or ""),
-        str(metadata.get("difficulty") or ""),
+        *question_scope_key(question),
     )
 
 
@@ -54,29 +50,42 @@ def build_inventory_report(topic_filter: str | None = None, limit: int | None = 
     syllabus = planner.load_syllabus()
     targets = build_weighted_targets(syllabus)
     target_lookup = {_target_key(target): target for target in targets}
-    target_counts = Counter(_question_key(q) for q in questions if is_contract_active(q))
-    legacy_counts = Counter(_question_key(q) for q in questions if not is_contract_active(q))
+    target_counts = Counter()
+    legacy_counts = Counter()
     repair_counts = Counter()
+    regeneration_counts = Counter()
+    quarantine_counts = Counter()
 
     target_rows = []
     needs_explanation_repair = 0
+    needs_question_regeneration = 0
     quarantined = 0
-    migratable = 0
+    legacy_pending = 0
     active_records = 0
 
     for question in questions:
-        if is_contract_active(question):
+        status = canonical_status(question)
+        stored_status = str(question.get("metadata", {}).get("content_contract_status", "")).strip().lower()
+        key = _question_key(question)
+        if status == "active":
             active_records += 1
+            target_counts[key] += 1
             continue
-        action, classified, _ = migrate_question(question)
-        classified_status = str(classified.get("metadata", {}).get("content_contract_status", "")).strip().lower()
-        if classified_status == "needs_explanation_repair":
+
+        if stored_status == "needs_explanation_repair":
             needs_explanation_repair += 1
-            repair_counts[_question_key(classified)] += 1
-        elif action == "quarantine":
+            repair_counts[key] += 1
+            continue
+        if stored_status == "needs_question_regeneration":
+            needs_question_regeneration += 1
+            regeneration_counts[key] += 1
+            continue
+        if stored_status == "quarantined":
             quarantined += 1
-        elif action in {"promote", "repair"}:
-            migratable += 1
+            quarantine_counts[key] += 1
+            continue
+        legacy_pending += 1
+        legacy_counts[key] += 1
 
     for key, target in target_lookup.items():
         active_count = target_counts.get(key, 0)
@@ -95,6 +104,7 @@ def build_inventory_report(topic_filter: str | None = None, limit: int | None = 
 
     concept_rows = []
     concepts = {}
+    concepts_by_scope = {}
     for row in target_rows:
         key = (row["topic_id"], row["topic"], row["concept"])
         summary = concepts.setdefault(key, {
@@ -106,14 +116,45 @@ def build_inventory_report(topic_filter: str | None = None, limit: int | None = 
             "easy_readiness_deficit": 3,
             "medium_readiness_deficit": 2,
             "repair_pending": 0,
+            "regeneration_pending": 0,
+            "legacy_pending": 0,
+            "quarantine_pending": 0,
         })
-        summary["repair_pending"] += repair_counts.get((row["topic_id"], row["concept"], row["difficulty"]), 0)
+        concepts_by_scope[(row["topic_id"], row["concept"])] = summary
         if row["difficulty"] == "Easy":
             summary["easy_active"] = row["active_count"]
             summary["easy_readiness_deficit"] = row["readiness_deficit"]
         elif row["difficulty"] == "Medium":
             summary["medium_active"] = row["active_count"]
             summary["medium_readiness_deficit"] = row["readiness_deficit"]
+
+    # Status backlog should count the whole concept, including non-target difficulties
+    # such as legacy Hard records that still require repair or quarantine.
+    for question in questions:
+        stored_status = str(question.get("metadata", {}).get("content_contract_status", "")).strip().lower()
+        if stored_status not in {
+            "needs_explanation_repair",
+            "needs_question_regeneration",
+            "legacy",
+            "quarantined",
+        }:
+            continue
+        metadata = question.get("metadata", {}) or {}
+        scope_key = (
+            metadata.get("topic_id"),
+            str(metadata.get("concept", "")).strip(),
+        )
+        summary = concepts_by_scope.get(scope_key)
+        if not summary:
+            continue
+        if stored_status == "needs_explanation_repair":
+            summary["repair_pending"] += 1
+        elif stored_status == "needs_question_regeneration":
+            summary["regeneration_pending"] += 1
+        elif stored_status == "legacy":
+            summary["legacy_pending"] += 1
+        elif stored_status == "quarantined":
+            summary["quarantine_pending"] += 1
 
     for summary in concepts.values():
         summary["study_ready"] = summary["easy_active"] >= 3 and summary["medium_active"] >= 2
@@ -124,7 +165,8 @@ def build_inventory_report(topic_filter: str | None = None, limit: int | None = 
         "active": active_records,
         "inactive": len(questions) - active_records,
         "needs_explanation_repair": needs_explanation_repair,
-        "migratable": migratable,
+        "needs_question_regeneration": needs_question_regeneration,
+        "legacy_pending": legacy_pending,
         "quarantined": quarantined,
         "targets": target_rows,
         "concepts": concept_rows,
@@ -139,7 +181,8 @@ def render_report(report: dict, topic_filter: str | None = None) -> None:
     console.print(f"Active records: [bold green]{report['active']}[/bold green]")
     console.print(f"Inactive records: [bold yellow]{report['inactive']}[/bold yellow]")
     console.print(f"Needs explanation repair: [bold cyan]{report['needs_explanation_repair']}[/bold cyan]")
-    console.print(f"Migratable without LLM repair: [bold green]{report['migratable']}[/bold green]")
+    console.print(f"Needs question regeneration: [bold magenta]{report['needs_question_regeneration']}[/bold magenta]")
+    console.print(f"Legacy pending: [bold green]{report['legacy_pending']}[/bold green]")
     console.print(f"Quarantine candidates: [bold red]{report['quarantined']}[/bold red]")
     console.print()
 
@@ -149,7 +192,8 @@ def render_report(report: dict, topic_filter: str | None = None) -> None:
     summary.add_row("Active", str(report["active"]))
     summary.add_row("Inactive", str(report["inactive"]))
     summary.add_row("Needs Explanation Repair", str(report["needs_explanation_repair"]))
-    summary.add_row("Migratable", str(report["migratable"]))
+    summary.add_row("Needs Question Regeneration", str(report["needs_question_regeneration"]))
+    summary.add_row("Legacy Pending", str(report["legacy_pending"]))
     summary.add_row("Quarantine", str(report["quarantined"]))
     console.print(summary)
 

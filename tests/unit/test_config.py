@@ -53,3 +53,17 @@ def test_population_inventory_targets_cannot_drop_below_readiness(monkeypatch):
 
     assert config.get_population_easy_target() == 3
     assert config.get_population_medium_target() == 2
+
+
+def test_model_chains_prioritize_ollama_before_cloud_fallbacks(monkeypatch):
+    monkeypatch.setenv("POPULATION_MODEL_CHAIN", "openrouter:foo,cf:bar")
+    monkeypatch.setenv("REPAIR_MODEL_CHAIN", "or:baz,cloudflare:qux")
+    monkeypatch.setattr(config, "load_environment", lambda: None)
+
+    population_chain = config.get_population_model_chain()
+    repair_chain = config.get_repair_model_chain()
+
+    assert population_chain[0] == {"provider": "ollama", "model": "gemma4:12b"}
+    assert repair_chain[0] == {"provider": "ollama", "model": "gemma4:12b"}
+    assert any(entry["provider"] != "ollama" for entry in population_chain[1:])
+    assert any(entry["provider"] != "ollama" for entry in repair_chain[1:])

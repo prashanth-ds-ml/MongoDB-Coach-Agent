@@ -1,0 +1,5 @@
+{
+  "folder": "memory/local/daily",
+  "format": "YYYY-MM-DD",
+  "template": "templates/session-handoff"
+}

@@ -96,3 +96,41 @@ def test_concept_lesson_context_uses_only_relevant_files_when_available(tmp_path
         assert "unrelated index content" not in context
     finally:
         planner.DATA_DIR = original_data_dir
+
+
+def test_topic_benchmark_context_loads_topic_record(tmp_path):
+    from certcoach.core import planner
+
+    original_memory_dir = planner.MEMORY_DIR
+    try:
+        planner.MEMORY_DIR = str(tmp_path)
+        (tmp_path / "topic_01_benchmark.md").write_text("Topic 1 benchmark content", encoding="utf-8")
+
+        benchmark = planner.load_topic_benchmark_context(1, "BSON Data Types")
+
+        assert "Topic 1 benchmark content" in benchmark
+        assert "BSON Data Types" in benchmark
+        assert "Benchmark context for Topic 1" in benchmark
+    finally:
+        planner.MEMORY_DIR = original_memory_dir
+
+
+def test_topic_benchmark_focus_loads_weak_focus_section(tmp_path):
+    from certcoach.core import planner
+
+    original_memory_dir = planner.MEMORY_DIR
+    try:
+        planner.MEMORY_DIR = str(tmp_path)
+        (tmp_path / "topic_01_benchmark.md").write_text(
+            "# Topic 1 Benchmark Record\n\n- `weak_focus`:\n  - BSON vs JSON\n  - collections vs tables\n\n- `generation_notes`:\n  - keep short\n",
+            encoding="utf-8",
+        )
+
+        focus = planner.load_topic_benchmark_focus(1, "BSON Data Types")
+
+        assert "Benchmark weak focus for Topic 1" in focus
+        assert "BSON vs JSON" in focus
+        assert "collections vs tables" in focus
+        assert "generation_notes" not in focus
+    finally:
+        planner.MEMORY_DIR = original_memory_dir

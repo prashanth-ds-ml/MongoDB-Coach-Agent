@@ -51,4 +51,20 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[session_handoff|S
 - Full dry-run classified 351 records into 69 migratable without LLM explanation repair, 216 needing explanation repair, and 66 quarantined.
 - Updated Phase 4 to process one exact concept at a time in canonical syllabus order.
 - Separated study readiness (`3 Easy + 2 Medium`) from default population inventory (`5 Easy + 5 Medium`, configurable).
-- Verified 121 unit tests; current automatic target is Topic 1 -> `BSON Data Types`.
+- Verified 121 unit tests; at that checkpoint the automatic target was Topic 1 -> `BSON Data Types`.
+
+## 2026-06-15
+- Documented the remaining blockers preventing final feature freeze in `memory/preparation_tool_gap_assessment.md`.
+- Prioritized question-bank readiness, legacy lifecycle completion, human content review, Phase 5 end-to-end smoke testing, and plain pytest discovery repair.
+- Recorded the final-freeze completion standard so future sessions can resume from a durable checklist.
+- Added a vendor-neutral `AGENTS.md` with thin Claude and Copilot adapters.
+- Created an Obsidian `Memory Home`, compact `agent_context`, templates, and a three-file startup budget for token-efficient cross-agent work.
+- Reduced active context and session handoff notes to current-state pointers; historical detail remains in append-only logs.
+
+## 2026-06-17
+- Re-read the active memory set and aligned the snapshot docs with the current local-first model chain.
+- Separated the population and repair response contracts so string-option generation no longer fails judge validation.
+- Confirmed the live assessment note now reflects the latest unit-test count and the current throughput bottleneck rather than the earlier schema mismatch.
+- Current operating target is Topic 1 -> `Collections vs Tables`.
+- Current maintained unit suite is 123 passing tests.
+- Current Phase 4 blocker is throughput tuning for bounded local-first population batches.

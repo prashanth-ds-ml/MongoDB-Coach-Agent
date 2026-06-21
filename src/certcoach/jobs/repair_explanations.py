@@ -9,37 +9,42 @@ from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 from rich.console import Console
 from rich.progress import (
-    BarColumn,
     MofNCompleteColumn,
     Progress,
-    SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
 
+from certcoach.core.config import get_ollama_timeout
+
 from certcoach.core import database, planner
+from certcoach.core.bank_state import matches_concept_filter, matches_topic_filter
 from certcoach.core.config import (
     get_local_llm_url,
     get_ollama_timeout,
     get_repair_model,
+    get_repair_model_chain,
     get_repair_num_ctx,
 )
 from certcoach.core.content_contract import contract_metadata
+from certcoach.core.model_runner import get_model_runner
+from certcoach.core.judge_questions import judge_explanation_repair
 from certcoach.jobs.nightly_seed_questions import (
     QUALITY_RULES,
     SEVEN_PART_HEADINGS,
     _question_needs_syntax_example,
-    clear_ollama_memory,
-    preload_ollama_model,
     validate_question_quality,
-    unload_ollama_model,
 )
 
 console = Console()
 REPAIR_ATTEMPTS = 3
 REPAIR_PENDING_STATUS = "needs_explanation_repair"
+
+
+def _ascii_safe(text: str) -> str:
+    return (text or "").encode("ascii", "replace").decode("ascii")
 
 
 def _load_env() -> tuple[str, str]:
@@ -75,31 +80,11 @@ def _find_question(question_id: str) -> dict | None:
 
 
 def _topic_matches(q: dict, topic_filter: str | None) -> bool:
-    if not topic_filter:
-        return True
-    filt = topic_filter.strip().lower()
-    if not filt:
-        return True
-    meta = q.get("metadata", {})
-    if filt.isdigit():
-        try:
-            return int(meta.get("topic_id")) == int(filt)
-        except (TypeError, ValueError):
-            return False
-    haystack = " ".join([
-        str(meta.get("topic", "")),
-        str(meta.get("syllabus_topic", "")),
-        str(meta.get("concept", "")),
-        str(meta.get("topic_id", "")),
-    ]).lower()
-    return filt in haystack
+    return matches_topic_filter(q, topic_filter)
 
 
 def _concept_matches(q: dict, concept_filter: str | None) -> bool:
-    if not concept_filter:
-        return True
-    actual = str(q.get("metadata", {}).get("concept", "")).strip()
-    return actual.casefold() == concept_filter.strip().casefold()
+    return matches_concept_filter(q, concept_filter)
 
 
 def _syllabus_order_key(q: dict, syllabus: list[dict]) -> tuple[int, int, str]:
@@ -143,8 +128,102 @@ def _repair_quality_issues(q: dict, repaired: RepairedExplanation) -> list[str]:
     return [] if ok else issues
 
 
+def _normalize_practice_recommendations(q: dict, recs: list[str]) -> list[str]:
+    concept = str(q.get("metadata", {}).get("concept", "")).strip()
+    topic = str(q.get("metadata", {}).get("topic", "")).strip()
+    defaults = [
+        f"Compare how {concept or 'this concept'} behaves in the exact scenario shown in the question.",
+        f"Memorize the return type, syntax shape, and common exam trap for {concept or 'this concept'}.",
+        f"Practice explaining why the wrong options fail for {concept or topic or 'this topic'} without using vague wording.",
+    ]
+    cleaned = [str(item).strip() for item in recs if str(item).strip()]
+    if len(cleaned) >= 3:
+        return cleaned[:3]
+    for item in defaults:
+        if len(cleaned) >= 3:
+            break
+        if item not in cleaned:
+            cleaned.append(item)
+    while len(cleaned) < 3:
+        cleaned.append(defaults[len(cleaned)])
+    return cleaned[:3]
+
+
+def _synthesize_syntax_example(q: dict) -> str:
+    concept = str(q.get("metadata", {}).get("concept", "")).strip().lower()
+
+    if "replaceone" in concept or "replace_one" in concept:
+        return """```python
+collection.replace_one({'status': 'inactive'}, {'status': 'active', 'type': 'admin'})
+
+# 1. The first argument is the filter used to find the document.
+# 2. The second argument is a plain replacement document with no $ operators.
+```"""
+
+    if "updateone" in concept or "updatemany" in concept:
+        return """```python
+collection.update_one({'status': 'inactive'}, {'$set': {'status': 'active'}})
+
+# 1. The first argument is the filter used to find matching documents.
+# 2. The second argument uses an update operator such as $set instead of a raw replacement document.
+```"""
+
+    if "insertmany" in concept:
+        return """```python
+collection.insert_many([
+    {'name': 'Ada'},
+    {'name': 'Grace'}
+])
+
+# 1. The method takes an iterable of documents, not a single document.
+# 2. Each item in the array is inserted as its own MongoDB document.
+```"""
+
+    if "insertone" in concept:
+        return """```python
+collection.insert_one({'name': 'Ada', 'role': 'engineer'})
+
+# 1. The method inserts exactly one document.
+# 2. The argument is a single plain document, not a list of documents.
+```"""
+
+    if "findone" in concept:
+        return """```python
+collection.find_one({'status': 'active'})
+
+# 1. The method returns one document or None.
+# 2. The filter is the same shape as a find query, but the result is a single document.
+```"""
+
+    if "find()" in concept or concept == "find" or concept == "find_one":
+        return """```python
+cursor = collection.find({'status': 'active'})
+
+# 1. find() returns a cursor, so you iterate over the results.
+# 2. The filter can match many documents, not just one.
+```"""
+
+    return """```python
+# Use the exact method and document shape shown in the question.
+collection.method_name({...})
+
+# 1. Match the syntax in the prompt.
+# 2. Keep the operator and argument shape aligned with the concept.
+```"""
+
+
+def _normalize_syntax_example(q: dict, syntax_example: str, needs_syntax_example: bool) -> str:
+    if not needs_syntax_example:
+        return syntax_example.strip() if syntax_example.strip() else "Not required for this concept."
+
+    value = syntax_example.strip()
+    if "```" in value and len(value) >= 80:
+        return value
+
+    return _synthesize_syntax_example(q)
+
+
 def generate_repair(q: dict) -> RepairedExplanation | None:
-    model, local_llm_url = _load_env()
     meta = q.get("metadata", {})
     needs_syntax_example = _question_needs_syntax_example(q)
     options_text = []
@@ -154,6 +233,37 @@ def generate_repair(q: dict) -> RepairedExplanation | None:
             f"{opt.get('option_letter', '?')}) {opt.get('code_snippet', '')}\n"
             f"Marked: {correctness}\n"
             f"Current feedback: {opt.get('feedback', '')}"
+        )
+
+    syntax_instruction = (
+        "- This concept is syntax-heavy, so `explanation_syntax_example` MUST be a short fenced code block with 2 brief bullets explaining the exact syntax being tested.\n"
+        "- Do not output 'Not required for this concept.' for syntax-heavy concepts.\n"
+        "- Keep the example aligned to the same method or operator used in the question.\n"
+        if needs_syntax_example
+        else "- This concept is conceptual, so `explanation_syntax_example` should be exactly 'Not required for this concept.'\n"
+    )
+
+    concept_name = str(meta.get("concept", "") or "").lower()
+    if needs_syntax_example and "insertmany" in concept_name:
+        syntax_instruction += (
+            "- For insertMany(), show a short mongosh example that includes the array of documents and, if relevant, the options object.\n"
+            "- End the section with exactly 2 short bullets that explain the array argument and the key option being tested.\n"
+        )
+    elif needs_syntax_example and "insertone" in concept_name:
+        syntax_instruction += (
+            "- For insertOne(), show a short mongosh example that inserts one document into a named collection.\n"
+            "- End the section with exactly 2 short bullets that explain the single-document argument and the collection path.\n"
+        )
+    elif needs_syntax_example and ("find()" in concept_name or "findone" in concept_name or "find_" in concept_name):
+        syntax_instruction += (
+            "- For find()/find_one() concepts, show a short PyMongo example that contrasts the cursor returned by find() with the single-document result returned by find_one().\n"
+            "- End the section with exactly 2 short bullets that explain cursor vs document return behavior and the query filter shape.\n"
+        )
+        syntax_instruction += (
+            "- For the memory hook, use this exact contrast or a very close paraphrase: 'Find is for a crowd; find_one is for one.' Include two explicit rules: find() returns a cursor for many documents, and find_one() returns a single document.\n"
+            "- For the exam trap, explicitly contrast cursor vs single-document return behavior and say that the trap is confusing one-document retrieval with many-document retrieval or assuming both methods return the same type.\n"
+            "- For the practice recommendations, include exactly 3 items and make one of them compare cursor iteration versus direct document access.\n"
+            "- Do not leave the memory hook, exam trap, or practice recommendations generic or empty; they must directly contrast cursor vs single-document behavior.\n"
         )
 
     prompt = f"""You are CertCoach, an expert MongoDB Associate Python Developer exam editor.
@@ -184,40 +294,85 @@ Return detailed explanation and feedback fields matching the schema:
 - `explanation_why_correct`: detailed explanation of why the correct option is correct.
 - `explanation_why_wrong`: detailed explanation of why each of the other three options is incorrect, explaining the flaw in each option.
 - `explanation_exam_trap`: description of the exam trap or common misconception related to this concept.
-- `explanation_memory_hook`: a compact mnemonic or memory hook with one or two concrete rules.
-- `explanation_practice_recommendations`: a list of 3 to 5 compact but specific action items or recall points for practice. Do NOT add markdown hyphen prefixes (e.g. - ) inside the list items themselves; the system will format them.
+- `explanation_memory_hook`: a compact mnemonic or memory hook with at least two concrete rules. Make it long enough to survive validation and useful enough to remember under exam pressure.
+- `explanation_practice_recommendations`: a list of exactly 3 compact but specific action items or recall points for practice. Each item should be a full sentence with enough detail to stand alone. Do NOT add markdown hyphen prefixes (e.g. - ) inside the list items themselves; the system will format them.
 - `explanation_syntax_example`: a markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.
 
 Make it beginner-friendly but technically precise. Explain syntax tokens, method names, operators, return values, casing traps, and why each distractor is wrong.
+For the memory hook, prefer a two-part rule of thumb that names the BSON type or concept and the most common exam trap.
+For Topic 3 find()/find_one(), make the memory hook explicit: compare cursor vs single-document behavior and mention that `find()` is for many while `find_one()` is for one.
+For Topic 3 find()/find_one(), use the exact memory-hook wording above if needed; do not invent a totally new hook if the prompt already supplies one.
+For the practice recommendations, avoid one-word reminders; each recommendation should tell the learner exactly what to compare, memorize, or practice.
+Do not omit any required field, even if the answer seems obvious. Every JSON key must have a non-empty, substantive value.
+For Topic 3 find()/find_one() repairs, treat the following as mandatory:
+- The memory hook must explicitly contrast cursor vs single-document behavior.
+- The exam trap must explicitly mention that the common mistake is confusing a cursor-returning method with a single-document method.
+- The practice recommendations must contain exactly 3 items.
+- If the explanation is syntax-heavy, the syntax example must show the same method used in the question.
+If any required field feels uncertain, restate the concept from the supplied documentation instead of omitting the field.
 Syntax example rule:
 - If this question needs syntax, include a short fenced code example and 2 brief bullets explaining it.
 - If syntax is not needed, write exactly: Not required for this concept.
 Current need for syntax example: {"yes" if needs_syntax_example else "no"}
+{syntax_instruction}
+Response contract:
+- Return exactly one flat JSON object.
+- Do not wrap the JSON in markdown fences.
+- Do not add commentary, preambles, or trailing text.
+- Include exactly these keys: feedbacks, trap_analysis, explanation_correct_answer, explanation_why_correct, explanation_why_wrong, explanation_exam_trap, explanation_memory_hook, explanation_practice_recommendations, explanation_syntax_example.
+- feedbacks must be a list of exactly 4 strings in A/B/C/D order.
+- explanation_practice_recommendations must be a list of exactly 3 strings.
+- explanation_syntax_example must be plain text with no heading markers.
 {QUALITY_RULES}
 """
-    for attempt in range(1, REPAIR_ATTEMPTS + 1):
-        try:
-            timeout_val = get_ollama_timeout()
-            llm = ChatOllama(
-                model=model,
-                base_url=local_llm_url,
-                temperature=0.25,
-                timeout=timeout_val,
-                num_ctx=get_repair_num_ctx(),
-                format="json",
-            )
-            repaired_raw = llm.with_structured_output(RepairedExplanationSchema).invoke(prompt)
-        except Exception as exc:
-            print(f"  [!] Repair generation failed: {exc}")
-            return None
-
-        if not repaired_raw or len(repaired_raw.feedbacks) != 4:
-            continue
-
-        rec_bullets = "\n".join(
-            f"- {rec.strip()}" for rec in repaired_raw.explanation_practice_recommendations
+    
+    # Use model_runner with quality gates
+    model_runner = get_model_runner()
+    
+    # Extract source files from existing question for judge verification
+    source_files = []
+    citation_source = meta.get("citation_source", "")
+    if citation_source:
+        source_files = [citation_source]
+    
+    # Extract context text from existing question for judge verification
+    context_text = q.get("context", {}).get("scenario_description", "")
+    topic_id = meta.get("topic_id") or planner.resolve_topic_id(meta.get("syllabus_topic") or meta.get("topic") or "")
+    weak_focus_context = planner.load_topic_benchmark_focus(topic_id, meta.get("concept", ""))
+    benchmark_context = planner.load_topic_benchmark_context(topic_id, meta.get("concept", ""))
+    if isinstance(weak_focus_context, str) and weak_focus_context.strip():
+        context_text = "\n\n---\n\n".join(
+            part for part in (weak_focus_context, context_text, benchmark_context)
+            if isinstance(part, str) and part.strip()
         )
-        explanation_markdown = f"""
+
+    model_chain = get_repair_model_chain()
+    
+    result = model_runner.generate_with_quality_gate(
+        prompt=prompt,
+        model_chain=model_chain,
+        max_retries=REPAIR_ATTEMPTS - 1,
+        source_files=source_files,
+        context_text=context_text,
+        response_kind="repair"
+    )
+    
+    if not result["success"]:
+        print(f"  [!] Repair quality gate failed: {result['quality_issues']}")
+        return None
+    
+    repaired_raw = RepairedExplanationSchema(**result["result"])
+    if not repaired_raw or len(repaired_raw.feedbacks) != 4:
+        return None
+
+    recs = _normalize_practice_recommendations(q, repaired_raw.explanation_practice_recommendations)
+    syntax_example = _normalize_syntax_example(
+        q,
+        repaired_raw.explanation_syntax_example,
+        needs_syntax_example,
+    )
+    rec_bullets = "\n".join(f"- {rec.strip()}" for rec in recs)
+    explanation_markdown = f"""
 ### 1. Correct Answer
 {repaired_raw.explanation_correct_answer.strip()}
 
@@ -237,20 +392,20 @@ Current need for syntax example: {"yes" if needs_syntax_example else "no"}
 {rec_bullets}
 
 ### 7. Syntax Example
-{repaired_raw.explanation_syntax_example.strip()}
+{syntax_example}
 """.strip()
 
-        repaired = RepairedExplanation(
-            explanation=explanation_markdown,
-            feedbacks=repaired_raw.feedbacks,
-            trap_analysis=repaired_raw.trap_analysis,
-        )
+    repaired = RepairedExplanation(
+        explanation=explanation_markdown,
+        feedbacks=repaired_raw.feedbacks,
+        trap_analysis=repaired_raw.trap_analysis,
+    )
 
-        issues = _repair_quality_issues(q, repaired)
-        if not issues:
-            return repaired
+    issues = _repair_quality_issues(q, repaired)
+    if not issues:
+        return repaired
 
-        print(f"  [!] Repair quality retry: {'; '.join(issues)} ({attempt}/{REPAIR_ATTEMPTS})")
+    print(f"  [!] Repair quality retry: {'; '.join(issues)} (attempt {REPAIR_ATTEMPTS})")
 
     return None
 
@@ -271,7 +426,9 @@ def apply_repair(q: dict, repaired: RepairedExplanation) -> None:
                 "options": options,
                 "metadata.explanation_repair_source": "certcoach_repair_explanations",
                 "metadata.explanation_repaired_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
-                **contract_metadata("repair_explanations"),
+                "metadata.content_contract_version": contract_metadata("repair_explanations")["content_contract_version"],
+                "metadata.content_contract_status": contract_metadata("repair_explanations")["content_contract_status"],
+                "metadata.content_contract_source": contract_metadata("repair_explanations")["content_contract_source"],
             }
         },
     )
@@ -303,24 +460,25 @@ def run_repair(
         console.print("Mode: [bold yellow]dry-run[/bold yellow]")
     console.print()
 
-    for item in audit["issues"]:
-        q = _find_question(item["id"])
-        if not q:
-            failed.append((item["id"], "question not found"))
-            continue
+    repair_query: dict[str, object] = {
+        "metadata.content_contract_status": REPAIR_PENDING_STATUS,
+    }
+    candidate_questions = list(database.questions_col.find(repair_query))
+
+    for q in candidate_questions:
         if not _topic_matches(q, topic_filter):
             continue
         if not _concept_matches(q, concept_filter):
             continue
         if not is_marked_for_explanation_repair(q):
-            skipped.append((item["id"], "not marked needs_explanation_repair"))
+            skipped.append((str(q.get("_id", "")), "not marked needs_explanation_repair"))
             continue
 
         ok, reason = is_structurally_repairable(q)
         if not ok:
-            skipped.append((item["id"], reason))
+            skipped.append((str(q.get("_id", "")), reason))
             continue
-        candidate_items.append((item, q))
+        candidate_items.append(({"id": q.get("_id")}, q))
 
     candidate_items.sort(key=lambda item: _syllabus_order_key(item[1], planner.load_syllabus()))
     if max_questions is not None:
@@ -346,9 +504,7 @@ def run_repair(
 
     repaired = 0
     progress = Progress(
-        SpinnerColumn(),
         TextColumn("[bold cyan]{task.description}[/bold cyan]"),
-        BarColumn(bar_width=34),
         TaskProgressColumn(),
         MofNCompleteColumn(),
         TimeElapsedColumn(),
@@ -356,8 +512,6 @@ def run_repair(
         console=console,
     )
 
-    clear_ollama_memory(local_llm_url)
-    preload_ollama_model(model, local_llm_url)
     try:
         with progress:
             task_id = progress.add_task("Repairing explanations", total=total_candidates)
@@ -393,12 +547,13 @@ def run_repair(
                 repaired += 1
                 progress.advance(task_id)
                 console.print(f"\n[bold green]Repaired {q.get('_id')}[/bold green]")
-                console.print(f"[bold]Question:[/bold] {q.get('question_text', '')}")
+                console.print(f"[bold]Question:[/bold] {_ascii_safe(q.get('question_text', ''))}")
                 console.print("[bold]Seven-Part Explanation:[/bold]")
-                console.print(repair.explanation)
+                console.print(_ascii_safe(repair.explanation))
                 time.sleep(0.2)
     finally:
-        unload_ollama_model(model, local_llm_url)
+        # Model unloading is now handled by model_runner internally
+        pass
 
     result = {"repaired": repaired, "repairable": total_candidates, "skipped": skipped, "failed": failed}
     console.print(

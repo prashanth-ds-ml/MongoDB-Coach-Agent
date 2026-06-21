@@ -44,6 +44,7 @@ This document tracks the remaining study-readiness work required before declarin
     - **Type C:** Predicting Query Output (Aggregation / Array matching)
     - **Type D:** Troubleshooting, Errors & Performance
   - Supports loading local LLMs with custom timeouts.
+  - Uses local-first model ordering with cloud fallback only if Ollama fails or times out.
 
 ### 5. 🔎 Casing Guard and Syntax Validator (`src/certcoach/core/planner.py`)
 * **Status:** Completed & Optimized
@@ -59,7 +60,7 @@ This document tracks the remaining study-readiness work required before declarin
 * **Canonical syllabus:** 12 topics and 58 concepts.
 * **Fixed question-bank target:** None.
 * **Readiness rule:** Each scheduled concept must have official documentation plus at least three active Easy and two active Medium questions.
-* **Current blocker:** The live bank has legacy content but no active-contract questions available to practice.
+* **Current blocker:** The live bank still needs more active inventory, and the current population path needs throughput tuning for bounded local-first batches.
 
 ---
 
@@ -79,7 +80,7 @@ This document tracks the remaining study-readiness work required before declarin
 * **Phase 1:** Complete and reviewed.
 * **Phase 2:** Complete and reviewed.
 * **Phase 3:** Complete and reviewed.
-* **Phase 4:** In progress; backup and deterministic migration complete, overnight repair/population pending.
+* **Phase 4:** In progress; backup and deterministic migration complete, overnight repair/population running with local-first quality gates.
 * **Phase 1 result:** Model roles are separated, public defaults are documented, runtime/generated artifacts are excluded from Git, and no live database writes were performed.
 * **Phase 2 result:** Lessons are concept-bounded; scheduling, practice, and completion share a strict `3 Easy + 2 Medium` active-question gate.
 * **Live readiness snapshot:** Zero ready topics and 57 blocked concepts.
@@ -87,5 +88,5 @@ This document tracks the remaining study-readiness work required before declarin
 * **Full lifecycle snapshot:** 351 total records, 69 migratable, 216 needing explanation repair, and 66 quarantined.
 * **Readiness-only deficits before migration/repair:** 174 Easy and 116 Medium.
 * **Post-migration live state:** 69 active, 216 repair-pending, 66 quarantined, 2 study-ready concepts, 162 Easy and 93 Medium deficits.
-* **Phase 4 daytime verification:** 111 tests passed and the post-migration backup was reverified.
-* **Next allowed work:** Bounded overnight explanation repair and ordered population toward the configured per-concept inventory targets.
+* **Phase 4 daytime verification:** 123 tests passed and the post-migration backup was reverified.
+* **Next allowed work:** Bounded overnight explanation repair and ordered population toward the configured per-concept inventory targets, plus throughput tuning for local-first batches.

@@ -66,3 +66,78 @@ def test_select_next_topic_continues_after_readiness_until_population_target():
     assert selected["concept"] == "A"
     assert selected["concept_easy_population_deficit"] == 2
     assert selected["concept_medium_population_deficit"] == 3
+
+
+def test_select_next_topic_counts_regeneration_pending_as_incomplete():
+    from certcoach.jobs.next_phase4_topic import select_next_topic
+
+    report = {
+        "concepts": [{
+            "topic_id": 1,
+            "topic": "Topic 1",
+            "concept": "A",
+            "study_ready": True,
+            "easy_active": 3,
+            "medium_active": 2,
+            "easy_readiness_deficit": 0,
+            "medium_readiness_deficit": 0,
+            "repair_pending": 0,
+            "regeneration_pending": 2,
+        }]
+    }
+
+    selected = select_next_topic(report, easy_target=3, medium_target=2)
+
+    assert selected["concept"] == "A"
+    assert selected["concept_regeneration_pending"] == 2
+
+
+def test_select_next_topic_counts_legacy_pending_as_incomplete():
+    from certcoach.jobs.next_phase4_topic import select_next_topic
+
+    report = {
+        "concepts": [{
+            "topic_id": 1,
+            "topic": "Topic 1",
+            "concept": "A",
+            "study_ready": True,
+            "easy_active": 3,
+            "medium_active": 2,
+            "easy_readiness_deficit": 0,
+            "medium_readiness_deficit": 0,
+            "repair_pending": 0,
+            "regeneration_pending": 0,
+            "legacy_pending": 1,
+        }]
+    }
+
+    selected = select_next_topic(report, easy_target=3, medium_target=2)
+
+    assert selected["concept"] == "A"
+    assert selected["concept_legacy_pending"] == 1
+
+
+def test_select_next_topic_counts_quarantine_pending_as_incomplete():
+    from certcoach.jobs.next_phase4_topic import select_next_topic
+
+    report = {
+        "concepts": [{
+            "topic_id": 1,
+            "topic": "Topic 1",
+            "concept": "A",
+            "study_ready": True,
+            "easy_active": 3,
+            "medium_active": 2,
+            "easy_readiness_deficit": 0,
+            "medium_readiness_deficit": 0,
+            "repair_pending": 0,
+            "regeneration_pending": 0,
+            "legacy_pending": 0,
+            "quarantine_pending": 2,
+        }]
+    }
+
+    selected = select_next_topic(report, easy_target=3, medium_target=2)
+
+    assert selected["concept"] == "A"
+    assert selected["concept_quarantine_pending"] == 2

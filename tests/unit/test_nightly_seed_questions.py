@@ -290,3 +290,89 @@ def test_validate_question_quality_rejects_invented_bson_type_names():
 
     assert not is_valid
     assert any("invented BSON type names" in issue for issue in issues)
+
+
+def test_validate_question_quality_can_validate_shell_without_explanation():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which BSON type should store text?",
+        "metadata": {"topic_id": 1, "concept": "BSON Data Types", "topic": "MongoDB Overview & The Document Model"},
+        "options": [
+            {"code_snippet": "string", "is_correct": True},
+            {"code_snippet": "boolean", "is_correct": False},
+            {"code_snippet": "array", "is_correct": False},
+            {"code_snippet": "date", "is_correct": False},
+        ],
+        "explanation": "",
+        "citation_source": "topic_01_docs_manual_reference_bson_types__cf63661090.md",
+    }
+
+    is_valid, issues = validate_question_quality(question, require_explanation=False)
+
+    assert is_valid
+    assert not issues
+
+
+def test_validate_question_quality_rejects_topic2_id_objectid_stems_without_keywords():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which two documents can successfully be added in the same collection?",
+        "metadata": {"topic_id": 2, "concept": "_id and ObjectId", "topic": "CRUD Operations - Create"},
+        "options": [
+            {"code_snippet": "A", "is_correct": False},
+            {"code_snippet": "B", "is_correct": False},
+            {"code_snippet": "C", "is_correct": False},
+            {"code_snippet": "D", "is_correct": True},
+        ],
+        "explanation": "\n".join([
+            "### 1. Correct Answer",
+            "D",
+            "### 2. Why Correct",
+            "Because the chosen option matches the expected identifier rule.",
+            "### 3. Why Other Options Are Wrong",
+            "The other options do not satisfy the identifier rule.",
+            "### 4. Exam Trap",
+            "Generic wording hides the _id / ObjectId concept.",
+            "### 5. Memory Hook",
+            "Use _id or ObjectId when the question is about identity.",
+            "### 6. Follow-Up Practice Recommendation",
+            "- Review how MongoDB assigns _id values.",
+            "- Practice reading prompts that explicitly mention ObjectId.",
+            "### 7. Syntax Example",
+            "Not required for this concept.",
+        ]),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("_id and ObjectId must explicitly reference _id or ObjectId" in issue for issue in issues)
+
+
+def test_concept_variation_guidance_prefers_insertmany_alternatives():
+    from certcoach.core.question_targets import QuestionTarget
+    from certcoach.jobs.nightly_seed_questions import _concept_variation_guidance
+
+    target = QuestionTarget(
+        topic_id=2,
+        topic="CRUD Operations - Create",
+        bank_topic="CRUD Operations",
+        concept="insertMany()",
+        difficulty="Medium",
+        target_count=2,
+        exam_weight=0.1,
+        concept_weight=0.3,
+    )
+
+    guidance = _concept_variation_guidance(
+        target,
+        [
+            "What is the structure of the object returned by insertMany()?",
+            "Which method returns insertedIds?",
+        ],
+    )
+
+    assert "do NOT ask the return-type / insertedIds question again" in guidance
+    assert "ordered vs unordered behavior" in guidance

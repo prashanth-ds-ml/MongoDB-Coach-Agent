@@ -1,7 +1,8 @@
 {
   "attachmentFolderPath": "assets",
   "alwaysUpdateLinks": true,
-  "newFileLocation": "root",
+  "newFileLocation": "folder",
+  "newFileFolderPath": "memory/local",
   "showLineNumber": true,
   "showUnsupportedFiles": true,
   "spellcheck": true

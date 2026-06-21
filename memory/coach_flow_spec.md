@@ -14,8 +14,10 @@ See also: [[lesson_template_rules|Lesson Template Rules]]
 - Output: explanation, one micro-challenge, and bounded recall cues.
 - Boundary: do not introduce later-topic material.
 - Micro-challenge must test only the current concept and must not require a later-topic method or workflow.
+- Micro-challenge output must contain only the question. Do not include the answer, hint, worked solution, or example response.
 - Depth rule: assume the learner is seeing the concept for the first time, then explain the concept, the syntax, and the do/don't examples in detail before moving on.
 - Syntax rule: if code is shown, walk the learner through the example line by line and explain why the correct pattern is preferred.
+- Example rule: keep DO/DON'T pairs inside the current concept and change only one meaningful detail.
 
 ### Check
 - Input: learner answer or clarification question about the current concept.

@@ -5,6 +5,8 @@ import datetime
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.abspath(os.path.join(_HERE, "../data"))
+REPO_ROOT = os.path.abspath(os.path.join(_HERE, "../../../"))
+MEMORY_DIR = os.path.join(REPO_ROOT, "memory")
 
 SYLLABUS_FILE = os.path.join(DATA_DIR, "syllabus.json")
 RAW_MD_DIR = os.path.join(DATA_DIR, "raw_markdowns")
@@ -72,6 +74,75 @@ def load_md_context(md_files: list, prioritize_concept: str = None) -> str:
             with open(raw_path, "r", encoding="utf-8") as f:
                 texts.append(f.read())
     return "\n\n---\n\n".join(texts)
+
+
+def resolve_topic_id(topic_name: str) -> int | None:
+    if not topic_name:
+        return None
+    normalized = topic_name.strip().lower()
+    for item in load_syllabus():
+        if item.get("topic", "").strip().lower() == normalized:
+            return item.get("id")
+    return None
+
+
+def load_topic_benchmark_context(topic_id: int | None = None, concept: str = "") -> str:
+    """Load the topic benchmark record for prompt grounding."""
+    if topic_id is None:
+        return ""
+
+    benchmark_file = os.path.join(MEMORY_DIR, f"topic_{int(topic_id):02d}_benchmark.md")
+    if not os.path.exists(benchmark_file):
+        return ""
+
+    with open(benchmark_file, "r", encoding="utf-8") as f:
+        benchmark_text = f.read().strip()
+
+    if not benchmark_text:
+        return ""
+
+    header = f"Benchmark context for Topic {int(topic_id)}"
+    if concept:
+        header += f" / {concept}"
+
+    return f"{header}:\n```\n{benchmark_text[:12000]}\n```"
+
+
+def load_topic_benchmark_focus(topic_id: int | None = None, concept: str = "") -> str:
+    """Load only the weak-focus portion of a topic benchmark record."""
+    if topic_id is None:
+        return ""
+
+    benchmark_file = os.path.join(MEMORY_DIR, f"topic_{int(topic_id):02d}_benchmark.md")
+    if not os.path.exists(benchmark_file):
+        return ""
+
+    with open(benchmark_file, "r", encoding="utf-8") as f:
+        benchmark_text = f.read().splitlines()
+
+    if not benchmark_text:
+        return ""
+
+    started = False
+    focus_lines: list[str] = []
+    for line in benchmark_text:
+        if line.strip() == "- `weak_focus`:":
+            started = True
+            continue
+        if started:
+            if line.startswith("- `") or line.startswith("## "):
+                break
+            if line.strip():
+                focus_lines.append(line.strip())
+
+    if not focus_lines:
+        return ""
+
+    header = f"Benchmark weak focus for Topic {int(topic_id)}"
+    if concept:
+        header += f" / {concept}"
+
+    return "\n".join([header + ":", *focus_lines])
 
 
 def has_topic_documentation(topic_item: dict) -> bool:
@@ -667,8 +738,10 @@ def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> t
     
     # Combined code text
     code_text = (question_code + " " + " ".join(option_texts)).lower()
-    
-    if not is_driver:
+    question_lower = question.lower()
+    driver_context = is_driver or "pymongo" in question_lower or "pymongo" in code_text
+
+    if not driver_context:
         for m in pymongo_methods:
             # Match method call syntax like .insert_one or insert_one as a full word
             pattern = rf"\.?\b{re.escape(m)}\b"
@@ -678,7 +751,7 @@ def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> t
         has_pymongo = any(re.search(rf"\.?\b{re.escape(m)}\b", code_text) for m in pymongo_methods)
         pymongo_conn_keywords = ["mongoclient", "uri", "pool", "timeout", "tls", "host", "port", "pymongo"]
         # Search connection keywords in both the extracted code blocks and the plain question text
-        has_conn_keywords = any(k in code_text for k in pymongo_conn_keywords) or any(k in question.lower() for k in pymongo_conn_keywords)
+        has_conn_keywords = any(k in code_text for k in pymongo_conn_keywords) or any(k in question_lower for k in pymongo_conn_keywords)
         
         # Check if code exists in options or question code blocks
         code_markers = [".", "()", "[", "]", "{", "}", "import ", "def ", " = ", "_id"]

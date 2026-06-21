@@ -40,9 +40,12 @@ data/mongodb_docs/
 
 # Scratch and Temporary directories
 scratch/
-memory/
 backups/
 logs/
+
+# Project memory is an intentional tracked Obsidian knowledge base.
+# Ignore only local/private notes placed under memory/local/.
+memory/local/
 
 # User Profile, Attempt Histories & Chat Logs (Confidential Data)
 **/user_profiles.json

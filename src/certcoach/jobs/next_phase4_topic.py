@@ -50,6 +50,9 @@ def select_next_topic(
             (
                 concept for concept in concepts
                 if concept.get("repair_pending", 0) > 0
+                or concept.get("quarantine_pending", 0) > 0
+                or concept.get("regeneration_pending", 0) > 0
+                or concept.get("legacy_pending", 0) > 0
                 or concept["easy_active"] < easy_target
                 or concept["medium_active"] < medium_target
             ),
@@ -69,6 +72,9 @@ def select_next_topic(
                 "concept_easy_population_deficit": max(0, easy_target - first_incomplete["easy_active"]),
                 "concept_medium_population_deficit": max(0, medium_target - first_incomplete["medium_active"]),
                 "concept_repair_pending": first_incomplete.get("repair_pending", 0),
+                "concept_quarantine_pending": first_incomplete.get("quarantine_pending", 0),
+                "concept_regeneration_pending": first_incomplete.get("regeneration_pending", 0),
+                "concept_legacy_pending": first_incomplete.get("legacy_pending", 0),
                 "population_easy_target": easy_target,
                 "population_medium_target": medium_target,
             }
@@ -101,6 +107,9 @@ def main(argv: list[str] | None = None) -> int:
             f"population missing Easy {topic['concept_easy_population_deficit']}, "
             f"Medium {topic['concept_medium_population_deficit']} | "
             f"repair pending {topic['concept_repair_pending']} | "
+            f"quarantine pending {topic['concept_quarantine_pending']} | "
+            f"regeneration pending {topic['concept_regeneration_pending']} | "
+            f"legacy pending {topic['concept_legacy_pending']} | "
             f"topic missing Easy {topic['easy_readiness_deficit']}, Medium {topic['medium_readiness_deficit']}"
         )
     return 0

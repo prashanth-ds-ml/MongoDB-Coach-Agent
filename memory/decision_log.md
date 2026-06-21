@@ -49,3 +49,136 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[coach_flow_spec|C
 - Reason: The readiness threshold should unlock study, but stopping there creates unnecessary repetition.
 - Decision: Run Phase 4 repair and population in syllabus topic and concept order.
 - Reason: Completing earlier concepts before later concepts creates a usable study path sooner and makes overnight progress predictable.
+
+## 2026-06-16T00:00:00+05:30
+- Decision: Implement model chain with quality gates for population and repair jobs.
+- Reason: Single-model dependency risks quality failures; fallback to Cloudflare/OpenRouter APIs (already configured) provides resilience without additional local VRAM.
+- Decision: Quality pipeline: Deterministic checks → Duplicate detection (stem hash) → LLM Judge (RAG-grounded against source markdown) → Retry with fix hint → Fallback model.
+- Reason: Catches 40%+ issues free (format/casing), prevents duplicates early, verifies technical faithfulness to source docs.
+- Decision: Structured JSONL logging per attempt to `logs/model_quality.jsonl` with verdict, flags, latency, tokens, model, source files.
+- Reason: Enables post-run analysis of fallback rates, duplicate rates, model performance, prompt tuning.
+- Decision: Circuit breaker per model (3 failures → 5 min cooldown) prevents repeated calls to degraded endpoints.
+- Reason: Protects overnight run throughput from stalled models.
+- Decision: Require `source_files` metadata on every generated question for RAG judge verification.
+- Reason: Judge needs ground truth to verify answer/explanation faithfulness without human expertise.
+- Decision: Use external reference repo (yixin0829/mongodb-dev-cert-prep) as exam-fidelity benchmark.
+- Reason: Provides 22 verified CRUD sub-objectives, PyMongo syntax patterns, and "Given scenario → identify correct output" question format matching certification style.
+- Decision: Do not pull additional local models; use existing `gemma4:12b` + API fallbacks.
+- Reason: VRAM unload/load cycles (30-60s) destroy throughput; API fallbacks are fast and free-tier sufficient.
+- Decision: Use direct HTTP adapters for OpenRouter and Cloudflare Workers AI in `model_runner.py` instead of optional LangChain provider packages.
+- Reason: The repair and population jobs should not fail when `langchain_openrouter` or `langchain_cloudflare` are absent; the provider APIs already expose stable HTTP endpoints, and the model runner only needs text completion responses.
+
+## 2026-06-16T00:00:00+05:30 (Implementation Complete)
+
+- Decision: Implement `model_runner.py` with full quality gate pipeline.
+- Reason: Centralize multi-provider calling, deterministic checks, duplicate detection, circuit breaker, and JSONL logging in one module.
+- Decision: Implement `judge_questions.py` with RAG-grounded verification.
+- Reason: Verify technical faithfulness to source docs, catch invented types (Topic 1), validate explanation structure, and check context grounding.
+- Decision: Wire quality gates into `nightly_seed_questions.py` and `repair_explanations.py` via `model_runner.generate_with_quality_gate()`.
+- Reason: Replace fragile direct LLM calls with robust quality-gated generation that logs every attempt.
+- Decision: Add `source_files` metadata field to `database.save_generated_question()`.
+- Reason: Judge needs ground truth source files to verify answer/explanation faithfulness without human expertise.
+- Historical decision (superseded): Configure cloud-first model chains: OpenRouter `gpt-oss-120b`/`gpt-oss-20b` → Cloudflare `@cf/meta/llama-3.3-70b-instruct` → Local Ollama fallback.
+- Reason: Local models (`gemma4:12b`, `qwen3:14b`, `qwen2.5-coder:7b`) were timing out on structured JSON output; cloud models provide reliable structured output with free-tier rate limits.
+- Status: Superseded by the later local-first ordering decision once the prompt/response contract was tightened and the string-vs-dict validation split was implemented.
+- Decision: Use direct HTTP adapters for OpenRouter and Cloudflare in `model_runner.py` instead of optional LangChain provider packages.
+- Reason: Eliminates optional dependency failures; provider HTTP APIs are stable and the runner only needs text completion responses.
+- Decision: Prioritize local Ollama models before cloud fallback providers for population and repair chains.
+- Reason: The tightened prompt/response contract should try the local model first to minimize remote latency and API dependency, while keeping cloud-free APIs as fallback if Ollama fails.
+- Decision: Treat population and repair as separate response contracts.
+- Reason: Population emits string options plus a `correct_answer`, while repair emits the seven-part explanation schema; the quality gate must validate them differently to avoid false failures.
+
+## 2026-06-17T00:00:00+05:30
+
+- Decision: Population now uses a lean `question_shell` contract and hands successful shells to immediate explanation repair.
+- Reason: The full seven-part explanation contract was too expensive and unreliable on the population path, especially under local-first throughput constraints.
+- Decision: Keep the seven-part explanation schema in the repair job, not the population job.
+- Reason: Repair is the right place to produce rich explanation text; population should only create the minimum viable MCQ shell.
+
+- Date: 2026-06-18
+- Decision: `apply_repair()` must write `content_contract_*` fields under `metadata.*`.
+- Reason: Top-level contract metadata leaves repaired shells stuck in `needs_explanation_repair`, which hides active records from readiness counts.
+
+- Date: 2026-06-18
+- Decision: `question_bank_comparison_report` must count stored `needs_explanation_repair` records directly, and `repair_explanations` must select repair candidates from that stored backlog.
+- Reason: Audit-only reclassification undercounts repairable Topic 1 backlog and lets the sequencer skip ahead to later topics before Topic 1 is actually cleared.
+
+- Date: 2026-06-18
+- Decision: Split legacy classification into `repair` for explanation-only fixes and `regenerate` for structurally bad or Topic 1-rescued records, with a new `needs_question_regeneration` status.
+- Reason: Topic 1 backlog contains both explanation-only repairs and question-shape problems; treating them as one category hides salvageable records and makes the sequencer inaccurate.
+
+- Date: 2026-06-18
+- Decision: Count repair backlog by exact `topic_id + concept` scope instead of free-text topic labels.
+- Reason: Legacy Topic 1 records can carry malformed `metadata.topic` values even when the topic id and concept are correct, so free-text matching hides backlog from the selector.
+
+- Date: 2026-06-18
+- Decision: Include non-target difficulty records in concept-level backlog counts.
+- Reason: Hard-difficulty records can still need repair and should keep a concept from appearing clean before the backlog is actually cleared.
+
+- Date: 2026-06-18
+- Decision: Add a repeat-until-clean overnight runner mode that reselects the next incomplete concept within the same topic after each repair/population pass.
+- Reason: Topic 1 backlog is concept-ordered and can be drained more reliably by looping the existing repair/populate scripts until the selected concept is clean or the max-cycle cap is reached.
+
+## 2026-06-18T00:00:00+05:30
+
+- Decision: Run `mark_scope_leaks` before and after repair/population and quarantine future-scope records instead of leaving them active.
+- Reason: Scope leaks are learner-facing regressions; quarantining them keeps practice strictly within the current syllabus concept.
+- Decision: Advance Topic 2 in canonical order after `insertOne()` and `insertMany()` are clean, then move to `_id and ObjectId`.
+- Reason: The ordered repair/populate loop is working, and moving forward only after the current concept is clean keeps the bank scoped and predictable.
+
+- Date: 2026-06-18
+- Decision: Allow bank-wide syllabus remapping to retag concept buckets, but treat any selector regression it triggers as a canonical-order checkpoint.
+- Reason: Remapping fixes stale labels and mis-tagged questions, but it can also re-expose earlier-topic work; the selector must remain the source of truth before advancing.
+
+- Date: 2026-06-18
+- Decision: Add concept-specific variation guidance to Topic 2 population prompts, especially for `insertMany()`, to avoid repeated return-type questions.
+- Reason: The duplicate gate was rejecting many near-identical `insertMany()` questions; explicit variation guidance improves throughput without weakening the quality checks.
+
+- Date: 2026-06-18
+- Decision: Add a Topic 2 `_id and ObjectId` stem guard that rejects questions which do not explicitly mention `_id` or `ObjectId`, and quarantine malformed active records instead of leaving them learner-facing.
+- Reason: The quality gate allowed a malformed `_id and ObjectId` stem through even though it was not concept-scoped enough for safe practice; the new guard keeps the bank aligned with the syllabus and removes ambiguous items from the active set.
+
+- Date: 2026-06-18
+- Decision: Quarantine the final generic CRUD record that was left in Topic 2 `_id and ObjectId` after repair retries failed, and advance the selector to Topic 3 `find()`.
+- Reason: The remaining record was not actually scoped to `_id and ObjectId`, so quarantining it prevented a future-scope leak and completed Topic 2 in canonical order.
+
+- Date: 2026-06-18
+- Decision: Add `-SingleQuestion` mode to `scripts/run_phase4_overnight.ps1` so repair and population can be forced to one record at a time while still using the repeat-until-clean loop.
+- Reason: Topic 3 `find()` and similar concepts can stall on batch-level quality gates; single-question passes reduce timeout risk and make it easier to inspect and fix the exact failing record in the morning.
+
+- Date: 2026-06-18
+- Decision: Add a mandatory Topic 3 `find()/find_one()` repair checklist and let the overnight runner log repair/population batch failures without aborting repeat-until-clean mode.
+- Reason: `findOne()` repairs were repeatedly missing required explanation fields, so the prompt now requires explicit cursor-vs-single-document wording and the runner keeps going long enough to capture the failure in logs rather than stopping the whole overnight pass.
+
+- Date: 2026-06-19
+- Decision: Force overnight long-run Topic loops to local-only model chains and close Topic 3 once the selector advances to Topic 4.
+- Reason: OpenRouter and Cloudflare fallback calls were wasting time with repeated 402/400 failures, while Ollama was already succeeding; once Topic 3 reached full selector readiness, the next canonical target became Topic 4 `replaceOne()`.
+
+- Date: 2026-06-19
+- Decision: Hard-delete only quarantined records that are clearly unrecoverable or off-domain, and leave MongoDB-aligned quarantined concepts for remap or repair.
+- Reason: Most quarantined records still map to syllabus concepts and should be preserved for remediation; only blank or clearly non-Mongo records were safe to remove without risking syllabus coverage.
+
+- Date: 2026-06-19
+- Decision: Process repair-pending and quarantined records by exact `topic_id + concept` in canonical syllabus order, using the same repair/populate loop.
+- Reason: Flat status-based cleanup hides topic-specific backlog and makes it easy to miss mis-tagged or future-scope records; concept-scoped looping keeps remediation aligned with syllabus order and the selector.
+
+- Date: 2026-06-20
+- Decision: Treat the question-bank maintenance process as a durable cross-session loop: `selector -> exact topic/concept -> one question at a time -> repair/quarantine/validate -> recheck selector -> repeat` until every concept reaches the active inventory target.
+- Reason: The bank is only ready when both the readiness gate and the population target are satisfied, and the workflow must survive restarts without losing the canonical topic/concept order.
+- Decision: Add a hard leak guard for Topic 4 `replaceOne()` generation so future CRUD concepts and update operators are rejected before insertion.
+- Reason: `update_one`, `update_many`, `$set`, and related later-scope terms were causing new `replaceOne()` questions to be quarantined instead of becoming active.
+- Decision: Standardize the session status line to report active topic/concept, repair pending, quarantined total, quarantined repairable, hard-delete candidates, and population deficit before every one-question pass.
+- Reason: The loop only works cleanly when each session starts with the same inventory snapshot and the same decision inputs.
+- Decision: Scope every loop report and decision strictly to the current topic and current concept unless a broader bank-wide summary is explicitly requested.
+- Reason: Cross-topic counts are useful for global reviews, but the live maintenance loop must stay focused on the active concept to avoid skipping backlog work.
+- Decision: Require Ollama JSON mode in both local model adapter paths.
+- Reason: Prompt-only JSON instructions still produced repeated parse failures from `gemma4:12b`; provider-level JSON mode improves response reliability before deterministic quality checks.
+- Decision: Repair valid quarantined `replaceOne()` records before generating more shells when the quarantine bucket already contains usable MongoDB-aligned material.
+- Reason: The generator repeatedly produced near-duplicate questions with prohibited future-scope distractors, while existing quarantined records can be corrected, revalidated, and promoted without increasing bank noise.
+- Decision: Classify every quarantined record against the canonical syllabus before repair, but never activate a record as part of classification.
+- Reason: Stem/correct-answer evidence can recover badly mapped questions, while separate validation, duplicate, and scope checks prevent an apparently confident mapping from becoming learner-facing prematurely.
+- Decision: Preserve two inactive quarantine dispositions: `needs_manual_classification` for overlapping concepts and `keep_aside_misc` for contentless, off-domain, or unsupported questions.
+- Reason: Forcing every record into a syllabus bucket would recreate the mapping errors this cleanup is intended to remove.
+
+- Decision: Treat `quarantine_pending` as an incomplete concept in `next_phase4_topic` and triage quarantined records for the selected topic/concept before repair/population in the overnight runner.
+- Reason: Quarantined backlog can be skipped if the selector only watches repair/regeneration/legacy statuses, so the maintenance loop must keep quarantined and repair-pending work in the same concept-scoped pass.

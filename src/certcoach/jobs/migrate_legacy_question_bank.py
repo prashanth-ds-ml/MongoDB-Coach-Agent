@@ -32,6 +32,18 @@ EXPLANATION_ISSUE_MARKERS = (
     "seven-part explanation is too short",
 )
 
+STRUCTURAL_ISSUE_MARKERS = (
+    "missing question text",
+    "does not have exactly four options",
+    "contains blank option text",
+    "does not have exactly one correct option",
+    "contains placeholder option text",
+    "duplicate option text",
+    "correct answer does not match any option",
+    "contains invented BSON type names",
+    "question text contains invented BSON type names",
+)
+
 
 def _clone_question(question: dict) -> dict:
     return copy.deepcopy(question)
@@ -125,9 +137,30 @@ def _quarantine_question(question: dict, issues: list[str]) -> dict:
     return updated
 
 
+def _mark_needs_question_regeneration(question: dict, issues: list[str]) -> dict:
+    updated = _clone_question(question)
+    metadata = dict(updated.get("metadata", {}) or {})
+    previous_metadata = question.get("metadata", {}) or {}
+    previous_status = str(previous_metadata.get("content_contract_status", "") or "legacy")
+    previous_version = previous_metadata.get("content_contract_version")
+    metadata.update(_safe_contract_metadata("migrate_legacy_question_bank", "needs_question_regeneration"))
+    metadata["content_contract_issues"] = issues
+    metadata["content_contract_previous_status"] = previous_status
+    metadata["content_contract_previous_version"] = previous_version
+    updated["metadata"] = metadata
+    return updated
+
+
 def _needs_explanation_repair(quality_issues: list[str]) -> bool:
     return bool(quality_issues) and all(
         any(issue.startswith(marker) for marker in EXPLANATION_ISSUE_MARKERS)
+        for issue in quality_issues
+    )
+
+
+def _needs_regeneration(quality_issues: list[str]) -> bool:
+    return bool(quality_issues) and any(
+        any(issue.startswith(marker) for marker in STRUCTURAL_ISSUE_MARKERS)
         for issue in quality_issues
     )
 
@@ -157,16 +190,20 @@ def migrate_question(question: dict) -> tuple[str, dict, list[str]]:
     if topic1:
         repaired, repair_issues = _repair_topic1_question(question)
         if repaired:
-            return "repair", repaired, repair_issues
+            return "regenerate", repaired, repair_issues
         combined_issues = list(dict.fromkeys(quality_issues + repair_issues))
         if _needs_explanation_repair(combined_issues):
             return "repair", _mark_needs_explanation_repair(question, combined_issues), combined_issues
+        if _needs_regeneration(combined_issues):
+            return "regenerate", _mark_needs_question_regeneration(question, combined_issues), combined_issues
         return "quarantine", _quarantine_question(question, combined_issues), combined_issues
 
     if ok:
         return "promote", _promote_existing_question(question), []
     if _needs_explanation_repair(quality_issues):
         return "repair", _mark_needs_explanation_repair(question, quality_issues), quality_issues
+    if _needs_regeneration(quality_issues):
+        return "regenerate", _mark_needs_question_regeneration(question, quality_issues), quality_issues
     return "quarantine", _quarantine_question(question, quality_issues), quality_issues
 
 
@@ -198,7 +235,7 @@ def run_migration(*, dry_run: bool = False, topic_filter: str | None = None, lim
         console.print(f"Batch cap: [bold]{limit}[/bold]")
     console.print()
 
-    counts = {"skip": 0, "promote": 0, "repair": 0, "quarantine": 0}
+    counts = {"skip": 0, "promote": 0, "repair": 0, "regenerate": 0, "quarantine": 0}
 
     progress = Progress(
         SpinnerColumn(),
@@ -217,12 +254,13 @@ def run_migration(*, dry_run: bool = False, topic_filter: str | None = None, lim
             action, updated, issues = migrate_question(question)
             counts[action] += 1
             progress.advance(task_id)
-            if not dry_run and action in {"promote", "repair", "quarantine"}:
+            if not dry_run and action in {"promote", "repair", "regenerate", "quarantine"}:
                 database.questions_col.replace_one({"_id": question["_id"]}, updated)
 
     console.print()
     console.print(f"[green]Promoted:[/green] {counts['promote']}")
     console.print(f"[green]Repaired:[/green] {counts['repair']}")
+    console.print(f"[green]Regenerated:[/green] {counts['regenerate']}")
     console.print(f"[yellow]Skipped:[/yellow] {counts['skip']}")
     console.print(f"[red]Quarantined:[/red] {counts['quarantine']}")
 
