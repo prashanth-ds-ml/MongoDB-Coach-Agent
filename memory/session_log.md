@@ -74,4 +74,5 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[session_handoff|S
 - Resolved the plain pytest discovery blocker by updating `pyproject.toml` to ignore `scratch` and `.venv` directories.
 - Verified that all 149 unit tests pass successfully in 20.40 seconds.
 - Created the git sync and state report artifact detailing the database snapshot (516 total questions, 223 active, 130 repair-pending, 163 quarantined) and next steps.
+- Implemented Interactive Lesson Pacing in the CLI ([cli.py](file:///C:/Users/prash/Projects/mongodbcret/src/certcoach/cli.py)) which segments lesson markdown sections into visual stages to prevent terminal scroll overflow, and renders syntax comparisons in custom green (DO) and red (DON'T) boxes. Verified all 151 tests pass.
 
