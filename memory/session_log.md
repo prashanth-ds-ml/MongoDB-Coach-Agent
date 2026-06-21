@@ -75,4 +75,6 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[session_handoff|S
 - Verified that all 149 unit tests pass successfully in 20.40 seconds.
 - Created the git sync and state report artifact detailing the database snapshot (516 total questions, 223 active, 130 repair-pending, 163 quarantined) and next steps.
 - Implemented Interactive Lesson Pacing in the CLI ([cli.py](file:///C:/Users/prash/Projects/mongodbcret/src/certcoach/cli.py)) which segments lesson markdown sections into visual stages to prevent terminal scroll overflow, and renders syntax comparisons in custom green (DO) and red (DON'T) boxes. Verified all 151 tests pass.
+- Implemented the "MongoGemma Flashcards" desktop application ([gemma_flashcards.py](file:///C:/Users/prash/Projects/mongodbcret/src/certcoach/gemma_flashcards.py)), a local-inference-powered Tkinter desktop app that generates study questions dynamically using local Ollama (Gemma 4 model). Supports domain dropdown filtering, asynchronous request execution, strict JSON output enforcement, and robust service offline/malformed response error handlers. Registered entry point `mongogemma` in [pyproject.toml](file:///C:/Users/prash/Projects/mongodbcret/pyproject.toml) and verified all 154 unit tests pass.
+
 

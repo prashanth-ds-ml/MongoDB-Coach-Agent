@@ -104,4 +104,7 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 
 # Run unit tests (now fully configured and ignores scratch)
 .\.venv\Scripts\pytest
+
+# Run the MongoGemma Flashcards Desktop application
+mongogemma
 ```

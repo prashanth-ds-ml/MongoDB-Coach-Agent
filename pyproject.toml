@@ -23,6 +23,7 @@ certcoach-seed-nightly = "certcoach.jobs.nightly_seed_questions:main"
 certcoach-repair-explanations = "certcoach.jobs.repair_explanations:main"
 certcoach-dedupe-questions = "certcoach.jobs.dedupe_questions:main"
 certcoach-map-questions = "certcoach.jobs.map_questions:main"
+mongogemma = "certcoach.gemma_flashcards:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
