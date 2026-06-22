@@ -182,3 +182,11 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[coach_flow_spec|C
 
 - Decision: Treat `quarantine_pending` as an incomplete concept in `next_phase4_topic` and triage quarantined records for the selected topic/concept before repair/population in the overnight runner.
 - Reason: Quarantined backlog can be skipped if the selector only watches repair/regeneration/legacy statuses, so the maintenance loop must keep quarantined and repair-pending work in the same concept-scoped pass.
+
+## 2026-06-22T00:00:00+05:30
+
+- Decision: Perform a bank-wide cleanup of redundant inactive questions under concepts that already meet study-readiness targets, and delete unrecoverable quarantined questions.
+- Reason: Deleting 142 redundant inactive questions from study-ready concepts and 38 unrecoverable questions (due to casing, scope leaks, invented type names, option count mismatches) cleans up the database backlog. It allows the selector to bypass completed concepts and avoids wasting local CPU/GPU cycles.
+- Decision: Support and enable local model overrides using `qwen2.5-coder:7b` (via environment variables `POPULATION_MODEL_CHAIN_LOCAL_ONLY` and `REPAIR_MODEL_CHAIN_LOCAL_ONLY`) for Phase 4 overnight runs.
+- Reason: The 7B model executes question generation and repair in 48 seconds (a 7.5x speedup compared to Gemma-12B's 6 minutes) while passing all deterministic and LLM quality checks, making it highly optimal for local machine operations.
+

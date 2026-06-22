@@ -22,6 +22,33 @@ except ImportError:
     def get_population_model():
         return os.getenv("POPULATION_MODEL", "gemma4")
 
+class ReadOnlyText(tk.Text):
+    def __init__(self, *args, **kwargs):
+        kwargs.pop("disabledforeground", None)
+        super().__init__(*args, **kwargs)
+        self.bind("<Key>", self._on_key)
+        self.bind("<<Paste>>", lambda e: "break")
+        self.bind("<<Cut>>", lambda e: "break")
+
+    def _on_key(self, event):
+        # Allow copy (Ctrl+C / Command+C) and select all (Ctrl+A / Command+A)
+        # event.state masks: 4 = Control, 8 = Command
+        if (event.state & (4 | 8 | 131072)) and event.keysym.lower() in ("c", "a"):
+            return None
+        # Allow standard navigation keys
+        if event.keysym in ("Up", "Down", "Left", "Right", "Prior", "Next", "Home", "End"):
+            return None
+        return "break"
+
+    def configure(self, *args, **kwargs):
+        if "state" in kwargs:
+            if kwargs["state"] == tk.DISABLED:
+                kwargs["state"] = tk.NORMAL
+        super().configure(*args, **kwargs)
+
+    def config(self, *args, **kwargs):
+        self.configure(*args, **kwargs)
+
 DOMAINS = {
     "All Domains Combined (Default)": "All C100DEV certification domains including CRUD, indexing, PyMongo, aggregation, and data modeling",
     "CRUD Operations & PyMongo Syntax": "PyMongo connection, MongoClient, CRUD methods (insertOne, insertMany, find, updateOne, updateMany, deleteOne, deleteMany), query operators, and casing rules",
@@ -199,79 +226,9 @@ class FlashcardsApp:
         )
         self.model_combo.pack(side=tk.LEFT, padx=5)
         
-        # Flashcard Area
-        self.card_frame = tk.Frame(parent, bg=self.card_bg, bd=1, relief="solid", highlightbackground=self.border_color, highlightcolor=self.border_color)
-        self.card_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
-        
-        # Category label inside card
-        self.category_lbl = tk.Label(
-            self.card_frame, 
-            text="[Choose a Domain and click Next Card]", 
-            font=("Segoe UI", 11, "bold"), 
-            bg=self.card_bg, 
-            fg=self.accent_cyan,
-            anchor="w"
-        )
-        self.category_lbl.pack(fill=tk.X, padx=15, pady=(15, 5))
-        
-        # Question Text Area
-        q_frame = tk.Frame(self.card_frame, bg=self.card_bg)
-        q_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
-        
-        q_title = tk.Label(q_frame, text="QUESTION CARD", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg=self.status_dim, anchor="w")
-        q_title.pack(fill=tk.X)
-        
-        self.q_text = tk.Text(
-            q_frame, 
-            bg=self.card_bg, 
-            fg=self.text_color, 
-            insertbackground=self.accent_cyan,
-            font=("Consolas", 11),
-            bd=0,
-            highlightthickness=0,
-            wrap=tk.WORD
-        )
-        self.q_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
-        
-        q_scroll = ttk.Scrollbar(q_frame, command=self.q_text.yview)
-        q_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.q_text.configure(yscrollcommand=q_scroll.set)
-        
-        # Separator line
-        self.sep_line = tk.Frame(self.card_frame, height=2, bg=self.border_color)
-        self.sep_line.pack(fill=tk.X, padx=15, pady=5)
-        
-        # Answer Text Area
-        a_frame = tk.Frame(self.card_frame, bg=self.card_bg)
-        a_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
-        
-        self.a_title = tk.Label(a_frame, text="ANSWER & EXPLANATION (HIDDEN)", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg=self.status_dim, anchor="w")
-        self.a_title.pack(fill=tk.X)
-        
-        self.a_text = tk.Text(
-            a_frame, 
-            bg=self.card_bg, 
-            fg=self.text_color, 
-            insertbackground=self.accent_cyan,
-            font=("Consolas", 11),
-            bd=0,
-            highlightthickness=0,
-            wrap=tk.WORD
-        )
-        self.a_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
-        
-        a_scroll = ttk.Scrollbar(a_frame, command=self.a_text.yview)
-        a_scroll.pack(side=tk.RIGHT, fill=tk.Y)
-        self.a_text.configure(yscrollcommand=a_scroll.set)
-        
-        # Initial states
-        self.q_text.insert(tk.END, "Your flashcard question will appear here when you click Next Card.")
-        self.q_text.configure(state=tk.DISABLED)
-        self.a_text.configure(state=tk.DISABLED)
-        
-        # Controls Frame
+        # Controls Frame (packed first with side=tk.BOTTOM to stay visible at the bottom)
         controls_frame = ttk.Frame(parent, padding=10)
-        controls_frame.pack(fill=tk.X, padx=15, pady=5)
+        controls_frame.pack(side=tk.BOTTOM, fill=tk.X, padx=15, pady=5)
         
         # Show Answer Button
         self.show_btn = tk.Button(
@@ -302,6 +259,80 @@ class FlashcardsApp:
             command=self.fetch_next_card,
         )
         self.next_btn.pack(side=tk.RIGHT, padx=5, ipady=6, ipadx=15)
+
+        # Flashcard Area (packed with expand=True to fill the remaining middle space)
+        self.card_frame = tk.Frame(parent, bg=self.card_bg, bd=1, relief="solid", highlightbackground=self.border_color, highlightcolor=self.border_color)
+        self.card_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
+        
+        # Category label inside card
+        self.category_lbl = tk.Label(
+            self.card_frame, 
+            text="[Choose a Domain and click Next Card]", 
+            font=("Segoe UI", 11, "bold"), 
+            bg=self.card_bg, 
+            fg=self.accent_cyan,
+            anchor="w"
+        )
+        self.category_lbl.pack(fill=tk.X, padx=15, pady=(15, 5))
+        
+        # Question Text Area
+        q_frame = tk.Frame(self.card_frame, bg=self.card_bg)
+        q_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
+        
+        q_title = tk.Label(q_frame, text="QUESTION CARD", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg=self.status_dim, anchor="w")
+        q_title.pack(fill=tk.X)
+        
+        self.q_text = ReadOnlyText(
+            q_frame, 
+            bg=self.card_bg, 
+            fg=self.text_color, 
+            insertbackground=self.accent_cyan,
+            font=("Consolas", 11),
+            bd=0,
+            highlightthickness=0,
+            wrap=tk.WORD,
+            padx=15,
+            pady=15
+        )
+        self.q_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
+        
+        q_scroll = ttk.Scrollbar(q_frame, command=self.q_text.yview)
+        q_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.q_text.configure(yscrollcommand=q_scroll.set)
+        
+        # Separator line
+        self.sep_line = tk.Frame(self.card_frame, height=2, bg=self.border_color)
+        self.sep_line.pack(fill=tk.X, padx=15, pady=5)
+        
+        # Answer Text Area
+        a_frame = tk.Frame(self.card_frame, bg=self.card_bg)
+        a_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
+        
+        self.a_title = tk.Label(a_frame, text="ANSWER & EXPLANATION (HIDDEN)", font=("Segoe UI", 9, "bold"), bg=self.card_bg, fg=self.status_dim, anchor="w")
+        self.a_title.pack(fill=tk.X)
+        
+        self.a_text = ReadOnlyText(
+            a_frame, 
+            bg=self.card_bg, 
+            fg=self.text_color, 
+            insertbackground=self.accent_cyan,
+            font=("Consolas", 11),
+            bd=0,
+            highlightthickness=0,
+            wrap=tk.WORD,
+            padx=15,
+            pady=15
+        )
+        self.a_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=5)
+        
+        a_scroll = ttk.Scrollbar(a_frame, command=self.a_text.yview)
+        a_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.a_text.configure(yscrollcommand=a_scroll.set)
+        
+        # Initial states
+        self.q_text.insert(tk.END, "Your flashcard question will appear here when you click Next Card.")
+        self.q_text.configure(state=tk.DISABLED)
+        self.a_text.configure(state=tk.DISABLED)
         
         # Trigger source change update
         self.on_source_changed(None)
@@ -329,7 +360,7 @@ class FlashcardsApp:
         cs_frame = tk.Frame(parent, bg=self.card_bg, bd=1, relief="solid", highlightbackground=self.border_color, highlightcolor=self.border_color)
         cs_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=5)
         
-        self.cs_text = tk.Text(
+        self.cs_text = ReadOnlyText(
             cs_frame,
             bg=self.card_bg,
             fg=self.text_color,
@@ -337,7 +368,9 @@ class FlashcardsApp:
             font=("Consolas", 11),
             bd=0,
             highlightthickness=0,
-            wrap=tk.WORD
+            wrap=tk.WORD,
+            padx=15,
+            pady=15
         )
         self.cs_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, pady=10, padx=10)
         
@@ -489,7 +522,11 @@ class FlashcardsApp:
             if not HAS_CERTCOACH:
                 raise ImportError("CertCoach environment not loaded.")
                 
-            database.check_connection()
+            # Safe connection ping that raises exceptions instead of exiting the python process
+            if database.connection_error is not None:
+                raise database.connection_error
+            database.client.admin.command("ping")
+            
             all_questions = list(database.questions_col.find({}))
             active_questions = [q for q in all_questions if canonical_status(q) == "active"]
             

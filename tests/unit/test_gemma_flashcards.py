@@ -31,3 +31,46 @@ class TestGemmaFlashcards(unittest.TestCase):
         self.assertEqual(app.root, mock_root)
         self.assertFalse(app.loading)
         mock_detect.assert_called_once()
+
+    @patch("certcoach.gemma_flashcards.database")
+    @patch("certcoach.gemma_flashcards.messagebox")
+    def test_task_load_db_card_handles_connection_error(self, mock_messagebox, mock_database):
+        # Configure database error
+        mock_database.connection_error = Exception("Connection timed out")
+        
+        # Instantiate App with mocked Tk root
+        mock_root = MagicMock()
+        mock_root.after = lambda delay, callback: callback()
+        with patch("certcoach.gemma_flashcards.FlashcardsApp.detect_ollama_and_models"):
+            app = FlashcardsApp(mock_root)
+        
+        # Set mock helpers
+        app.on_card_failed = MagicMock()
+        
+        # Run database load
+        app.task_load_db_card("All Domains Combined (Default)")
+        
+        # Verify that messagebox.showerror was called instead of exiting
+        mock_messagebox.showerror.assert_called_once()
+        self.assertIn("Connection timed out", mock_messagebox.showerror.call_args[0][1])
+        app.on_card_failed.assert_called_once()
+
+    @patch("certcoach.gemma_flashcards.database")
+    @patch("certcoach.gemma_flashcards.messagebox")
+    def test_task_load_db_card_handles_empty_questions(self, mock_messagebox, mock_database):
+        # Configure database connection success but empty results
+        mock_database.connection_error = None
+        mock_database.questions_col.find.return_value = []
+        
+        mock_root = MagicMock()
+        mock_root.after = lambda delay, callback: callback()
+        with patch("certcoach.gemma_flashcards.FlashcardsApp.detect_ollama_and_models"):
+            app = FlashcardsApp(mock_root)
+            
+        app.on_card_failed = MagicMock()
+        
+        app.task_load_db_card("All Domains Combined (Default)")
+        
+        # Verify showwarning called for empty questions
+        mock_messagebox.showwarning.assert_called_once()
+        app.on_card_failed.assert_called_once()
