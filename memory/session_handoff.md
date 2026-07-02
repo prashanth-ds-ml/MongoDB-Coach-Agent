@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-06-20
+Last updated: 2026-07-02
 
 Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[canonical_state_flow|Canonical State Flow]], [[preparation_tool_gap_assessment|Preparation Tool Gap Assessment]]
 
@@ -13,19 +13,30 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 - Quarantine triage: 3 hard-delete candidates were removed; MongoDB-aligned quarantined items were left for remap or repair.
 - Operating rule: repair-pending and quarantined records are now handled by exact `topic_id + concept` in canonical order, using the same loop.
 - Benchmark integration: official docs + reference repo remain combined into topic benchmark records, and weak-focus context is still injected ahead of full docs.
-- Current ordered target: Topic 4 -> `replaceOne()`.
+- Current ordered target: Topic 4 -> `$unset`.
 - Current Topic 3 state: Topic 3 is closed from the selector perspective; all six concepts are study-ready and the selector has advanced to Topic 4.
-- Current Topic 4 state: `replaceOne()` remains the active concept and is being drained one question at a time.
-- Current bank snapshot after the latest pass: 516 total records. Topic 4 `replaceOne()` has `5` active Easy and `2` active Medium, with `47` repairable quarantined records and no hard-delete candidates. The concept is study-ready but still needs `3` Medium questions to reach the population target.
+- Current Topic 4 state: `replaceOne()`, `updateOne()`, `updateMany()`, `$set`, `$push`, and `$inc` are all study-ready and populated at `6 Easy + 5 Medium`, `3 Easy + 2 Medium`, `3 Easy + 2 Medium`, `3 Easy + 2 Medium`, `3 Easy + 2 Medium`, and `3 Easy + 2 Medium` respectively. The next ordered target is `$unset`.
+- Current bank snapshot after the latest pass: Topic 4 `replaceOne()` has `6` active Easy, `5` active Medium, and `3` quarantined records. Topic 4 `updateOne()` has `3` active Easy, `2` active Medium. Topic 4 `updateMany()` has `3` active Easy, `2` active Medium. Topic 4 `$set` has `3` active Easy, `2` active Medium. Topic 4 `$push` has `3` active Easy, `2` active Medium. Topic 4 `$inc` has `3` active Easy, `2` active Medium, with `1` repair-pending record still awaiting cleanup.
 - Bank-wide quarantine triage snapshot: 163 quarantined records remain. `120` are high-confidence canonical mappings pending repair, `27` need manual classification, and `16` are explicitly kept aside as misc. One reviewed record was remapped to Topic 1 `Document structure`, validated, duplicate-checked, and promoted.
 - Loop update: `next_phase4_topic` now treats `quarantine_pending` as an incomplete concept, and the overnight runner now triages quarantined records for the selected topic/concept before running explanation repair and population.
 - Current reporting template for the loop: `Topic X | Concept Y | repair pending N | quarantined total N | quarantined repairable N | hard-delete candidates N | population missing Easy N, Medium N`, where every count refers only to that topic/concept.
 - Current Topic 4 execution note: the overnight runner now enforces a local-only model chain for long repair/population runs so it does not waste time on dead remote fallbacks.
 - Learner-facing template note: the new `study_pattern_guardrails.md` file defines the micro-challenge as question-only and keeps lesson examples inside the active concept boundary.
+- Lesson prebuild pipeline is now scaffolded: `certcoach-prebuild-lesson` stores concept-scoped lesson artifacts in MongoDB, `certcoach.core.lesson_bank` validates the six-section lesson contract, and the CLI now prefers validated stored lessons before live generation.
+- First live lesson-prebuild target was Topic 1 `BSON Data Types`, following the canonical lesson order rather than the active Phase 4 question-bank selector.
+- The `BSON Data Types` lesson loop is now complete end-to-end: the local Ollama pipeline produced a validated stored lesson after the fallback path filled missing lesson sections one-by-one.
+- Lesson prebuild retry behavior now preserves the better draft when the corrective rewrite attempt degrades the lesson further, and the section-by-section fallback is the durable recovery path when the full lesson prompt is incomplete.
+- The `BSON Data Types` practice audit is also complete: 12 mis-mapped active questions were remapped to nearby Topic 1 concepts and 11 bad or out-of-scope records were quarantined before the readiness recheck.
+- Current `BSON Data Types` active inventory after cleanup: `9 Easy`, `11 Medium`, `0 Hard`. The concept remains comfortably above the required `3 Easy + 2 Medium` readiness gate with a cleaner lesson-aligned practice pool.
+- Topic 1 `Document structure` now also passes the full lesson loop under the stricter no-future-topic rule. The lesson had initially leaked `findOne()`, `insertOne()`, dot notation, projection, and query language; the validator, section-regeneration path, and concept-specific scrub now remove those leaks before the lesson can become `validated`.
+- Topic 1 `Document structure` practice cleanup remains in place and the current active inventory is `4 Easy`, `5 Medium`, `0 Hard`, with the concept still above the required readiness gate.
+- Topic 1 `Collections vs Tables` has been re-run under the stricter Topic 1 validator and is now `validated` without `insertOne()` or CRUD/write-flow leakage. Its active practice pool remains comfortably above readiness at `12 Easy`, `10 Medium`, `3 Hard` after the earlier Atlas/platform leak quarantine.
+- Topic 1 is now complete across all three concepts under the stricter lesson boundary: exact concept only, no future-topic methods, no misc filler, and concept-local practice cleanup where needed.
 - Current Topic 2 state: `insertOne()`, `insertMany()`, and `_id and ObjectId` now have separated concept buckets; Topic 2 backlog is cleared, and the final generic CRUD stem was quarantined.
 - Current Topic 2 execution: `scripts/run_phase4_overnight.ps1` now supports `-RepeatUntilClean` plus scope-audit routing so the same runner can keep draining each concept until the topic is clean or the max-cycle cap is reached.
 - Current repair behavior: `question_bank_comparison_report` counts stored backlog by stable `topic_id + concept` scope, including legacy hard-difficulty records that were previously invisible to the selector; `migrate_question()` still distinguishes explanation repair from question regeneration, `next_phase4_topic` treats both as incomplete, and `validate_question_quality()` now rejects Topic 2 `_id and ObjectId` stems that do not explicitly mention `_id` or `ObjectId`.
 - Focused verification: `tests/unit/test_question_bank_comparison_report.py`, `tests/unit/test_mark_scope_leaks.py`, and the new Topic 2 stem-guard regression in `tests/unit/test_nightly_seed_questions.py` passed after the selector and scope-audit fixes.
+- Focused verification: the unit suite now includes stricter Topic 1 lesson-scope coverage in `tests/unit/test_lesson_bank.py`; `.\.venv\Scripts\python.exe -m pytest tests\unit -q` now passes with `164 passed`.
 
 ## Latest Decisions (2026-06-17)
 
@@ -69,12 +80,8 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 
 ## Next Action
 
-1. **Continue the canonical quarantine queue** with `certcoach-t01-bson-data-types-easy-004-0ccef6dd` in Topic 1 `BSON Data Types`.
-2. Review one record at a time: confirm target, repair/regenerate, validate, duplicate-check, scope-audit, and only then promote.
-3. Continue Topic 4 `replaceOne()` population separately; do not advance to `updateOne()` until the selector advances.
-4. Fix plain pytest discovery.
-5. Execute Phase 5 manual full-flow and mixed-mock verification.
-6. Freeze features and begin daily exam preparation.
+Session closed after documenting the current state.
+Resume at Topic 4 `$unset` if work continues.
 
 ## Recent Note
 
@@ -85,9 +92,11 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 - Scope leaks are being quarantined rather than left as learner-facing content.
 - The population shell contract is stable; the scope-audit loop is now part of the standard runner path.
 - Topic 3 `findOne()` and `countDocuments()` repair checklist regressions are pinned, and the runner changes now favor local-only generation for long overnight loops.
-- Resume point is now Topic 4 `replaceOne()` with the canonical loop continuing toward `updateOne()` only after the selector advances.
-- Resume point is Topic 4 `replaceOne()` with the same one-question-at-a-time loop continuing across sessions until Easy and Medium inventory targets are both met.
+- Resume point is now Topic 4 `$inc`, which reached readiness during this session; continue with the next ordered concept on the following run.
 - The study-pattern guardrail note is now linked from Memory Home and should be used as the reference for lesson and micro-challenge formatting.
+- Stored-lesson runtime is now read-first: if a validated concept lesson exists in `lesson_artifacts`, the CLI uses it; otherwise it falls back to live generation.
+- The registered durable lesson loop is now: `build source bundle -> generate lesson -> validate -> repair or fill missing sections -> validate -> store -> audit active concept questions -> remap/quarantine out-of-scope items -> recheck readiness -> move to next concept`.
+- Topic 1 no longer has a lesson-prebuild blocker. The next lesson target is Topic 2 `insertOne()`.
 
 ## Known Blockers
 

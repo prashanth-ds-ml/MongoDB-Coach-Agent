@@ -208,6 +208,8 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
             "overview & the document model",
         )
     )
+    is_document_structure = "document structure" in subtopic.lower()
+    is_collections_vs_tables = "collections vs tables" in subtopic.lower()
     if is_pymongo_topic:
         advanced_prompt = "Discuss edge cases, syntax variations (Shell vs. PyMongo), performance impact, index costs, or diagnostic commands."
         syntax_instructions = (
@@ -242,6 +244,21 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
             "After each example, explain what the learner should notice, what would change if one part changed, and why this pattern is preferred in MongoDB."
         )
 
+    document_structure_guard = ""
+    if is_document_structure:
+        document_structure_guard = (
+            "For the `Document structure` concept specifically, do NOT mention query syntax, query results, querying, projection, "
+            "dot notation, positional operators, aggregation, `find()`, `findOne()`, `insertOne()`, or any CRUD/update method call. "
+            "Teach only document shape, field/value structure, embedded documents, arrays, `_id`, and field-name rules."
+        )
+    collections_vs_tables_guard = ""
+    if is_collections_vs_tables:
+        collections_vs_tables_guard = (
+            "For the `Collections vs Tables` concept specifically, do NOT mention `insertOne()`, CRUD workflows, query syntax, "
+            "projection, dot notation, aggregation, Atlas, or driver behavior. Teach only the structural comparison: collections vs tables, "
+            "documents vs rows, and flexible vs fixed schema."
+        )
+
     return (
         f"{COACH_IDENTITY}\n"
         f"{OUTCOME_GUARDRAILS}\n\n"
@@ -258,6 +275,8 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
         f"Start with intuition, then go deep into mechanics, then syntax, then exam recall.\n"
         f"Do not preload later-topic material. If a later-topic idea would help, name it only as deferred context and move back to the current concept.\n"
         f"Keep the pacing clean: short paragraphs, bullets where useful, and no repetitive filler.\n\n"
+        f"{document_structure_guard}\n"
+        f"{collections_vs_tables_guard}\n\n"
         f"Do not give a short summary.\n\n"
         f"You MUST structure your response exactly using these Markdown headers (###):\n\n"
         f"### 1. Core Concept\n"
@@ -283,7 +302,7 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
         f"- You MUST answer STRICTLY based on the Reference material provided above. Do NOT use external web search.\n"
         f"- If the Reference material is missing or does not cover the concept, state: 'This is not covered in my official docs.' and do not make up any content.\n"
         f"- Do NOT invent invalid-syntax traps. For example, quoted field names containing hyphens are not automatically invalid in MongoDB; only call something invalid when the reference material supports that exact claim.\n"
-        f"- Prefer documented exam traps: BSON type choice, `_id` behavior, flexible document structure, array matching semantics, dot notation, and Shell vs PyMongo syntax differences.\n"
+        f"- Prefer documented exam traps: BSON type choice, `_id` behavior, flexible document structure, array matching semantics, and Shell vs PyMongo syntax differences.\n"
         f"- Do not answer your own Micro-Challenge inside the lesson. The Micro-Challenge section must contain only the challenge prompt and nothing else.\n"
         f"- Do not include an answer, solution, hint, or example response directly under the Micro-Challenge heading.\n"
         f"- If the challenge is multiple choice, each option must be a full text choice, not just a letter.\n"
@@ -327,6 +346,90 @@ def build_followup_prompt(topic: str, subtopic: str, user_question: str, chat_hi
         f"- Keep the response concise but useful: no more than 2 short paragraphs or 6 bullets unless code is required.\n"
         f"- If a tiny example will remove confusion, include one minimal example.\n"
         f"- End with either a short check for understanding or a prompt to type `practice` when ready."
+    )
+
+
+def build_lesson_repair_prompt(
+    topic: str,
+    subtopic: str,
+    md_context: str,
+    draft_lesson: str,
+    validation_issues: list[str],
+) -> str:
+    issues_text = "\n".join(f"- {issue}" for issue in validation_issues) or "- Return the full lesson contract exactly."
+    return (
+        f"{build_lesson_prompt(topic, subtopic, md_context)}\n\n"
+        f"REWRITE REQUIRED:\n"
+        f"The previous draft failed validation.\n"
+        f"Fix every issue below and rewrite the full lesson from scratch.\n"
+        f"Do not explain the fixes. Do not apologize. Return only the final lesson.\n\n"
+        f"Validation issues:\n{issues_text}\n\n"
+        f"Previous draft to repair:\n```\n{draft_lesson[:12000]}\n```"
+    )
+
+
+def build_lesson_section_prompt(
+    topic: str,
+    subtopic: str,
+    md_context: str,
+    section_heading: str,
+    partial_lesson: str = "",
+) -> str:
+    section_rules = {
+        "### 1. Core Concept": (
+            "Define the concept, name key terms, explain the mechanics, and explain the design choice or tradeoff. "
+            "For Topic 1, keep examples at the BSON/document-literal level only."
+        ),
+        "### 2. Level-Based Breakdown": (
+            "Return exactly three labeled subsections in this order: `#### Beginners`, `#### Intermediate Learners`, `#### Advanced Developers`. "
+            "Keep the explanation inside the current concept only."
+        ),
+        "### 3. Syntax & Code Examples": (
+            "Return `#### DO: Best Practice` and `#### DON'T / EXAM TRAP`. "
+            "For Topic 1, use BSON/document-literal examples only. Do not use CRUD helpers, query operators, update operators, or driver calls."
+        ),
+        "### 4. Exam Radar": (
+            "Return 3-5 flat bullets. Each bullet must name one exam trap or distinction and what the exam is testing."
+        ),
+        "### 5. Micro-Challenge": (
+            "Return one question only. No answer. No hint. No explanation. "
+            "For Topic 1, prefer open-ended wording and do not invent BSON type names."
+        ),
+        "### 6. 30-Second Recall": (
+            "Return 3-5 short recall bullets only. Keep them compact and easy to memorize."
+        ),
+    }
+    extra_guard = ""
+    if "document structure" in subtopic.lower():
+        extra_guard = (
+            "For `Document structure`, do not mention queries, query results, CRUD methods, projection, dot notation, positional operators, or aggregation. "
+            "Stay on document literals, embedded documents, arrays, `_id`, and field-name rules only."
+        )
+    elif "collections vs tables" in subtopic.lower():
+        extra_guard = (
+            "For `Collections vs Tables`, do not mention CRUD methods, `insertOne()`, query syntax, projection, dot notation, aggregation, Atlas, or drivers. "
+            "Stay on collections vs tables, documents vs rows, and flexible schema vs fixed schema only."
+        )
+    draft_section = f"\n\nCurrent partial lesson for continuity:\n```\n{partial_lesson[:10000]}\n```" if partial_lesson else ""
+    return (
+        f"{COACH_IDENTITY}\n"
+        f"{OUTCOME_GUARDRAILS}\n\n"
+        f"MODE: TEACH\n"
+        f"Today's topic: **{topic}**\n"
+        f"Current subtopic/concept to study: **{subtopic}**\n"
+        f"Target section: **{section_heading}**\n\n"
+        f"Reference material (use for accuracy):\n```\n{md_context[:20000]}\n```{draft_section}\n\n"
+        f"{TEACH_SCOPE_RULES}\n"
+        f"{TEACH_DEPTH_RULES}\n"
+        f"{TEACH_FORMAT_RULES}\n"
+        f"{TEACH_TEMPLATE_RULES}\n"
+        f"Write only the body content for `{section_heading}`.\n"
+        f"Do not repeat the heading.\n"
+        f"Do not write any other lesson section.\n"
+        f"Do not include filler, preamble, or closing sentence.\n"
+        f"Section-specific rules: {section_rules.get(section_heading, 'Stay inside the concept and satisfy the lesson contract exactly.')}\n"
+        f"{extra_guard}\n"
+        f"If the docs do not support a claim, do not invent it."
     )
 
 
@@ -408,6 +511,32 @@ class CoachPersona:
 
     def explain_topic(self, topic: str, subtopic: str, md_context: str = "") -> str:
         return self._call(build_lesson_prompt(topic, subtopic, md_context), temperature=0.4)
+
+    def repair_topic_lesson(
+        self,
+        topic: str,
+        subtopic: str,
+        md_context: str,
+        draft_lesson: str,
+        validation_issues: list[str],
+    ) -> str:
+        return self._call(
+            build_lesson_repair_prompt(topic, subtopic, md_context, draft_lesson, validation_issues),
+            temperature=0.3,
+        )
+
+    def generate_lesson_section(
+        self,
+        topic: str,
+        subtopic: str,
+        md_context: str,
+        section_heading: str,
+        partial_lesson: str = "",
+    ) -> str:
+        return self._call(
+            build_lesson_section_prompt(topic, subtopic, md_context, section_heading, partial_lesson),
+            temperature=0.3,
+        )
 
 
     def handle_followup(self, topic: str, subtopic: str, user_question: str, chat_history: list) -> str:

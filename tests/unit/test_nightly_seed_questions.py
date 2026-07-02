@@ -351,6 +351,88 @@ def test_validate_question_quality_rejects_topic2_id_objectid_stems_without_keyw
     assert any("_id and ObjectId must explicitly reference _id or ObjectId" in issue for issue in issues)
 
 
+def test_validate_question_quality_rejects_updateone_replace_semantics():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "A developer needs to replace an entire document's content with a new document. Which PyMongo call should they use?",
+        "metadata": {"topic_id": 4, "concept": "updateOne()", "topic": "CRUD Operations - Update"},
+        "options": [
+            {"code_snippet": "collection.update_one({'name': 'cafe'}, {'$set': {'status': 'open'}})", "is_correct": False},
+            {"code_snippet": "collection.replace_one({'name': 'cafe'}, {'status': 'open'})", "is_correct": True},
+            {"code_snippet": "collection.update_many({'name': 'cafe'}, {'$set': {'status': 'open'}})", "is_correct": False},
+            {"code_snippet": "collection.find_one({'name': 'cafe'})", "is_correct": False},
+        ],
+        "explanation": "\n".join([
+            "### 1. Correct Answer",
+            "B",
+            "### 2. Why Correct",
+            "It replaces the entire document.",
+            "### 3. Why Other Options Are Wrong",
+            "The others do not replace the whole document.",
+            "### 4. Exam Trap",
+            "Replacement is not the same as an operator update.",
+            "### 5. Memory Hook",
+            "Replace swaps the whole document.",
+            "### 6. Follow-Up Practice Recommendation",
+            "- Compare replace_one() and update_one().",
+            "- Review update operators.",
+            "- Practice choosing the right write method.",
+            "### 7. Syntax Example",
+            "```python\ncollection.replace_one({'name': 'cafe'}, {'status': 'open'})\n```",
+            "- This uses replace_one() for a full-document swap.",
+            "- The original document fields are overwritten except for _id.",
+        ]),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("updateOne() question drifts into replaceOne() semantics" in issue for issue in issues)
+    assert any("marks replaceOne() syntax as correct" in issue for issue in issues)
+
+
+def test_validate_question_quality_rejects_updatemany_replace_semantics():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "A developer needs to replace the entire contents of many documents at once. Which PyMongo method should they use?",
+        "metadata": {"topic_id": 4, "concept": "updateMany()", "topic": "CRUD Operations - Update"},
+        "options": [
+            {"code_snippet": "collection.update_many({'status': 'pending'}, {'$set': {'status': 'active'}})", "is_correct": False},
+            {"code_snippet": "collection.replace_one({'status': 'pending'}, {'status': 'active'})", "is_correct": True},
+            {"code_snippet": "collection.update_one({'status': 'pending'}, {'$set': {'status': 'active'}})", "is_correct": False},
+            {"code_snippet": "collection.find({'status': 'pending'})", "is_correct": False},
+        ],
+        "explanation": "\n".join([
+            "### 1. Correct Answer",
+            "B",
+            "### 2. Why Correct",
+            "It replaces the entire document.",
+            "### 3. Why Other Options Are Wrong",
+            "The others do not replace the whole document.",
+            "### 4. Exam Trap",
+            "Replacement is not the same as an update.",
+            "### 5. Memory Hook",
+            "Replace means whole document.",
+            "### 6. Follow-Up Practice Recommendation",
+            "- Compare replace_one() and update_many().",
+            "- Review update operators.",
+            "- Practice choosing the right write method.",
+            "### 7. Syntax Example",
+            "```python\ncollection.replace_one({'status': 'pending'}, {'status': 'active'})\n```",
+            "- This uses replace_one() for a full-document swap.",
+            "- The original document fields are overwritten except for _id.",
+        ]),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("updateMany() question drifts into replacement semantics" in issue for issue in issues)
+    assert any("marks replaceOne() syntax as correct" in issue for issue in issues)
+
+
 def test_concept_variation_guidance_prefers_insertmany_alternatives():
     from certcoach.core.question_targets import QuestionTarget
     from certcoach.jobs.nightly_seed_questions import _concept_variation_guidance
@@ -376,3 +458,73 @@ def test_concept_variation_guidance_prefers_insertmany_alternatives():
 
     assert "do NOT ask the return-type / insertedIds question again" in guidance
     assert "ordered vs unordered behavior" in guidance
+
+
+def test_concept_variation_guidance_keeps_updateone_off_replaceone():
+    from certcoach.core.question_targets import QuestionTarget
+    from certcoach.jobs.nightly_seed_questions import _concept_variation_guidance
+
+    target = QuestionTarget(
+        topic_id=4,
+        topic="CRUD Operations - Update",
+        bank_topic="CRUD Operations",
+        concept="updateOne()",
+        difficulty="Medium",
+        target_count=2,
+        exam_weight=0.1,
+        concept_weight=0.3,
+    )
+
+    guidance = _concept_variation_guidance(target, [])
+
+    assert "Do NOT ask about replacing an entire document" in guidance
+    assert "replace_one()/replaceOne() as the correct answer" in guidance
+
+
+def test_concept_variation_guidance_keeps_updatemany_off_replaceone():
+    from certcoach.core.question_targets import QuestionTarget
+    from certcoach.jobs.nightly_seed_questions import _concept_variation_guidance
+
+    target = QuestionTarget(
+        topic_id=4,
+        topic="CRUD Operations - Update",
+        bank_topic="CRUD Operations",
+        concept="updateMany()",
+        difficulty="Medium",
+        target_count=2,
+        exam_weight=0.1,
+        concept_weight=0.3,
+    )
+
+    guidance = _concept_variation_guidance(target, [])
+
+    assert "updating multiple matching documents" in guidance
+    assert "replace_one()/replaceOne() as the correct answer" in guidance
+
+
+def test_concept_variation_guidance_covers_topic4_operator_families():
+    from certcoach.core.question_targets import QuestionTarget
+    from certcoach.jobs.nightly_seed_questions import _concept_variation_guidance
+
+    cases = {
+        "$set": "assigning or overwriting a field value",
+        "$push": "appending values to arrays",
+        "$inc": "incrementing or decrementing numeric fields",
+        "$unset": "removing fields from documents",
+        "upsert": "inserting a new document when no match is found",
+        "findAndModify": "atomic find-and-update behavior",
+    }
+
+    for concept, expected in cases.items():
+        target = QuestionTarget(
+            topic_id=4,
+            topic="CRUD Operations - Update",
+            bank_topic="CRUD Operations",
+            concept=concept,
+            difficulty="Medium",
+            target_count=2,
+            exam_weight=0.1,
+            concept_weight=0.3,
+        )
+        guidance = _concept_variation_guidance(target, [])
+        assert expected in guidance

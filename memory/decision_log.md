@@ -182,3 +182,31 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[coach_flow_spec|C
 
 - Decision: Treat `quarantine_pending` as an incomplete concept in `next_phase4_topic` and triage quarantined records for the selected topic/concept before repair/population in the overnight runner.
 - Reason: Quarantined backlog can be skipped if the selector only watches repair/regeneration/legacy statuses, so the maintenance loop must keep quarantined and repair-pending work in the same concept-scoped pass.
+
+## 2026-06-29T00:00:00+05:30
+
+- Decision: Start lesson prebuild in canonical syllabus order from Topic 1 `BSON Data Types`, separate from the active Phase 4 question-bank selector.
+- Reason: Stored lessons should follow the syllabus contract from the beginning, while question-bank readiness must continue on its own ordered backlog.
+- Decision: Store prebuilt lessons as concept-scoped artifacts in MongoDB with statuses `validated` or `needs_review`, and let the CLI prefer validated stored lessons before live generation.
+- Reason: This removes learner-facing latency only when the lesson is already contract-compliant and avoids exposing unstable drafts.
+- Decision: Run lesson prebuild with one corrective retry, but keep the better draft if the repair attempt degrades structure.
+- Reason: The local lesson model can partially follow the contract, but naive repair retries can collapse the output further; the pipeline must preserve the stronger attempt.
+
+## 2026-06-30T00:00:00+05:30
+
+- Decision: Register a canonical lesson-completion loop per concept: `source bundle -> full lesson draft -> validation -> targeted repair -> missing-section generation -> validation -> store validated lesson -> concept-local practice audit -> remap/quarantine misaligned questions -> readiness recheck`.
+- Reason: A lesson is not complete when the text alone is valid; the learner-facing concept loop is only trustworthy when the stored lesson and the active `3 Easy + 2 Medium` question set are aligned to the same concept boundary.
+- Decision: Keep the lesson/practice cleanup local to the current concept before moving to the next concept.
+- Reason: Topic-level or bank-wide cleanup during lesson build would blur scope, slow progress, and make it harder to prove that one concept is truly ready end-to-end.
+- Decision: For Topic 1 `BSON Data Types`, treat `Collections vs Tables`, `Document structure`, document-relationship stems, query-operator leaks, and obvious junk stems as out of scope for the BSON lesson audit.
+- Reason: The validated BSON lesson teaches BSON types, numeric/date precision, arrays, embedded documents, and `ObjectId`; questions outside that boundary create learner confusion even if they are still broadly MongoDB-related.
+- Decision: Treat Topic 1 scope leakage as a validation failure, not a prompt preference.
+- Reason: Prompt rules alone allowed `Document structure` and `Collections vs Tables` lessons to pass while still leaking `find()`, `findOne()`, `insertOne()`, projection, dot notation, and query terminology. Topic 1 lessons must fail until those future-topic references are removed.
+- Decision: Add concept-specific cleanup for Topic 1 lessons after generation, including section regeneration for leaky sections and final concept-specific scrubs for `Document structure` and `Collections vs Tables`.
+- Reason: The local lesson model can still sneak a few future-topic lines through even after prompt tightening; the concept loop needs deterministic cleanup to keep beginner-facing lessons strictly bounded.
+- Decision: Add a hard `updateOne()` question-scope guard and variation brief that reject full-document replacement semantics and `replace_one()/replaceOne()` as the correct answer.
+- Reason: The Topic 4 `updateOne()` pool had drifted completely into `replaceOne()` content, so the validator and prompt needed explicit concept-boundary enforcement before refill.
+- Decision: Add the same hard scope guard and variation brief for `updateMany()` so multi-document update questions stay on update-operator semantics and do not drift into replacement wording.
+- Reason: `updateMany()` is adjacent to `updateOne()` and shares the same replacement-vs-update failure mode; the generator needs concept-specific rejection logic before it can reliably populate the bank.
+- Decision: Relax the syntax-example requirement for Topic 4 operator-family concepts and keep the operator-specific prompts focused on the update behavior itself.
+- Reason: The repair model repeatedly failed `Topic 4` operator questions on a missing syntax-example section even after producing a correct explanation, so the hard gate blocked progress on otherwise valid content.
