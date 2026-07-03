@@ -27,7 +27,7 @@ from rich.rule import Rule
 from rich.text import Text
 from rich import box
 
-from certcoach.core import auth, database, planner
+from certcoach.core import auth, database, lesson_bank, planner
 from certcoach.core.persona import CoachPersona
 import certcoach.core.memory_manager as memory_manager
 
@@ -700,8 +700,12 @@ def run_teach_session(agenda_item: dict):
                 part for part in (weak_focus_context, md_context, benchmark_context)
                 if isinstance(part, str) and part.strip()
             )
-        with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
-            explanation = coach.explain_topic(topic, subtopic, md_context)
+        stored_lesson = lesson_bank.get_validated_lesson(int(topic_id), subtopic) if topic_id is not None else None
+        if stored_lesson:
+            explanation = stored_lesson.get("lesson_markdown", "")
+        else:
+            with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
+                explanation = coach.explain_topic(topic, subtopic, md_context)
         
         if "not covered in my official docs" in explanation.lower():
             console.print(f"  [dim]• '{subtopic}' is not covered in reference documents. Skipping...[/dim]")

@@ -415,6 +415,9 @@ def _question_needs_syntax_example(question: dict) -> bool:
         return False
         
     topic_id = metadata.get("topic_id")
+    concept = str(metadata.get("concept", "")).strip().lower()
+    if topic_id == 4 and concept in {"$set", "$push", "$inc", "$unset", "upsert", "findandmodify"}:
+        return False
     if isinstance(topic_id, int) and topic_id in SYNTAX_HEAVY_TOPIC_IDS:
         return True
 
@@ -522,11 +525,112 @@ def validate_question_quality(question: dict, require_explanation: bool = True) 
         leaked = [term for term in leak_terms if term in topic_text]
         if leaked:
             issues.append("replaceOne() question leaks future-scope terms: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "updateone()":
+        question_text = str(question.get("question_text", "")).lower()
+        correct_options = [
+            str(option.get("code_snippet", "")).lower()
+            for option in options
+            if option.get("is_correct")
+        ]
+        replacement_terms = (
+            "replace the entire",
+            "replace an entire",
+            "replace the whole",
+            "replace_one",
+            "replaceone(",
+            "entire document",
+            "entire content",
+            "full document",
+            "replacement document",
+        )
+        leaked = [term for term in replacement_terms if term in question_text]
+        if leaked:
+            issues.append("updateOne() question drifts into replaceOne() semantics: " + ", ".join(sorted(set(leaked))))
+        if any("replace_one" in option or "replaceone(" in option for option in correct_options):
+            issues.append("updateOne() question marks replaceOne() syntax as correct")
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "updatemany()":
+        question_text = str(question.get("question_text", "")).lower()
+        correct_options = [
+            str(option.get("code_snippet", "")).lower()
+            for option in options
+            if option.get("is_correct")
+        ]
+        replacement_terms = (
+            "replace the entire",
+            "replace an entire",
+            "replace the whole",
+            "replace_one",
+            "replaceone(",
+            "replacement document",
+            "full document",
+            "single matching document",
+        )
+        leaked = [term for term in replacement_terms if term in question_text]
+        if leaked:
+            issues.append("updateMany() question drifts into replacement semantics: " + ", ".join(sorted(set(leaked))))
+        if any("replace_one" in option or "replaceone(" in option for option in correct_options):
+            issues.append("updateMany() question marks replaceOne() syntax as correct")
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "$set":
+        question_text = str(question.get("question_text", "")).lower()
+        leak_terms = (
+            "$inc",
+            "$push",
+            "$unset",
+            "upsert",
+            "findandmodify",
+            "find_one_and_update",
+            "replace_one",
+            "replaceone(",
+        )
+        leaked = [term for term in leak_terms if term in question_text]
+        if leaked:
+            issues.append("$set question drifts into another Topic 4 update concept: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "$push":
+        question_text = str(question.get("question_text", "")).lower()
+        leak_terms = ("$set", "$inc", "$unset", "upsert", "findandmodify", "replace_one", "replaceone(")
+        leaked = [term for term in leak_terms if term in question_text]
+        if leaked:
+            issues.append("$push question drifts into another Topic 4 update concept: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "$inc":
+        question_text = str(question.get("question_text", "")).lower()
+        leak_terms = ("$set", "$push", "$unset", "upsert", "findandmodify", "replace_one", "replaceone(")
+        leaked = [term for term in leak_terms if term in question_text]
+        if leaked:
+            issues.append("$inc question drifts into another Topic 4 update concept: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "$unset":
+        question_text = str(question.get("question_text", "")).lower()
+        leak_terms = ("$set", "$push", "$inc", "upsert", "findandmodify", "replace_one", "replaceone(")
+        leaked = [term for term in leak_terms if term in question_text]
+        if leaked:
+            issues.append("$unset question drifts into another Topic 4 update concept: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "upsert":
+        question_text = str(question.get("question_text", "")).lower()
+        leak_terms = ("$set", "$push", "$inc", "$unset", "findandmodify", "replace_one", "replaceone(")
+        leaked = [term for term in leak_terms if term in question_text]
+        if leaked:
+            issues.append("upsert question drifts into another Topic 4 update concept: " + ", ".join(sorted(set(leaked))))
+    if topic_id == 4 and str(metadata.get("concept", "")).strip().lower() == "findandmodify":
+        question_text = str(question.get("question_text", "")).lower()
+        leak_terms = ("$set", "$push", "$inc", "$unset", "upsert", "replace_one", "replaceone(")
+        leaked = [term for term in leak_terms if term in question_text]
+        if leaked:
+            issues.append("findAndModify question drifts into another Topic 4 update concept: " + ", ".join(sorted(set(leaked))))
     if topic_id == 2 and str(metadata.get("concept", "")).strip().lower() == "_id and objectid":
         question_text = str(question.get("question_text", "")).lower()
         option_text = " ".join(str(option.get("code_snippet", "")) for option in options).lower()
         if "_id" not in question_text and "objectid" not in question_text and "_id" not in option_text and "objectid" not in option_text:
             issues.append("question text for _id and ObjectId must explicitly reference _id or ObjectId")
+    if topic_id == 3 and str(metadata.get("concept", "")).strip().lower() == "find()":
+        leak_terms = (
+            "single document",
+            "python dictionary",
+            "projection",
+            "include 'title'",
+            "excluding '_id'",
+        )
+        leaked = [term for term in leak_terms if term in topic_text]
+        if leaked:
+            issues.append("find() question leaks later-scope terms: " + ", ".join(sorted(set(leaked))))
     if require_explanation:
         sections = _parse_six_part_explanation(explanation)
         missing_headings = [heading for heading, content in sections.items() if not content]
@@ -632,6 +736,60 @@ def _concept_variation_guidance(target: StyleTarget | QuestionTarget, avoid_ques
             "Avoid terms like update_one, update_many, $set, $inc, $push, $unset, upsert, findAndModify, or any other later-scope method/operator names. "
             "Build distractors from unrelated earlier-scope methods such as insert_one or find_one, or from wrong argument order, wrong replacement shape, or wrong filter placement."
         )
+    if topic_id == 4 and concept == "updateone()":
+        return (
+            "Variation requirement for updateOne(): keep the concept on updating a single matching document with update operators such as $set, $inc, $push, or $unset. "
+            "Do NOT ask about replacing an entire document, replacement documents, or replace_one()/replaceOne() as the correct answer. "
+            "Prefer scenarios about operator choice, matchedCount vs modifiedCount, single-document scope, or valid update document syntax."
+        )
+    if topic_id == 4 and concept == "updatemany()":
+        return (
+            "Variation requirement for updateMany(): keep the concept on updating multiple matching documents with update operators such as $set, $inc, $push, or $unset. "
+            "Do NOT ask about replacing an entire document, single-document-only behavior, or replace_one()/replaceOne() as the correct answer. "
+            "Prefer scenarios about broad filters, multiple matched documents, operator choice, or how updateMany differs from updateOne."
+        )
+    if topic_id == 4 and concept == "$set":
+        return (
+            "Variation requirement for $set: keep the concept on assigning or overwriting a field value in a partial update. "
+            "Do NOT ask the same 'update one field' syntax question again. "
+            "Choose a different decision point such as malformed nested $set usage, why the update document must contain an operator, "
+            "the difference between $set and replacement semantics, or a scenario that changes a non-string field while leaving the rest of the document untouched. "
+            "Do NOT ask about increments, array appends, field removal, upserts, or replacement-document semantics. "
+            "If you mention method names in code, use mongosh camelCase such as updateOne and replaceOne, not snake_case."
+            " Include a fenced syntax example section that shows the exact $set update document."
+        )
+    if topic_id == 4 and concept == "$push":
+        return (
+            "Variation requirement for $push: keep the concept on appending values to arrays. "
+            "Do NOT ask about $set, $inc, $unset, upsert, or full-document replacement. "
+            "Prefer scenarios about adding one item to an array, using $each, or choosing array append over assignment."
+            " If you include a method name in code, use mongosh camelCase such as updateOne, not update_one."
+        )
+    if topic_id == 4 and concept == "$inc":
+        return (
+            "Variation requirement for $inc: keep the concept on incrementing or decrementing numeric fields. "
+            "Do NOT ask about $set, $push, $unset, upsert, or full-document replacement. "
+            "Prefer scenarios that involve arithmetic changes to counters, quantities, or scores. "
+            "If you mention a method name in code, use mongosh camelCase such as updateOne, not update_one."
+        )
+    if topic_id == 4 and concept == "$unset":
+        return (
+            "Variation requirement for $unset: keep the concept on removing fields from documents. "
+            "Do NOT ask about assignment, incrementing, array appends, upsert, or full-document replacement. "
+            "Prefer scenarios where a field should be deleted while the rest of the document remains."
+        )
+    if topic_id == 4 and concept == "upsert":
+        return (
+            "Variation requirement for upsert: keep the concept on inserting a new document when no match is found, or updating the matched document when one exists. "
+            "Do NOT ask about field-level operators as the main concept. "
+            "Prefer scenarios centered on the no-match insert behavior, matched-document update behavior, or the result object."
+        )
+    if topic_id == 4 and concept == "findandmodify":
+        return (
+            "Variation requirement for findAndModify: keep the concept on atomic find-and-update behavior and the returned document semantics. "
+            "Do NOT ask about simple field assignment, array appends, increments, upserts, or replacement-document syntax as the main answer. "
+            "Prefer scenarios about returning the pre-modified or post-modified document and atomic single-document updates."
+        )
 
     if topic_id == 2:
         if concept == "insertmany()":
@@ -654,6 +812,19 @@ def _concept_variation_guidance(target: StyleTarget | QuestionTarget, avoid_ques
                 "Choose a different decision point such as automatic ObjectId generation, custom _id values, querying by _id, "
                 "or why ObjectId is used as a unique identifier. "
                 "Prefer a fresh scenario with a different data shape or insert/query action."
+            )
+    if topic_id == 3:
+        if concept == "find()":
+            return (
+                "Variation requirement for find(): do NOT ask about find_one(), single-document return values, Python dictionaries, or projections. "
+                "Keep the concept on find() returning a cursor / iterable result set, basic filter usage, and retrieving multiple documents. "
+                "Prefer scenarios about many matching documents, cursor behavior, or choosing find() over single-document methods."
+            )
+        if concept == "sort/limit/skip":
+            return (
+                "Variation requirement for sort/limit/skip: do NOT keep asking generic limit-only questions. "
+                "Prefer fresh scenarios about sort direction, chaining order, skip for pagination offsets, or combined sort().skip().limit() behavior. "
+                "Ensure the concept coverage includes all three methods rather than repeating limit() syntax."
             )
 
     if "return" in avoid_text and "insertmany" in concept:

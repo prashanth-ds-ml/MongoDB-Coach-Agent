@@ -121,3 +121,35 @@ def test_build_free_chat_prompt_anchors_study_advice():
     assert "**This Week**" in prompt
     assert "**Avoid**" in prompt
     assert "Option 1 (Today's Agenda)" in prompt
+
+
+def test_build_lesson_repair_prompt_includes_validation_issues():
+    from certcoach.core.persona import build_lesson_repair_prompt
+
+    prompt = build_lesson_repair_prompt(
+        "MongoDB Overview & The Document Model",
+        "BSON Data Types",
+        "Official doc content",
+        "### 1. Core Concept\nDraft",
+        ["missing heading: ### 2. Level-Based Breakdown"],
+    )
+
+    assert "The previous draft failed validation." in prompt
+    assert "missing heading: ### 2. Level-Based Breakdown" in prompt
+    assert "Previous draft to repair:" in prompt
+
+
+def test_build_lesson_section_prompt_targets_one_section_only():
+    from certcoach.core.persona import build_lesson_section_prompt
+
+    prompt = build_lesson_section_prompt(
+        "MongoDB Overview & The Document Model",
+        "BSON Data Types",
+        "Official doc content",
+        "### 5. Micro-Challenge",
+        "### 1. Core Concept\nDraft",
+    )
+
+    assert "Target section: **### 5. Micro-Challenge**" in prompt
+    assert "Write only the body content for `### 5. Micro-Challenge`." in prompt
+    assert "Do not repeat the heading." in prompt

@@ -183,10 +183,47 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[coach_flow_spec|C
 - Decision: Treat `quarantine_pending` as an incomplete concept in `next_phase4_topic` and triage quarantined records for the selected topic/concept before repair/population in the overnight runner.
 - Reason: Quarantined backlog can be skipped if the selector only watches repair/regeneration/legacy statuses, so the maintenance loop must keep quarantined and repair-pending work in the same concept-scoped pass.
 
-## 2026-06-22T00:00:00+05:30
+## 2026-06-29T00:00:00+05:30
 
-- Decision: Perform a bank-wide cleanup of redundant inactive questions under concepts that already meet study-readiness targets, and delete unrecoverable quarantined questions.
-- Reason: Deleting 142 redundant inactive questions from study-ready concepts and 38 unrecoverable questions (due to casing, scope leaks, invented type names, option count mismatches) cleans up the database backlog. It allows the selector to bypass completed concepts and avoids wasting local CPU/GPU cycles.
-- Decision: Support and enable local model overrides using `qwen2.5-coder:7b` (via environment variables `POPULATION_MODEL_CHAIN_LOCAL_ONLY` and `REPAIR_MODEL_CHAIN_LOCAL_ONLY`) for Phase 4 overnight runs.
-- Reason: The 7B model executes question generation and repair in 48 seconds (a 7.5x speedup compared to Gemma-12B's 6 minutes) while passing all deterministic and LLM quality checks, making it highly optimal for local machine operations.
+- Decision: Start lesson prebuild in canonical syllabus order from Topic 1 `BSON Data Types`, separate from the active Phase 4 question-bank selector.
+- Reason: Stored lessons should follow the syllabus contract from the beginning, while question-bank readiness must continue on its own ordered backlog.
+- Decision: Store prebuilt lessons as concept-scoped artifacts in MongoDB with statuses `validated` or `needs_review`, and let the CLI prefer validated stored lessons before live generation.
+- Reason: This removes learner-facing latency only when the lesson is already contract-compliant and avoids exposing unstable drafts.
+- Decision: Run lesson prebuild with one corrective retry, but keep the better draft if the repair attempt degrades structure.
+- Reason: The local lesson model can partially follow the contract, but naive repair retries can collapse the output further; the pipeline must preserve the stronger attempt.
+
+## 2026-06-30T00:00:00+05:30
+
+- Decision: Register a canonical lesson-completion loop per concept: `source bundle -> full lesson draft -> validation -> targeted repair -> missing-section generation -> validation -> store validated lesson -> concept-local practice audit -> remap/quarantine misaligned questions -> readiness recheck`.
+- Reason: A lesson is not complete when the text alone is valid; the learner-facing concept loop is only trustworthy when the stored lesson and the active `3 Easy + 2 Medium` question set are aligned to the same concept boundary.
+- Decision: Keep the lesson/practice cleanup local to the current concept before moving to the next concept.
+- Reason: Topic-level or bank-wide cleanup during lesson build would blur scope, slow progress, and make it harder to prove that one concept is truly ready end-to-end.
+- Decision: For Topic 1 `BSON Data Types`, treat `Collections vs Tables`, `Document structure`, document-relationship stems, query-operator leaks, and obvious junk stems as out of scope for the BSON lesson audit.
+- Reason: The validated BSON lesson teaches BSON types, numeric/date precision, arrays, embedded documents, and `ObjectId`; questions outside that boundary create learner confusion even if they are still broadly MongoDB-related.
+- Decision: Treat Topic 1 scope leakage as a validation failure, not a prompt preference.
+- Reason: Prompt rules alone allowed `Document structure` and `Collections vs Tables` lessons to pass while still leaking `find()`, `findOne()`, `insertOne()`, projection, dot notation, and query terminology. Topic 1 lessons must fail until those future-topic references are removed.
+- Decision: Add concept-specific cleanup for Topic 1 lessons after generation, including section regeneration for leaky sections and final concept-specific scrubs for `Document structure` and `Collections vs Tables`.
+- Reason: The local lesson model can still sneak a few future-topic lines through even after prompt tightening; the concept loop needs deterministic cleanup to keep beginner-facing lessons strictly bounded.
+- Decision: Add a hard `updateOne()` question-scope guard and variation brief that reject full-document replacement semantics and `replace_one()/replaceOne()` as the correct answer.
+- Reason: The Topic 4 `updateOne()` pool had drifted completely into `replaceOne()` content, so the validator and prompt needed explicit concept-boundary enforcement before refill.
+- Decision: Add the same hard scope guard and variation brief for `updateMany()` so multi-document update questions stay on update-operator semantics and do not drift into replacement wording.
+- Reason: `updateMany()` is adjacent to `updateOne()` and shares the same replacement-vs-update failure mode; the generator needs concept-specific rejection logic before it can reliably populate the bank.
+- Decision: Relax the syntax-example requirement for Topic 4 operator-family concepts and keep the operator-specific prompts focused on the update behavior itself.
+- Reason: The repair model repeatedly failed `Topic 4` operator questions on a missing syntax-example section even after producing a correct explanation, so the hard gate blocked progress on otherwise valid content.
+
+## 2026-07-03T00:00:00+05:30
+- Decision: Use the OpenRouter Free Models Router (`openrouter/free`) for programmatic remote LLM execution.
+  - Reason: Resolves credit/billing and 402/404 errors associated with paid model names when no payment is registered, while maintaining high-quality outputs.
+- Decision: Integrate active exam-bank question stems directly into the lesson enhancement prompts.
+  - Reason: Rather than generating general lessons, this forces the LLM to cover the exact technical rules, bit-lengths, and behaviors tested by the actual exam questions, ensuring every lesson is top-level prep material.
+- Decision: Implement automated post-processing (`clean_topic_1_leaks`) in the lesson enhancer script to clean vocabulary scope leaks before validation.
+  - Reason: The LLM occasionally uses forbidden words like "query", "queries", or "projection" inside descriptions of traversability and BSON layout. Programmatically cleaning these allows the lesson to pass strict validation without losing conceptual depth.
+- Decision: Add skip-if-already-enhanced check in `scripts/enhance_all_lessons.py` before calling the LLM.
+  - Reason: The bulk enhancer job runs for many minutes and can be interrupted by rate limits. Checking for the presence of the local markdown export file at the start of each concept allows clean, zero-duplication resumption without manually tracking completed concepts.
+- Decision: Store NVIDIA API key as `NVIDIA_API_KEY` in `.env`; accept legacy bare `nvidia` var for backward compat in `model_runner.py` and `enhance_all_lessons.py`.
+  - Reason: The initial `.env` stored the key without a standard env-var name (`nvidia = nvapi-...`), which caused the NVIDIA route to never activate. Canonical naming makes the config discoverable and consistent with industry convention.
+- Decision: Add a 10-second inter-request sleep delay in `scripts/enhance_all_lessons.py`.
+  - Reason: OpenRouter free-tier endpoints enforce per-minute rate limits. A 10-second gap between lessons (approx. 6 requests/min) keeps the batch below the throttle threshold without making individual lessons noticeably slower.
+- Decision: Export enhanced lessons as local markdown files to `memory/lessons/` in addition to MongoDB storage.
+  - Reason: Local exports give agents, Obsidian, and offline review tools direct access to lesson content without a live MongoDB connection. The files serve as a convenience cache; MongoDB `lesson_artifacts` remains the source of truth.
 

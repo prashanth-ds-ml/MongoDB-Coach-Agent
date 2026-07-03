@@ -33,6 +33,7 @@ study_sessions_col = None
 draft_questions_col = None
 users_col = None
 error_book_col = None
+lessons_col = None
 connection_error = None
 
 try:
@@ -45,6 +46,7 @@ try:
     draft_questions_col = db["draft_questions"]
     users_col = db["users"]
     error_book_col = db["user_error_book"]
+    lessons_col = db["lesson_artifacts"]
 except Exception as e:
     connection_error = e
 
@@ -676,6 +678,20 @@ def get_questions_quality_analytics() -> list:
             "flag": flag
         })
     return results
+
+
+def get_lesson_artifact(topic_id: int, concept: str, status: str | None = None) -> dict | None:
+    query = {"topic_id": int(topic_id), "concept": concept}
+    if status:
+        query["status"] = status
+    return lessons_col.find_one(query) if lessons_col is not None else None
+
+
+def upsert_lesson_artifact(artifact: dict) -> None:
+    if lessons_col is None:
+        raise RuntimeError("MongoDB lessons collection is unavailable.")
+    key = {"topic_id": int(artifact["topic_id"]), "concept": artifact["concept"]}
+    lessons_col.replace_one(key, artifact, upsert=True)
 
 
 SEVEN_PART_EXPLANATION_MARKERS = [
