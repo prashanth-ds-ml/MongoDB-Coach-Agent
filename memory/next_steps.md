@@ -36,6 +36,7 @@ Current live snapshot:
 - The scope-audit loop now quarantines future-scope leaks before learner-facing use.
 - The overnight runner now supports `-SingleQuestion` mode so repair and population can be forced to one record at a time when a concept is failing batch-level quality gates.
 - The remaining work is to continue in canonical order and keep Topic 4 focused on the concepts that still have inventory gaps.
+- Lesson prebuild and quality audit are 100% complete: all 58 syllabus concepts have prebuilt, validated, and exam-level audited lessons stored in MongoDB (`certcoach_db.lesson_artifacts`) with automatic sanitization of out-of-scope topics.
 - The learner-facing study pattern is now captured in `memory/study_pattern_guardrails.md`: keep the micro-challenge question-only and keep lesson examples inside the active concept boundary.
 - Resume point: continue Topic 4 from `replaceOne()` and do not skip to `updateOne()` until the selector advances.
 

@@ -1,6 +1,6 @@
 # Agent Context
 
-Last verified: 2026-07-02
+Last verified: 2026-07-03
 
 ## Mission
 
@@ -47,12 +47,13 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 - The durable bank-maintenance loop is now: `selector -> exact concept -> one question -> validate/repair/quarantine -> recheck selector -> repeat`, and it must continue across sessions until all topic/concept backlogs are cleared.
 - Reporting rule: always show the active topic/concept plus `repair pending`, `quarantined total`, `quarantined repairable`, `hard-delete candidates`, and `population missing Easy/Medium` for that same topic/concept before deciding the next single-question pass.
 - Learner-facing lesson pattern is now documented in `memory/study_pattern_guardrails.md`: one concept, one micro-challenge question only, no answer/hint/example response, and no future-topic leakage.
-- Stored lesson prebuild is now operational: lesson artifacts are saved per exact `topic_id + concept`, the CLI prefers validated stored lessons before live generation, and Topic 1 `BSON Data Types` is now the first validated concept lesson.
-- The registered durable lesson loop is: `source bundle -> lesson draft -> validation -> targeted repair -> missing-section generation -> validation -> stored lesson -> concept-local practice audit -> remap/quarantine misaligned questions -> readiness recheck`.
+- Stored lesson prebuild is complete, audited, and operational: all 58 syllabus concepts have prebuilt, validated, and exam-level audited lesson artifacts stored in MongoDB (`certcoach_db.lesson_artifacts`). 39 of these are also exported as high-quality markdown files in `memory/lessons/` (Topics 3–10). Topics 1–2 lessons exist only in MongoDB. Topics 11–12 local exports are pending (can be generated via `scripts/enhance_all_lessons.py`). The builder automatically sanitizes out-of-scope transactions, sharding config, BSON method leaks, and JavaScript cursor helpers (.forEach) before saving.
+- Bulk lesson enhancement infrastructure: `scripts/enhance_all_lessons.py` runs all 58 concepts in canonical order, skips already-generated files, feeds real exam question stems into the prompt, and uses a 10-second delay between API calls. Supports NVIDIA API (`NVIDIA_API_KEY`) with automatic fallback to `openrouter:openrouter/free`.
+- The registered durable lesson loop is: `source bundle -> lesson draft -> sanitize -> validation -> targeted repair -> missing-section generation -> validation -> stored lesson -> concept-local practice audit -> remap/quarantine misaligned questions -> readiness recheck`.
 - Topic 1 is now complete across all three concepts under the stricter no-future-topic lesson rule: `BSON Data Types`, `Document structure`, and `Collections vs Tables` each have validated stored lessons, and the concept-local practice pools were cleaned where needed.
 - Topic 1 lesson validation is now stricter by design: future-topic methods, query language, projection, dot notation, Atlas/platform references, and misc concept leakage are treated as validation failures, not tolerated as style issues.
 - Maintained regression coverage: report selector regression passed after the backlog-scope fix, scope-audit routing quarantines future-scope leaks, the Topic 2 stem guard has a focused unit test, and Topic 3 `findOne()` / `countDocuments()` repair-checklist regressions are pinned.
-- Maintained regression coverage also includes the stricter Topic 1 lesson validator, lesson-repair prompt path, and missing-section/leaky-section lesson fallback; the focused unit suite currently passes at `158 passed`.
+- Maintained regression coverage also includes the stricter Topic 1 lesson validator, lesson-repair prompt path, and missing-section/leaky-section lesson fallback; the focused unit suite currently passes at `165 passed`.
 - Known repository-wide test blocker: plain `pytest` collects `scratch/test_zhipu_vision.py`, which requires optional `zhipuai`.
 
 ## New Infrastructure (2026-06-17)
@@ -97,7 +98,7 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 
 ## Resume Point
 
-- Continue Topic 4 from `$unset`.
+- Continue Topics 11 and 12 lesson markdown exports using `scripts/enhance_all_lessons.py` (safe to re-run; skips already-generated files).
 - Do not advance to later update operators until the selector advances.
 - Keep the micro-challenge rule question-only, with no answer, hint, worked solution, or example response.
 - Preserve the same one-question-at-a-time loop across sessions until every topic and concept reaches the active inventory target and no repair/quarantine backlog remains.

@@ -197,6 +197,26 @@ def _sanitize_document_structure_lesson(lesson_markdown: str) -> str:
     return "\n".join(cleaned_lines).strip()
 
 
+def _sanitize_bson_data_types_lesson(lesson_markdown: str) -> str:
+    cleaned = lesson_markdown
+    cleaned = cleaned.replace("db.myCollection.insertOne({", "{")
+    cleaned = cleaned.replace("db.myCollection.insertOne( {", "{")
+    cleaned = cleaned.replace("});", "}")
+    cleaned = cleaned.replace("} );", "}")
+    
+    cleaned_lines = []
+    for line in cleaned.splitlines():
+        lowered = line.lower()
+        if "insertone" in lowered:
+            if "db." in lowered:
+                continue
+            line = line.replace("insertOne()", "document creation")
+            line = line.replace("insertOne", "document insertion")
+        cleaned_lines.append(line)
+        
+    return "\n".join(cleaned_lines).strip()
+
+
 def _sanitize_collections_vs_tables_lesson(lesson_markdown: str) -> str:
     cleaned_lines: list[str] = []
     for line in lesson_markdown.splitlines():
@@ -403,6 +423,68 @@ def _fallback_recall_body(topic: str, concept: str) -> str:
     return fallbacks.get(concept_key, "")
 
 
+def _sanitize_out_of_scope_content(markdown: str) -> str:
+    lines = markdown.splitlines()
+    cleaned_lines = []
+    for line in lines:
+        lowered = line.lower()
+        
+        # 1. Option replacement for micro-challenges
+        if "transaction" in lowered and ("a)" in lowered or "b)" in lowered or "c)" in lowered or "d)" in lowered):
+            line = line.replace("inside distributed transactions", "for multiple collections")
+            line = line.replace("inside transactions", "for bulk inserts")
+            line = line.replace("transaction", "write operation")
+            cleaned_lines.append(line)
+            continue
+            
+        # 2. General transaction line removal
+        if "transaction" in lowered:
+            continue
+            
+        # 3. .forEach removal/replacement
+        if ".foreach" in lowered:
+            line = line.replace("db.collection.find().forEach(printjson)", "for doc in cursor: print(doc)")
+            line = line.replace(".forEach()", "looping")
+            if ".foreach" in line.lower():
+                continue
+                
+        # 4. Sharding config line removal in modeling
+        if "shard key" in lowered or "configure sharding" in lowered:
+            continue
+            
+        cleaned_lines.append(line)
+        
+    return "\n".join(cleaned_lines)
+
+
+def _validate_general_exam_scope(cleaned_markdown: str, topic_id: int, concept: str) -> list[str]:
+    issues: list[str] = []
+    lowered = cleaned_markdown.lower()
+    
+    # 1. Multi-document transaction check (Topic < 11 should not discuss transactions)
+    if topic_id < 11 and "transaction" in lowered:
+        issues.append("Out of scope topic: Multi-document Transactions (not in Associate syllabus)")
+        
+    # 2. JavaScript cursor iteration check (e.g. .forEach() is shell specific, Python developer exam uses PyMongo/cursors)
+    if ".foreach" in lowered:
+        issues.append("Cursor iteration leak: .forEach() is JavaScript shell specific and out of scope for Python developer exam")
+        
+    # 3. countDocuments return inaccuracy check (returns count directly, not a document)
+    if "countdocuments" in lowered and ("{ 'n':" in lowered or '{"n":' in lowered or "{'n':" in lowered):
+        issues.append("Technical inaccuracy: countDocuments() returns an integer, not a document like { 'n': <value> }")
+        
+    # 4. Aggregation Stage leak in basic CRUD / MQL topics
+    if "$search" in lowered and topic_id not in (6, 12):
+        issues.append("Aggregation leak: $search stage is out of scope outside of Atlas Search topics")
+        
+    # 5. Sharding/replica set config check (Topic 10 should not go into sharding configuration)
+    if "sharding" in lowered and "anti-patterns" in lowered:
+        if "shard key" in lowered or "configure sharding" in lowered:
+            issues.append("Out of scope topic: Sharding (only cluster basics allowed, no configuration)")
+            
+    return issues
+
+
 def validate_lesson_markdown(
     lesson_markdown: str,
     topic_id: int | None = None,
@@ -419,6 +501,7 @@ def validate_lesson_markdown(
         issues.append("micro-challenge contains forbidden answer or hint content")
 
     cleaned = clean_lesson_explanation(raw_text).strip()
+    cleaned = _sanitize_out_of_scope_content(cleaned)
     if not cleaned:
         return {"is_valid": False, "issues": ["lesson is empty"], "cleaned_markdown": ""}
 
@@ -462,6 +545,9 @@ def validate_lesson_markdown(
     if topic_id == 1:
         issues.extend(_validate_topic1_scope(cleaned, concept))
 
+    if topic_id is not None:
+        issues.extend(_validate_general_exam_scope(cleaned, topic_id, concept))
+
     return {
         "is_valid": not issues,
         "issues": issues,
@@ -487,6 +573,8 @@ def prebuild_lesson(
         cleaned_markdown = _sanitize_document_structure_lesson(cleaned_markdown)
     elif target.concept == "Collections vs Tables":
         cleaned_markdown = _sanitize_collections_vs_tables_lesson(cleaned_markdown)
+    elif target.concept == "BSON Data Types":
+        cleaned_markdown = _sanitize_bson_data_types_lesson(cleaned_markdown)
     validation = validate_lesson_markdown(cleaned_markdown, topic_id=target.topic_id, concept=target.concept)
     if not validation["is_valid"]:
         first_pass_markdown = cleaned_markdown
@@ -503,6 +591,8 @@ def prebuild_lesson(
             cleaned_markdown = _sanitize_document_structure_lesson(cleaned_markdown)
         elif target.concept == "Collections vs Tables":
             cleaned_markdown = _sanitize_collections_vs_tables_lesson(cleaned_markdown)
+        elif target.concept == "BSON Data Types":
+            cleaned_markdown = _sanitize_bson_data_types_lesson(cleaned_markdown)
         validation = validate_lesson_markdown(cleaned_markdown, topic_id=target.topic_id, concept=target.concept)
         if len(validation["issues"]) > len(first_pass_validation["issues"]):
             cleaned_markdown = first_pass_markdown
@@ -519,6 +609,8 @@ def prebuild_lesson(
             sectional_markdown = _sanitize_document_structure_lesson(sectional_markdown)
         elif target.concept == "Collections vs Tables":
             sectional_markdown = _sanitize_collections_vs_tables_lesson(sectional_markdown)
+        elif target.concept == "BSON Data Types":
+            sectional_markdown = _sanitize_bson_data_types_lesson(sectional_markdown)
         sectional_validation = validate_lesson_markdown(sectional_markdown, topic_id=target.topic_id, concept=target.concept)
         if len(sectional_validation["issues"]) <= len(validation["issues"]):
             cleaned_markdown = sectional_markdown
@@ -535,6 +627,8 @@ def prebuild_lesson(
             leaky_section_markdown = _sanitize_document_structure_lesson(leaky_section_markdown)
         elif target.concept == "Collections vs Tables":
             leaky_section_markdown = _sanitize_collections_vs_tables_lesson(leaky_section_markdown)
+        elif target.concept == "BSON Data Types":
+            leaky_section_markdown = _sanitize_bson_data_types_lesson(leaky_section_markdown)
         leaky_section_validation = validate_lesson_markdown(
             leaky_section_markdown,
             topic_id=target.topic_id,

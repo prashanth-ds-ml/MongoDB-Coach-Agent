@@ -137,7 +137,7 @@ class ModelRunner:
         return self.circuit_breakers[model_name]
 
     def _call_model(self, model_config: Dict[str, str], prompt: str, temperature: float = 0.25, 
-                   num_ctx: int = 5120, timeout: float = 600.0) -> Any:
+                   num_ctx: int = 5120, timeout: float = 600.0, format_json: bool = False) -> Any:
         model_name = model_config.get("model")
         provider = model_config.get("provider")
         
@@ -214,14 +214,48 @@ class ModelRunner:
                     self.logger.error("OpenRouter API key not configured")
                     return None
 
+                payload = {
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "stream": False,
+                    "max_tokens": 4096,
+                }
+                if format_json:
+                    payload["response_format"] = {"type": "json_object"}
+
                 response = _post_json(
                     "https://openrouter.ai/api/v1/chat/completions",
+                    payload,
                     {
-                        "model": model_name,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": temperature,
-                        "stream": False,
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
                     },
+                    timeout,
+                )
+                result = _extract_text(response)
+                circuit_breaker.record_success()
+                return result
+                
+            elif provider == "nvidia":
+                api_key = os.getenv("NVIDIA_API_KEY") or os.getenv("nvidia", "")
+                if not api_key:
+                    self.logger.error("NVIDIA API key not configured")
+                    return None
+
+                payload = {
+                    "model": model_name,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": temperature,
+                    "stream": False,
+                    "max_tokens": 4096,
+                }
+                if format_json:
+                    payload["response_format"] = {"type": "json_object"}
+
+                response = _post_json(
+                    "https://integrate.api.nvidia.com/v1/chat/completions",
+                    payload,
                     {
                         "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
@@ -457,7 +491,8 @@ class ModelRunner:
                     prompt,
                     temperature=0.25,
                     num_ctx=num_ctx,
-                    timeout=get_ollama_timeout()
+                    timeout=get_ollama_timeout(),
+                    format_json=True
                 )
                 
                 if not result:

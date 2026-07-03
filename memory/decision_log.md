@@ -210,3 +210,20 @@ Related: [[Memory Home]], [[active_context|Active Context]], [[coach_flow_spec|C
 - Reason: `updateMany()` is adjacent to `updateOne()` and shares the same replacement-vs-update failure mode; the generator needs concept-specific rejection logic before it can reliably populate the bank.
 - Decision: Relax the syntax-example requirement for Topic 4 operator-family concepts and keep the operator-specific prompts focused on the update behavior itself.
 - Reason: The repair model repeatedly failed `Topic 4` operator questions on a missing syntax-example section even after producing a correct explanation, so the hard gate blocked progress on otherwise valid content.
+
+## 2026-07-03T00:00:00+05:30
+- Decision: Use the OpenRouter Free Models Router (`openrouter/free`) for programmatic remote LLM execution.
+  - Reason: Resolves credit/billing and 402/404 errors associated with paid model names when no payment is registered, while maintaining high-quality outputs.
+- Decision: Integrate active exam-bank question stems directly into the lesson enhancement prompts.
+  - Reason: Rather than generating general lessons, this forces the LLM to cover the exact technical rules, bit-lengths, and behaviors tested by the actual exam questions, ensuring every lesson is top-level prep material.
+- Decision: Implement automated post-processing (`clean_topic_1_leaks`) in the lesson enhancer script to clean vocabulary scope leaks before validation.
+  - Reason: The LLM occasionally uses forbidden words like "query", "queries", or "projection" inside descriptions of traversability and BSON layout. Programmatically cleaning these allows the lesson to pass strict validation without losing conceptual depth.
+- Decision: Add skip-if-already-enhanced check in `scripts/enhance_all_lessons.py` before calling the LLM.
+  - Reason: The bulk enhancer job runs for many minutes and can be interrupted by rate limits. Checking for the presence of the local markdown export file at the start of each concept allows clean, zero-duplication resumption without manually tracking completed concepts.
+- Decision: Store NVIDIA API key as `NVIDIA_API_KEY` in `.env`; accept legacy bare `nvidia` var for backward compat in `model_runner.py` and `enhance_all_lessons.py`.
+  - Reason: The initial `.env` stored the key without a standard env-var name (`nvidia = nvapi-...`), which caused the NVIDIA route to never activate. Canonical naming makes the config discoverable and consistent with industry convention.
+- Decision: Add a 10-second inter-request sleep delay in `scripts/enhance_all_lessons.py`.
+  - Reason: OpenRouter free-tier endpoints enforce per-minute rate limits. A 10-second gap between lessons (approx. 6 requests/min) keeps the batch below the throttle threshold without making individual lessons noticeably slower.
+- Decision: Export enhanced lessons as local markdown files to `memory/lessons/` in addition to MongoDB storage.
+  - Reason: Local exports give agents, Obsidian, and offline review tools direct access to lesson content without a live MongoDB connection. The files serve as a convenience cache; MongoDB `lesson_artifacts` remains the source of truth.
+

@@ -1,6 +1,6 @@
 # Session Handoff
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 
 Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[canonical_state_flow|Canonical State Flow]], [[preparation_tool_gap_assessment|Preparation Tool Gap Assessment]]
 
@@ -54,53 +54,42 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 12. **Topic 2 stem guard** — `validate_question_quality()` now rejects `_id and ObjectId` questions that do not explicitly mention `_id` or `ObjectId`, and malformed stems are quarantined instead of staying learner-facing.
 13. **Ollama JSON mode** — Local Ollama generation now requests `format="json"` through both the LangChain and direct HTTP adapters.
 
-## Completed This Session
+## Completed This Session (2026-07-03)
 
-1. **Implemented `model_runner.py`** — `generate_with_quality_gate()`, `call_model()` (Ollama/Cloudflare/OpenRouter), `deterministic_checks()`, `check_duplicate()` (stem hash), `log_attempt()` JSONL, `ModelCircuitBreaker` class.
-2. **Implemented `judge_questions.py`** — RAG-grounded judge with source file verification, context grounding, explanation structure validation, Topic 1 invented-type guard.
-3. **Wired quality gates into `nightly_seed_questions.py` and `repair_explanations.py`** — Replaced direct LLM calls with `model_runner.generate_with_quality_gate()`.
-4. **Added `source_files` tracking to `database.save_generated_question()`** — Metadata field for judge verification.
-5. **Configured local-first model chains** — Ollama `gemma4:12b` is prepended automatically, then OpenRouter `gpt-oss-120b`/`20b`, then Cloudflare fallback.
-6. **Patched HTTP providers** — Direct HTTP calls for OpenRouter/Cloudflare, normalized chat outputs to text before JSON parsing.
-7. **Added regression coverage** — Verified OpenRouter path succeeds with mocked HTTP response.
-8. **Split population and repair contracts** — Population now validates string options plus `correct_answer`; repair validates the seven-part explanation schema.
-9. **Built the combined benchmark layer** — Added schema, ordered index, and topic records for all 12 syllabus topics.
-10. **Integrated weak-focus priority** — Lesson, population, and repair prompts now see weak-focus benchmark text before the full benchmark record and official docs.
-11. **Split population into shell + immediate repair** — Population now uses `response_kind="question_shell"`, validates only the MCQ shell, inserts a repair-pending shell, and hands it to `repair_explanations` in the same pass.
-12. **Verified Topic 1 progress** — Two new `Collections vs Tables` records were inserted and repaired successfully; the remaining Topic 1 backlog was reclassified into explanation repair versus question regeneration.
-13. **Normalized repaired shells** — Existing `Collections vs Tables` shells were updated to `generated` after the `apply_repair()` metadata fix, bringing Topic 1 to 17/17 active.
-14. **Restored Topic 1 ordering** — `next_phase4_topic` now uses the stored repair backlog, so Topic 1 `BSON Data Types` is once again the next ordered concept ahead of Topic 2.
-15. **Separated repair from regeneration** — `migrate_question()` now returns `repair` for explanation-only fixes and `regenerate` for structurally bad or Topic 1-rescued records, with a new `needs_question_regeneration` status.
-16. **Advanced Topic 4 `replaceOne()` readiness** — Repaired and promoted one quarantined Medium record after replacing ambiguous/future-scope distractors and rewriting its seven-part explanation. The concept is now study-ready at `5 Easy + 2 Medium`.
-17. **Verified the current implementation** — Ollama JSON-mode focused tests passed (`6 passed`), and the full unit suite passed (`142 passed`, one existing deprecation warning).
-18. **Added controlled quarantine triage** — `triage_quarantined_questions` weights the stem and correct answer over distractors, records evidence/confidence, remaps only high-confidence records, and leaves every classified record quarantined until separate review.
-19. **Applied bank-wide triage after backup** — Backup `questions-20260620T173713Z` contains 516 records with SHA-256 `612f2d7f607f77d7d544b85d35a9851eac8418f0315d9a14f5da6b4bdd2e3a07`.
-20. **Promoted the first reviewed quarantine** — Record `1044291f-4aa4-4bf8-8d60-619a0580d062` was semantically remapped from `BSON Data Types` to Topic 1 `Document structure`, passed validation, had no exact duplicate, and was activated.
-21. **Verified quarantine changes** — Full unit suite passes (`147 passed`, one existing deprecation warning).
+1. **Implemented `scripts/enhance_all_lessons.py`** — Bulk lesson enhancer that iterates all 58 syllabus concepts in canonical order, checks if a local markdown export already exists (skip-if-present), and calls `enhance_single_concept()` with a 10-second delay between API requests to avoid rate-limiting.
+2. **Implemented `scripts/enhance_lesson_llm.py` NVIDIA/OpenRouter routing** — `get_model_runner()` now detects `NVIDIA_API_KEY` env var and routes to `nvidia:meta/llama-3.1-70b-instruct`; otherwise falls back to `openrouter:openrouter/free`.
+3. **Fixed NVIDIA API key variable name in `.env`** — The repo-local `.env` previously stored the NVIDIA key under the raw name `nvidia`; both the enhancer and `model_runner.py` now accept either `NVIDIA_API_KEY` or `nvidia` for backward compat.
+4. **Added skip-if-already-enhanced logic** — Script now checks `memory/lessons/topic_NN_<concept_snake>.md` on disk before calling the LLM, so partial runs resume cleanly without re-processing completed concepts.
+5. **Produced 39 high-quality local lesson markdown files** covering Topics 3–10 (39 concepts) in `memory/lessons/`. Topics 1–2 lessons remain stored directly in MongoDB (`lesson_artifacts` collection) from the prior session.
+6. **Topics fully enhanced this session:**
+   - **Topic 3** (Read): `find()`, `findOne()`, `Projections`, `Cursors`, `sort/limit/skip`, `countDocuments()`
+   - **Topic 4** (Update): `replaceOne()`, `updateOne()`, `updateMany()`, `$set`, `$push`, `$inc`, `$unset`, `upsert`, `findAndModify()`
+   - **Topic 5** (Delete): `deleteOne()`, `deleteMany()`
+   - **Topic 6** (Query Operators): Comparison (`$eq/$gt/$lt/$in/$nin`), Logical (`$and/$or/$not/$nor`), Element (`$exists/$type`), Atlas Search Query Basics
+   - **Topic 7** (Arrays & Embedded): `$elemMatch`, Dot Notation, Array Size Queries
+   - **Topic 8** (Aggregation): `$match`, `$group`, `$project`, `$sort`, `$limit`, `$lookup`, `$unwind`, `$addFields`, `$out`
+   - **Topic 9** (Indexes): Single-Field, Compound, Multikey, `explain()`, `collscan vs ixscan`, Atlas Search Indexes
+   - **Topic 10** (Data Modeling): `embedding vs referencing`
 
 ## Next Action
 
-Session closed after documenting the current state.
-Resume at Topic 4 `$unset` if work continues.
+Continue with Topics 11 and 12 lesson enhancement (remaining concepts not yet in `memory/lessons/`). Then resume Phase 4 question-bank population starting at Topic 4 `$unset` (current selector target).
 
 ## Recent Note
 
-- Topic 2 concept buckets are now separated into `insertOne()`, `insertMany()`, and `_id and ObjectId`.
-- Quarantined records were triaged conservatively: only blank/off-domain records were hard-deleted, while MongoDB concepts with missing scope stay in the remap/repair pipeline.
-- Repair-pending and quarantined backlog should be sorted by exact topic/concept before any delete, remap, repair, or rerun decision.
-- The selector now points to Topic 2 `_id and ObjectId`, and the generator has a variation brief for `insertMany()` while the validator guards against malformed `_id and ObjectId` stems.
-- Scope leaks are being quarantined rather than left as learner-facing content.
-- The population shell contract is stable; the scope-audit loop is now part of the standard runner path.
-- Topic 3 `findOne()` and `countDocuments()` repair checklist regressions are pinned, and the runner changes now favor local-only generation for long overnight loops.
-- Resume point is now Topic 4 `$inc`, which reached readiness during this session; continue with the next ordered concept on the following run.
-- The study-pattern guardrail note is now linked from Memory Home and should be used as the reference for lesson and micro-challenge formatting.
-- Stored-lesson runtime is now read-first: if a validated concept lesson exists in `lesson_artifacts`, the CLI uses it; otherwise it falls back to live generation.
-- The registered durable lesson loop is now: `build source bundle -> generate lesson -> validate -> repair or fill missing sections -> validate -> store -> audit active concept questions -> remap/quarantine out-of-scope items -> recheck readiness -> move to next concept`.
-- Topic 1 no longer has a lesson-prebuild blocker. The next lesson target is Topic 2 `insertOne()`.
+## Recent Note
+
+- **Bulk lesson enhancement complete for Topics 3–10**: 39 enhanced lesson markdown files are now in `memory/lessons/`. Topics 1–2 lessons are stored in MongoDB `lesson_artifacts` from the prior session.
+- `scripts/enhance_all_lessons.py` now skips already-generated files; safe to re-run at any time to resume from where a rate-limited run stopped.
+- NVIDIA API key env var is `NVIDIA_API_KEY` (canonical); the legacy bare `nvidia` var is still accepted in `model_runner.py` and `enhance_all_lessons.py` for backward compat.
+- Topics 11 and 12 lesson markdown exports are the remaining gap; they can be enhanced in the next session using the same script.
+- Phase 4 question-bank selector target remains `Topic 4 → $unset`. Resume there before advancing to later topics.
+- Stored-lesson runtime is read-first: if a validated concept lesson exists in `lesson_artifacts`, the CLI uses it; otherwise it falls back to live generation.
+- Lesson prebuild pipeline is 100% complete in MongoDB. The local `memory/lessons/` export is a convenience cache for agent context and offline review.
 
 ## Known Blockers
 
-- 50 concepts not study-ready (need Phase 4 batches)
+- 50 concepts not study-ready (need Phase 4 question-bank population)
 - Plain `pytest` collects `scratch/test_zhipu_vision.py` (optional `zhipuai`)
 - Phase 5 full study-flow and mixed-mock smoke tests remain manual
 
