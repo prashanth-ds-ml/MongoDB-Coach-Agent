@@ -6,6 +6,8 @@ import requests
 import time
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 # Ensure UTF-8 output
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
@@ -16,7 +18,10 @@ IMAGE_DIR = os.path.join(PROJECT_ROOT, "data", "pics_qa")
 OUTPUT_FILE = os.path.join(PROJECT_ROOT, "data", "extracted_questions.json")
 OLLAMA_URL = "https://ollama.com/api/generate"
 VISION_MODEL = "qwen3-vl:235b-instruct"
-API_KEY = "2a8743640ec54035897aa4b3b0299bfe.GBSGfTy8y_rY_hi8r8NM9cY_"
+
+load_dotenv()
+load_dotenv(os.path.expanduser("~/.certcoach/.env"))
+API_KEY = os.getenv("ZHIPU_API_KEY", "")
 
 SCHEMA_TEMPLATE = """
 {
@@ -92,7 +97,11 @@ def extract_question_from_image(image_path):
 
 def main():
     print(f"🚀 Starting Bulk Image Ingestion using {VISION_MODEL}...")
-    
+
+    if not API_KEY:
+        print("❌ ZHIPU_API_KEY is not set. Add it to ~/.certcoach/.env or a local .env file.")
+        return
+
     if not os.path.exists(IMAGE_DIR):
         print(f"❌ Image directory not found: {IMAGE_DIR}")
         return

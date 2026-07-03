@@ -30,3 +30,6 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 certcoach = ["data/*", "data/raw_markdowns/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]

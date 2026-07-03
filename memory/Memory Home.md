@@ -30,8 +30,19 @@ This is the Obsidian and cross-agent navigation hub. Start with the compact cont
 - [[content_benchmark_index|Content Benchmark Index]]
 - [[topic_01_benchmark|Topic 1 Benchmark Record]]
 - [[topic_02_benchmark|Topic 2 Benchmark Record]]
+- [[topic_03_benchmark|Topic 3 Benchmark Record]]
+- [[topic_04_benchmark|Topic 4 Benchmark Record]]
+- [[topic_05_benchmark|Topic 5 Benchmark Record]]
+- [[topic_06_benchmark|Topic 6 Benchmark Record]]
+- [[topic_07_benchmark|Topic 7 Benchmark Record]]
+- [[topic_08_benchmark|Topic 8 Benchmark Record]]
+- [[topic_09_benchmark|Topic 9 Benchmark Record]]
+- [[topic_10_benchmark|Topic 10 Benchmark Record]]
+- [[topic_11_benchmark|Topic 11 Benchmark Record]]
+- [[topic_12_benchmark|Topic 12 Benchmark Record]]
 - [[benchmark_integration_summary|Benchmark Integration Summary]]
-- [[Resource Links]]
+- [[Resource Links]] (see also `resource_links.json`, the machine-readable source for this note)
+- `memory/lessons/`: exported markdown lessons for Topics 3-10 (39 concepts), mirroring the validated lesson artifacts stored in `certcoach_db.lesson_artifacts`
 
 ## Audits And Migration
 
@@ -39,12 +50,22 @@ This is the Obsidian and cross-agent navigation hub. Start with the compact cont
 - [[question_bank_inventory_comparison|Question-Bank Inventory Comparison]]
 - [[legacy_bank_migration_report|Legacy Bank Migration Report]]
 - [[forensic_pipeline_audit|Forensic Pipeline Audit]]
+- [[syllabus_deep_audit_dashboard|Syllabus Deep-Audit Dashboard]]
+- [[syllabus_deep_audit_details|Syllabus Deep-Audit Details]]
+- [[audit_report_bson_data_types|BSON Data Types Audit Report]]
+
+## Companion Apps
+
+- `mobile/`: Expo/React Native flashcard app, bundles `flashcards.json` locally, no backend coupling
+- `web-flashcards/`: Vite/React web flashcard app, same dataset, browser-storage progress
+- Both are standalone study aids, not part of the `certcoach` CLI's runtime or MongoDB flow.
 
 ## History
 
 - [[session_log|Session Log]]
 - [[progress_log|Progress Log]]
 - [[decisions|Legacy Decisions]]
+- [[active_context|Active Context (deprecated)]]: superseded by [[agent_context|Agent Context]]; kept only for old inbound links, do not treat as current
 
 ## Context Loading Rule
 

@@ -33,42 +33,13 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 
 ## Live Snapshot
 
-- Documentation coverage: 12/12 topics.
-- Concepts: 58 total, 8 study-ready, 50 blocked.
-- Question lifecycle: 516 total records.
-- Current ordered target: Topic 4 -> `$unset`.
-- Topic 3 is complete from the selector perspective; the `find()`, `findOne()`, `Projections`, `Cursors`, `sort/limit/skip`, and `countDocuments()` concepts are all study-ready and the selector has advanced to Topic 4.
-- Topic 4 now carries the next repair/population backlog. `replaceOne()` is fully populated at `6 Easy + 5 Medium`, `updateOne()` is study-ready at `3 Easy + 2 Medium`, `updateMany()` is study-ready at `3 Easy + 2 Medium`, `$set` is study-ready at `3 Easy + 2 Medium`, `$push` is study-ready at `3 Easy + 2 Medium`, and `$inc` is study-ready at `3 Easy + 2 Medium`; the ordered target has advanced to `$unset`.
-- Topic 2 counts remain split into `insertOne()`, `insertMany()`, and `_id and ObjectId`, with the Topic 2 backlog cleared and the final generic CRUD stem quarantined.
-- Quarantine triage removed 3 blank/off-domain hard-delete candidates; the remaining quarantined items are still being split between remap and repair.
-- Bank-wide quarantine triage is now explicit: 121 records are canonically mapped and pending repair, 28 are held for manual classification, and 16 are labeled `keep_aside_misc`. Classification never activates a record.
-- Loop correction: `quarantine_pending` now keeps a concept incomplete in `next_phase4_topic`, and the overnight runner triages quarantined records for the selected topic/concept before explanation repair and population.
-- Repeat-until-clean runner mode applies a scope-audit -> repair -> populate -> recheck loop per concept, and the overnight runner now enforces a local-only model chain for long repair/populate runs to avoid dead remote fallback delays.
-- The durable bank-maintenance loop is now: `selector -> exact concept -> one question -> validate/repair/quarantine -> recheck selector -> repeat`, and it must continue across sessions until all topic/concept backlogs are cleared.
-- Reporting rule: always show the active topic/concept plus `repair pending`, `quarantined total`, `quarantined repairable`, `hard-delete candidates`, and `population missing Easy/Medium` for that same topic/concept before deciding the next single-question pass.
-- Learner-facing lesson pattern is now documented in `memory/study_pattern_guardrails.md`: one concept, one micro-challenge question only, no answer/hint/example response, and no future-topic leakage.
-- Stored lesson prebuild is complete, audited, and operational: all 58 syllabus concepts have prebuilt, validated, and exam-level audited lesson artifacts stored in MongoDB (`certcoach_db.lesson_artifacts`). 39 of these are also exported as high-quality markdown files in `memory/lessons/` (Topics 3–10). Topics 1–2 lessons exist only in MongoDB. Topics 11–12 local exports are pending (can be generated via `scripts/enhance_all_lessons.py`). The builder automatically sanitizes out-of-scope transactions, sharding config, BSON method leaks, and JavaScript cursor helpers (.forEach) before saving.
-- Bulk lesson enhancement infrastructure: `scripts/enhance_all_lessons.py` runs all 58 concepts in canonical order, skips already-generated files, feeds real exam question stems into the prompt, and uses a 10-second delay between API calls. Supports NVIDIA API (`NVIDIA_API_KEY`) with automatic fallback to `openrouter:openrouter/free`.
-- The registered durable lesson loop is: `source bundle -> lesson draft -> sanitize -> validation -> targeted repair -> missing-section generation -> validation -> stored lesson -> concept-local practice audit -> remap/quarantine misaligned questions -> readiness recheck`.
-- Topic 1 is now complete across all three concepts under the stricter no-future-topic lesson rule: `BSON Data Types`, `Document structure`, and `Collections vs Tables` each have validated stored lessons, and the concept-local practice pools were cleaned where needed.
-- Topic 1 lesson validation is now stricter by design: future-topic methods, query language, projection, dot notation, Atlas/platform references, and misc concept leakage are treated as validation failures, not tolerated as style issues.
-- Maintained regression coverage: report selector regression passed after the backlog-scope fix, scope-audit routing quarantines future-scope leaks, the Topic 2 stem guard has a focused unit test, and Topic 3 `findOne()` / `countDocuments()` repair-checklist regressions are pinned.
-- Maintained regression coverage also includes the stricter Topic 1 lesson validator, lesson-repair prompt path, and missing-section/leaky-section lesson fallback; the focused unit suite currently passes at `165 passed`.
-- Known repository-wide test blocker: plain `pytest` collects `scratch/test_zhipu_vision.py`, which requires optional `zhipuai`.
-
-## New Infrastructure (2026-06-17)
-
-- **Model chain config** in `config.py`: `get_population_model_chain()`, `get_repair_model_chain()`, judge config.
-- **Providers**: Local `gemma4:12b` (first pass), OpenRouter, Cloudflare Workers AI (fallback).
-- **Quality pipeline implemented**: Deterministic checks -> Duplicate (stem hash) -> LLM Judge (RAG-grounded) -> Retry -> Fallback.
-- **Logging**: JSONL to `logs/model_quality.jsonl` per attempt.
-- **Circuit breaker**: 3 failures -> 5 min cooldown per model.
-- **Source tracking implemented**: `source_files` metadata on questions for judge verification.
-- **Exam fidelity benchmark**: yixin0829/mongodb-dev-cert-prep (22 CRUD objectives, PyMongo examples).
-- **Core quality modules**: `model_runner.py` (quality gates, circuit breaker, multi-provider), `judge_questions.py` (RAG judge with source verification).
-- **Current execution note**: Topic 4 is the active ordered target. `replaceOne()` is fully populated, `updateOne()`, `updateMany()`, `$set`, `$push`, and `$inc` are study-ready, and the next ordered target is `$unset`. The overnight runner is local-only for long repair/populate runs.
-- **Current Topic 1 queue**: the first quarantined `BSON Data Types` record `1cf65439-edd6-4eb4-9c5e-b0d9e4e03b05` and the next Topic 1 quarantine `4641b52f-8d87-4530-bf95-1a69929daa89` have both been repaired and promoted; the next Topic 1 quarantine is `certcoach-t01-bson-data-types-easy-004-0ccef6dd`.
-- **Learner study note**: the micro-challenge contract is question-only, the lesson template should stay inside the active concept, and the new guardrail note is linked from Memory Home for later reuse.
+- Documentation coverage: 12/12 topics. Concepts: 58 total, 8 study-ready, 50 blocked. Question lifecycle: 516 total records.
+- Current ordered target: Topic 4 -> `$unset`. Topics 1-3 are complete from the selector's perspective; Topic 4's `replaceOne()`, `updateOne()`, `updateMany()`, `$set`, `$push`, and `$inc` are all study-ready or fully populated.
+- Bank-wide quarantine triage: 121 records mapped and pending repair, 28 held for manual classification, 16 kept aside as misc. `next_phase4_topic` treats `quarantine_pending` as an incomplete concept, so quarantine drains in the same canonical loop as repair/population.
+- Stored lesson prebuild is complete for all 58 concepts (validated, exam-audited, stored in `certcoach_db.lesson_artifacts`); 39 are also exported as markdown under `memory/lessons/` (Topics 3-10). Topics 11-12 exports are pending via `scripts/enhance_all_lessons.py`.
+- Learner-facing lesson pattern: `memory/study_pattern_guardrails.md` (one concept, one question-only micro-challenge, no future-topic leakage).
+- Maintained unit suite: 165 passing. `pyproject.toml` now sets `testpaths = ["tests/unit"]`, so plain `pytest` no longer risks collecting `scratch/test_zhipu_vision.py`.
+- Full history of what changed and when: [[progress_log|Progress Log]].
 
 ## Immediate Continuation
 

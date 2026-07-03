@@ -19,6 +19,15 @@ Agents should load only the startup files above, then follow links to task-speci
 
 ---
 
+## 📱 Companion Apps
+
+Two standalone flashcard apps ship alongside the main CLI. Both bundle the same `flashcards.json` dataset locally and keep progress on-device — neither talks to `certcoach_db` or the CLI's model pipeline.
+
+- `mobile/` — an Expo/React Native app (`cd mobile && npm install && npm start`).
+- `web-flashcards/` — a Vite/React web app (`cd web-flashcards && npm install && npm run dev`).
+
+---
+
 ## ✨ Features
 
 - **💡 Startup Readiness Briefing**: Prompts you to review critical syntactic traps across all 12 syllabus modules at daily launch (mastery-gated).
