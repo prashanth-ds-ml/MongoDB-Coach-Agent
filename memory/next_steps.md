@@ -6,7 +6,11 @@ The project is not frozen yet. Complete and review one phase at a time. Do not r
 
 ---
 
-## Current Phase: Phase 4 - Live Database Operations (Quality Gates Complete)
+## Current Phase (as of 2026-07-05): Provenance/Trust Rollout
+
+This supersedes the Phase 4 narrative below as the active work, though Phase 4's content-contract lifecycle rules still apply underneath it. See [[agent_context|Agent Context]] and [[session_handoff|Session Handoff]] for full current state; see [[decision_log|Decision Log]] 2026-07-04/2026-07-05/2026-07-06 for the design decisions. Short version: every question now needs `provenance.state == "confirmed"` (human-reviewed) in addition to the old content-contract `active` status before it reaches practice/mocks. The live bank currently has only 2 confirmed questions (one concept). Immediate order: resolve the screenshot/legacy suspect backlog (`analyze_backlog`, `certcoach-map-questions-to-docs` for topic/doc/citation-drift triage, `recover_screenshot_citations`, `purge_screenshot_backlog`), then keep confirming inventory via `certcoach-review-questions`, then resume Phase 4 population/lessons below.
+
+## Historical Phase 4 Narrative (superseded by the provenance gate above, kept for context)
 
 Completed daytime operations:
 

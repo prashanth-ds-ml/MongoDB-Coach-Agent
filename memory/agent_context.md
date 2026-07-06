@@ -1,6 +1,6 @@
 # Agent Context
 
-Last verified: 2026-07-03
+Last verified: 2026-07-06
 
 ## Mission
 
@@ -8,7 +8,7 @@ CertCoach prepares the learner for the MongoDB Associate Python Developer certif
 
 ## Current Phase
 
-Phase 4 live question-bank operations with quality-gated model chain. Application foundation implemented; content readiness and Phase 5 verification block final freeze.
+Provenance/trust rollout. A `draft -> sourced -> confirmed/suspect` state now gates every question independently of the older content-contract lifecycle (`active`/`repair_pending`/`quarantined`/`legacy`). Both gates must pass before a question reaches a learner. This phase was implemented and partially run against the live bank in the prior working session, but was never committed to git or documented in memory until 2026-07-05 -- treat any pre-2026-07-05 snapshot in this file's history as superseded.
 
 ## Required Product Path
 
@@ -19,43 +19,43 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 
 ## Non-Negotiable Rules
 
-- MongoDB collection `certcoach_db.questions` is the question-bank source of truth.
-- Practice readiness requires active, directly mapped questions: exactly `3 Easy + 2 Medium`.
-- Passing a concept requires at least `4/5`.
-- Population may continue beyond readiness toward configurable inventory targets, default `5 Easy + 5 Medium`.
-- Repair/population processing follows canonical syllabus topic and concept order.
-- The live loop is persistent across sessions: select the next incomplete `topic_id + concept`, work exactly one question at a time, repair or quarantine every record before learner-facing use, then recheck the selector before advancing.
-- Every session must surface the current work packet before action, scoped only to the active topic and concept: current topic, current concept, repair-pending count, quarantined count, quarantined-repairable count, hard-delete candidates, and remaining population deficit by Easy/Medium.
-- For the live loop, treat quarantined records as a triage bucket: repairable quarantine stays in the concept loop, while only clearly unrecoverable/off-domain records are eligible for deletion.
-- Legacy, repair-pending, and quarantined records cannot enter learner-facing practice.
+- `is_practice_ready(question)` = `is_contract_active(question)` AND `is_confirmed(question)`. Neither check alone is sufficient; a question needs both a well-formed contract and a human-confirmed provenance state to ever reach practice, mocks, or remediation.
+- `provenance.state` transitions: `draft` (unverified) -> `sourced` (deterministic citation check + self-consistency check both passed) -> `confirmed` (human approved via `certcoach-review-questions`, one question at a time -- never a batch table) or `suspect` (flagged wrong, quarantined the same way `draft` is).
+- Citation verification is deterministic only (`database.verify_citation`): a stored quote must appear verbatim (whitespace-normalized) in the named source file under `cleaned_markdowns/` or `pics_qa_transcripts/`. No LLM is ever used to judge factual truth.
+- The self-consistency check (separate model, `get_self_consistency_model()`) only judges internal coherence (does the explanation support the marked answer, are options distinct) -- it is never a MongoDB fact-checker and must not be described as one.
+- Mock exams (`Full Mock`, `Timed Mock Exam`) draw only from `confirmed` inventory, apportioned by real exam domain weights (`database.EXAM_DOMAIN_WEIGHTS`), with a per-concept round-robin cap and an explicit shortfall report -- never silent padding. The session-scoped Mini-Mock is exempt.
+- Wrong-attempt remediation is a stateless lookup only (the missed question's own citation + a few domain-matched flashcards) -- no new explanation generation, nothing saved, no spaced-repetition scheduling engine exists or is planned.
+- Legacy, repair-pending, and quarantined content-contract records still cannot enter learner-facing practice; provenance is an additional, stricter gate on top, not a replacement.
 - Long repair/population runs use `scripts/run_phase4_overnight.ps1`.
 - Optional UI, analytics, gamification, simulator, and general platform work are deferred until after the exam.
 
-## Live Snapshot
+## Live Snapshot (2026-07-06, verified against the live DB, not inferred)
 
-- Documentation coverage: 12/12 topics. Concepts: 58 total, 8 study-ready, 50 blocked. Question lifecycle: 516 total records.
-- Current ordered target: Topic 4 -> `$unset`. Topics 1-3 are complete from the selector's perspective; Topic 4's `replaceOne()`, `updateOne()`, `updateMany()`, `$set`, `$push`, and `$inc` are all study-ready or fully populated.
-- Bank-wide quarantine triage: 121 records mapped and pending repair, 28 held for manual classification, 16 kept aside as misc. `next_phase4_topic` treats `quarantine_pending` as an incomplete concept, so quarantine drains in the same canonical loop as repair/population.
-- Stored lesson prebuild is complete for all 58 concepts (validated, exam-audited, stored in `certcoach_db.lesson_artifacts`); 39 are also exported as markdown under `memory/lessons/` (Topics 3-10). Topics 11-12 exports are pending via `scripts/enhance_all_lessons.py`.
-- Learner-facing lesson pattern: `memory/study_pattern_guardrails.md` (one concept, one question-only micro-challenge, no future-topic leakage).
-- Maintained unit suite: 165 passing. `pyproject.toml` now sets `testpaths = ["tests/unit"]`, so plain `pytest` no longer risks collecting `scratch/test_zhipu_vision.py`.
-- Full history of what changed and when: [[progress_log|Progress Log]].
+- `certcoach_db.questions`: 379 total. Provenance: 2 confirmed, 2 sourced, 375 suspect, 0 draft. The user confirmed 2 questions (both Topic 1 BSON Data Types, Easy) via `certcoach-review-questions` between sessions; 2 remain `sourced` awaiting review (Topic 10 Embedding vs Referencing Easy, Topic 11 PyMongo purpose Easy). **Practice is still not usable** -- 2 confirmed items for one concept is far short of the `3 Easy + 2 Medium` readiness gate for even that one concept.
+- Suspect backlog breakdown (`certcoach-analyze-backlog`): 353 have a real regeneration lead, 23 have `topic_id: None` and no lead at all, 0 duplicates. 26 were screenshot-sourced; 1 recovered to `sourced`, 25 confirmed unrecoverable.
+- New read-only report, `certcoach-map-questions-to-docs` (`src/certcoach/jobs/map_questions_to_docs.py`): for every question, resolves syllabus topic/concept (stored value if present, else the same keyword inference `certcoach-map-questions` uses) and the official doc(s) that concept maps to (same scoring as [[study_order_map|Study Order Map]]), then flags citation drift against what's currently stored. Live results: 356/379 questions had stored topic/concept, 23 were inference-only; 238 questions resolve to a concept-exact doc, 118 fall back to topic-level docs (no dedicated doc exists), 23 stay fully unresolved; 333/379 questions carry a citation that doesn't match any resolved official doc (expected -- legacy `citation_source` values are titles/URLs, not filenames). Full per-question CSV was written to a scratch path, not committed; regenerate with `--out <path>` when needed. This did not write to the database (explicit user choice).
+- The doc-to-question generation loop (pull doc -> generate MCQ -> citation check -> self-consistency check -> `sourced`) is proven working end-to-end on real data. Four real bugs were found and fixed doing so -- see Decision Log 2026-07-06: deficit calculator ignoring the provenance gate, citation checker rejecting quotes over markdown backticks, self-consistency model (`deepseek-r1:8b` -> `qwen2.5-coder:7b`) that never finished reasoning, and doc-scoring unable to match `$`-operator concepts to their own docs.
+- [[study_order_map|Study Order Map]]: all 58 syllabus concepts mapped to their official doc(s) in canonical study order -- read this before generating for a new concept.
+- All 249 unit tests pass.
+- **The entire provenance/trust implementation plus three sessions of fixes/tools on top of it are uncommitted in the working tree as of 2026-07-06.** Do not assume git history reflects current code; check `git status`/`git diff HEAD` first.
 
 ## Immediate Continuation
 
-1. Continue Topic 4 `replaceOne()`, then the rest of Topic 4.
-2. In parallel, drain the quarantine repair queue in canonical order, starting with Topic 1 `BSON Data Types` record `1cf65439-edd6-4eb4-9c5e-b0d9e4e03b05`.
-3. For each quarantine record: review classification, repair or regenerate, validate, check duplicate/scope, then promote; leave ambiguous and misc records inactive.
-4. Fix plain pytest discovery.
-5. Apply the registered strict lesson loop to Topic 2 `insertOne()` and continue Topic 2 in order.
-6. Execute Phase 5 manual full-flow and mixed-mock verification.
-7. Freeze features and begin daily exam preparation.
+1. User runs `certcoach-review-questions` themselves to confirm the 2 remaining `sourced` questions.
+2. Decide on the 25 unrecoverable screenshot questions and the 23 `topic_id: None` suspect records (purge vs. hold for review) -- the new doc-mapping report gives all 23 a best-effort topic/concept placement and doc lead if regeneration is preferred over purge.
+3. Once a few questions are confirmed, run an actual practice session to verify the learner-facing loop, not just the data layer.
+4. Ask before committing -- three sessions of uncommitted, tested work now sit in the working tree.
+5. Resume the still-open Phase 4 lesson/population thread only after the provenance gate has enough confirmed inventory to matter.
 
 ## Commands
 
 ```powershell
-.\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic
-.\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25
+.\.venv\Scripts\python.exe -m certcoach.jobs.analyze_backlog
+.\.venv\Scripts\python.exe -m certcoach.jobs.map_questions_to_docs --out <path.csv>
+.\.venv\Scripts\python.exe -m certcoach.jobs.reocr_pics_qa
+.\.venv\Scripts\python.exe -m certcoach.jobs.recover_screenshot_citations
+.\.venv\Scripts\python.exe -m certcoach.jobs.purge_screenshot_backlog
+.\.venv\Scripts\python.exe -m certcoach.jobs.review_questions
 .\.venv\Scripts\python.exe -m pytest tests\unit -q
 ```
 
@@ -66,10 +66,11 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 - Product behavior: [[coach_flow_spec|Coach Flow Spec]]
 - Decisions: [[decision_log|Decision Log]]
 - Exam scope: [[project_exam_scope|Project Exam Scope]]
+- Latest checkpoint: [[session_handoff|Session Handoff]]
+- Doc study order: [[study_order_map|Study Order Map]]
 
 ## Resume Point
 
-- Continue Topics 11 and 12 lesson markdown exports using `scripts/enhance_all_lessons.py` (safe to re-run; skips already-generated files).
-- Do not advance to later update operators until the selector advances.
-- Keep the micro-challenge rule question-only, with no answer, hint, worked solution, or example response.
-- Preserve the same one-question-at-a-time loop across sessions until every topic and concept reaches the active inventory target and no repair/quarantine backlog remains.
+- Verify this file against `git status`/`git log` and a live DB provenance count before trusting it -- it was badly stale once already.
+- Don't run destructive jobs without confirmation; in-place `provenance` updates are lower-risk.
+- Note the DB moves between sessions even when git doesn't -- the user runs `certcoach-review-questions` independently, so always re-check live provenance counts at session start rather than trusting the last snapshot.

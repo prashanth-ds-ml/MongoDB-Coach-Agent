@@ -92,6 +92,7 @@ certcoach
 | `certcoach-dedupe-questions` | `certcoach.jobs.dedupe_questions:main` |
 | `certcoach-map-questions` | `certcoach.jobs.map_questions:main` |
 | `certcoach-extract` | `certcoach.core.image_extractor:process_pics_qa` |
+| `certcoach-map-questions-to-docs` | `certcoach.jobs.map_questions_to_docs:main` |
 
 ## Repo Structure Notes
 

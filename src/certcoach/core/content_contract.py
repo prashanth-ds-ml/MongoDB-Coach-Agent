@@ -96,3 +96,48 @@ def contract_metadata(source: str) -> dict[str, object]:
         "content_contract_status": "generated",
         "content_contract_source": source,
     }
+
+
+# ---------------------------------------------------------------------------
+# Provenance: a separate trust axis from the content contract above.
+#
+# `is_contract_active` only answers "is this structurally well-formed" (right
+# schema shape, right version) -- it says nothing about whether the content is
+# actually true. That conflation is exactly what let factually wrong content
+# ship as "active" throughout the bank. Provenance tracks the orthogonal
+# question: has a human verified this specific item against its cited source?
+#
+# States:
+#   draft     - exists, unverified. Never eligible for practice or a mock.
+#   sourced   - carries a citation whose quote is deterministically verified
+#               to occur in the named source file. Still not human-reviewed.
+#   confirmed - a human read it against the citation and approved it. The
+#               only state eligible to be served to a learner.
+#   suspect   - previously sourced/confirmed, later flagged wrong. Quarantined
+#               the same way draft is.
+# ---------------------------------------------------------------------------
+PROVENANCE_STATES = {"draft", "sourced", "confirmed", "suspect"}
+DEFAULT_PROVENANCE_STATE = "draft"
+
+
+def provenance_metadata(
+    state: str = DEFAULT_PROVENANCE_STATE,
+    citation_doc_file: str = "",
+    citation_quote: str = "",
+    model: str | None = None,
+) -> dict[str, object]:
+    if state not in PROVENANCE_STATES:
+        raise ValueError(f"Unknown provenance state: {state!r}")
+    return {
+        "state": state,
+        "citation": {"doc_file": citation_doc_file, "quote": citation_quote},
+        "model": model,
+        "confirmed_by": None,
+        "confirmed_at": None,
+    }
+
+
+def is_confirmed(record: dict | None) -> bool:
+    record = record or {}
+    provenance = record.get("provenance", {}) or {}
+    return str(provenance.get("state", "")).strip().lower() == "confirmed"

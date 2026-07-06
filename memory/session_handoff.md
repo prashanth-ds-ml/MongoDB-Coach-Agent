@@ -1,106 +1,78 @@
 # Session Handoff
 
-Last updated: 2026-07-03
+Last updated: 2026-07-06 (session 2)
 
-Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[canonical_state_flow|Canonical State Flow]], [[preparation_tool_gap_assessment|Preparation Tool Gap Assessment]]
+Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[decision_log|Decision Log]], [[study_order_map|Study Order Map]]
 
 ## Current State
 
-- Phase: Phase 4 live question-bank operations.
-- Status: **Repair and population now run in a scope-audit -> repair -> populate -> recheck loop, and future-scope leaks are quarantined before learner-facing use.**
-- Durable loop rule: continue the canonical syllabus order across sessions, one question at a time, and do not advance to the next topic/concept until the selector shows the current backlog is clear.
-- Reporting rule: every session should begin by stating the active topic/concept and the current counts for repair pending, quarantined total, quarantined repairable, hard-delete candidates, and population missing Easy/Medium, scoped only to that active topic/concept.
-- Quarantine triage: 3 hard-delete candidates were removed; MongoDB-aligned quarantined items were left for remap or repair.
-- Operating rule: repair-pending and quarantined records are now handled by exact `topic_id + concept` in canonical order, using the same loop.
-- Benchmark integration: official docs + reference repo remain combined into topic benchmark records, and weak-focus context is still injected ahead of full docs.
-- Current ordered target: Topic 4 -> `$unset`.
-- Current Topic 3 state: Topic 3 is closed from the selector perspective; all six concepts are study-ready and the selector has advanced to Topic 4.
-- Current Topic 4 state: `replaceOne()`, `updateOne()`, `updateMany()`, `$set`, `$push`, and `$inc` are all study-ready and populated at `6 Easy + 5 Medium`, `3 Easy + 2 Medium`, `3 Easy + 2 Medium`, `3 Easy + 2 Medium`, `3 Easy + 2 Medium`, and `3 Easy + 2 Medium` respectively. The next ordered target is `$unset`.
-- Current bank snapshot after the latest pass: Topic 4 `replaceOne()` has `6` active Easy, `5` active Medium, and `3` quarantined records. Topic 4 `updateOne()` has `3` active Easy, `2` active Medium. Topic 4 `updateMany()` has `3` active Easy, `2` active Medium. Topic 4 `$set` has `3` active Easy, `2` active Medium. Topic 4 `$push` has `3` active Easy, `2` active Medium. Topic 4 `$inc` has `3` active Easy, `2` active Medium, with `1` repair-pending record still awaiting cleanup.
-- Bank-wide quarantine triage snapshot: 163 quarantined records remain. `120` are high-confidence canonical mappings pending repair, `27` need manual classification, and `16` are explicitly kept aside as misc. One reviewed record was remapped to Topic 1 `Document structure`, validated, duplicate-checked, and promoted.
-- Loop update: `next_phase4_topic` now treats `quarantine_pending` as an incomplete concept, and the overnight runner now triages quarantined records for the selected topic/concept before running explanation repair and population.
-- Current reporting template for the loop: `Topic X | Concept Y | repair pending N | quarantined total N | quarantined repairable N | hard-delete candidates N | population missing Easy N, Medium N`, where every count refers only to that topic/concept.
-- Current Topic 4 execution note: the overnight runner now enforces a local-only model chain for long repair/population runs so it does not waste time on dead remote fallbacks.
-- Learner-facing template note: the new `study_pattern_guardrails.md` file defines the micro-challenge as question-only and keeps lesson examples inside the active concept boundary.
-- Lesson prebuild pipeline is now scaffolded: `certcoach-prebuild-lesson` stores concept-scoped lesson artifacts in MongoDB, `certcoach.core.lesson_bank` validates the six-section lesson contract, and the CLI now prefers validated stored lessons before live generation.
-- First live lesson-prebuild target was Topic 1 `BSON Data Types`, following the canonical lesson order rather than the active Phase 4 question-bank selector.
-- The `BSON Data Types` lesson loop is now complete end-to-end: the local Ollama pipeline produced a validated stored lesson after the fallback path filled missing lesson sections one-by-one.
-- Lesson prebuild retry behavior now preserves the better draft when the corrective rewrite attempt degrades the lesson further, and the section-by-section fallback is the durable recovery path when the full lesson prompt is incomplete.
-- The `BSON Data Types` practice audit is also complete: 12 mis-mapped active questions were remapped to nearby Topic 1 concepts and 11 bad or out-of-scope records were quarantined before the readiness recheck.
-- Current `BSON Data Types` active inventory after cleanup: `9 Easy`, `11 Medium`, `0 Hard`. The concept remains comfortably above the required `3 Easy + 2 Medium` readiness gate with a cleaner lesson-aligned practice pool.
-- Topic 1 `Document structure` now also passes the full lesson loop under the stricter no-future-topic rule. The lesson had initially leaked `findOne()`, `insertOne()`, dot notation, projection, and query language; the validator, section-regeneration path, and concept-specific scrub now remove those leaks before the lesson can become `validated`.
-- Topic 1 `Document structure` practice cleanup remains in place and the current active inventory is `4 Easy`, `5 Medium`, `0 Hard`, with the concept still above the required readiness gate.
-- Topic 1 `Collections vs Tables` has been re-run under the stricter Topic 1 validator and is now `validated` without `insertOne()` or CRUD/write-flow leakage. Its active practice pool remains comfortably above readiness at `12 Easy`, `10 Medium`, `3 Hard` after the earlier Atlas/platform leak quarantine.
-- Topic 1 is now complete across all three concepts under the stricter lesson boundary: exact concept only, no future-topic methods, no misc filler, and concept-local practice cleanup where needed.
-- Current Topic 2 state: `insertOne()`, `insertMany()`, and `_id and ObjectId` now have separated concept buckets; Topic 2 backlog is cleared, and the final generic CRUD stem was quarantined.
-- Current Topic 2 execution: `scripts/run_phase4_overnight.ps1` now supports `-RepeatUntilClean` plus scope-audit routing so the same runner can keep draining each concept until the topic is clean or the max-cycle cap is reached.
-- Current repair behavior: `question_bank_comparison_report` counts stored backlog by stable `topic_id + concept` scope, including legacy hard-difficulty records that were previously invisible to the selector; `migrate_question()` still distinguishes explanation repair from question regeneration, `next_phase4_topic` treats both as incomplete, and `validate_question_quality()` now rejects Topic 2 `_id and ObjectId` stems that do not explicitly mention `_id` or `ObjectId`.
-- Focused verification: `tests/unit/test_question_bank_comparison_report.py`, `tests/unit/test_mark_scope_leaks.py`, and the new Topic 2 stem-guard regression in `tests/unit/test_nightly_seed_questions.py` passed after the selector and scope-audit fixes.
-- Focused verification: the unit suite now includes stricter Topic 1 lesson-scope coverage in `tests/unit/test_lesson_bank.py`; `.\.venv\Scripts\python.exe -m pytest tests\unit -q` now passes with `164 passed`.
+- Phase: Provenance/trust rollout (see [[agent_context|Agent Context]] for the full rule set). This supersedes the Phase 4 lesson/population narrative that previously occupied this file -- that thread is not abandoned, just secondary until practice has usable inventory again.
+- The provenance system (core `database.py`/`content_contract.py` changes, 6 new job scripts, ~15 new/updated test files) was implemented in a prior working session that was **never committed to git and never documented in memory** -- this was discovered and reconstructed at the start of the 2026-07-05 session by reading the working-tree diff and querying the live DB directly, since this file's prior content (last updated 2026-07-03) described an entirely different, now-stale Phase 4 narrative.
+- The 2026-07-06 session proved the doc-to-question generation loop end-to-end on real data (Topic 1 BSON Data Types) and fixed 4 real bugs surfaced along the way: a population deficit-calculator that ignored the provenance gate, a citation checker that falsely rejected verbatim quotes over markdown backticks, a self-consistency model that reasoned for 14K+ characters and never answered, and a doc-scoring function that couldn't match bare `$`-operator concepts to their own reference docs. See Decision Log 2026-07-06 for full reasoning on each.
+- A later 2026-07-06 session found the user had confirmed 2 of the 4 `sourced` questions independently (via `certcoach-review-questions`, outside git) and built a new read-only report, `certcoach-map-questions-to-docs`, that maps every question to its syllabus topic/concept and official doc(s) and flags citation drift. See "Completed This Session (2026-07-06, continued)" below.
+- Live DB right now: 379 total questions, 2 `confirmed` (Topic 1 BSON Data Types, Easy), 2 `sourced` awaiting review (Topic 10 Embedding vs Referencing Easy, Topic 11 PyMongo purpose Easy), 375 `suspect`. Practice and mocks still have **effectively zero usable inventory** -- 2 confirmed items for one concept is well short of the `3 Easy + 2 Medium` readiness gate.
+- All 249 unit tests pass. Nothing from this thread is committed yet.
+- New reference: [[study_order_map|Study Order Map]] -- the full syllabus-to-official-docs mapping for all 58 concepts across 93 docs, in canonical study order.
 
-## Latest Decisions (2026-06-17)
+## Completed This Session (2026-07-05)
 
-1. **Model chain with quality gates** — Primary `gemma4:12b` (local Ollama), then OpenRouter and Cloudflare fallback via configured chain. No additional local models needed.
-2. **Quality pipeline**: Deterministic checks -> Duplicate check -> LLM Judge (RAG-grounded) -> Retry with fix hint -> Fallback model -> Log everything.
-3. **Structured logging** — JSONL per attempt to `logs/model_quality.jsonl` with verdict, flags, latency, tokens, model.
-4. **Circuit breaker** — Per-model failure tracking prevents repeated calls to degraded models.
-5. **Source tracking requirement** — Each generated question must store `source_files` metadata for RAG judge verification.
-6. **Local-first fallback** — Ollama `gemma4:12b` is tried before OpenRouter `gpt-oss-120b`/`gpt-oss-20b` and Cloudflare `@cf/meta/llama-3.3-70b-instruct`.
-7. **Direct HTTP adapters** — `model_runner.py` uses direct HTTP for OpenRouter and Cloudflare Workers AI, so missing optional LangChain provider packages no longer block repair/population runs.
-8. **Population contract split** — Question generation uses string options plus `correct_answer`; repair generation uses the seven-part explanation schema.
-9. **Shell-mode population** — Population now uses a lean `question_shell` contract, inserts the shell as `needs_explanation_repair`, then immediately hands it to the repair job so the stored record becomes active in the same pass when repair succeeds.
-10. **Repair metadata fix** — `apply_repair()` now writes the content-contract metadata under `metadata.*`, so repaired shells correctly become active records.
-11. **Scope-audit loop** — `mark_scope_leaks` now runs before and after repair/population, quarantining future-scope records instead of letting them leak into practice.
-12. **Topic 2 stem guard** — `validate_question_quality()` now rejects `_id and ObjectId` questions that do not explicitly mention `_id` or `ObjectId`, and malformed stems are quarantined instead of staying learner-facing.
-13. **Ollama JSON mode** — Local Ollama generation now requests `format="json"` through both the LangChain and direct HTTP adapters.
+1. **Reconstructed the undocumented provenance system** by reading `git diff HEAD` across `database.py`, `content_contract.py`, `cli.py`, `judge_questions.py`, `nightly_seed_questions.py`, `config.py`, and all six new `jobs/` scripts, then verified against the live DB rather than trusting docstrings alone.
+2. **Ran `certcoach-reocr-pics-qa`** to completion: 69/69 screenshots transcribed (66 newly OCR'd with `glm-ocr:latest`, 3 already done, 0 failures) into `src/certcoach/data/pics_qa_transcripts/`.
+3. **Found and fixed a real bug in `analyze_backlog.py`**: `_has_real_doc_lead()` only matched a question's `citation_source` against a literal filename in `cleaned_markdowns/`, but every legacy question stores `citation_source` as a human-readable title (e.g. `"Find One Document"`) or a mongodb.com URL, never the corpus's real filenames -- so the check always returned `False` for the legacy backlog regardless of whether real docs existed. Added a topic-level fallback (`_topic_has_cleaned_markdowns`) that checks whether any `topic_{NN}_*` file exists for the question's `topic_id`. Updated 3 existing unit tests in `tests/unit/test_analyze_backlog.py` that had encoded the old, narrower behavior, and added one new test for the corrected behavior. All 239 tests still pass.
+4. **Re-ran `certcoach-analyze-backlog`** with the fix: of 376 suspect questions, 353 now correctly show a real regeneration lead (topic has official docs), 23 (`topic_id: None`) have no lead at all, 0 are duplicates. Before the fix, the script reported 0 `has_doc_lead` and would have wrongly signaled that all 376 (minus 26 screenshot ones) were safe to delete.
+5. **Ran `certcoach-recover-screenshot-citations`** against the true screenshot-sourced count (26 records, not the ~333 the docstrings assumed -- most suspect questions are legacy-generated, not screenshot-sourced). Result: 1 recovered to `sourced`, 25 confirmed unrecoverable (no supporting quote findable in the transcript), consistent with the known original-extraction-rewrote-content problem documented in `purge_screenshot_backlog.py`.
 
-## Completed This Session (2026-07-03)
+## Completed This Session (2026-07-06)
 
-1. **Implemented `scripts/enhance_all_lessons.py`** — Bulk lesson enhancer that iterates all 58 syllabus concepts in canonical order, checks if a local markdown export already exists (skip-if-present), and calls `enhance_single_concept()` with a 10-second delay between API requests to avoid rate-limiting.
-2. **Implemented `scripts/enhance_lesson_llm.py` NVIDIA/OpenRouter routing** — `get_model_runner()` now detects `NVIDIA_API_KEY` env var and routes to `nvidia:meta/llama-3.1-70b-instruct`; otherwise falls back to `openrouter:openrouter/free`.
-3. **Fixed NVIDIA API key variable name in `.env`** — The repo-local `.env` previously stored the NVIDIA key under the raw name `nvidia`; both the enhancer and `model_runner.py` now accept either `NVIDIA_API_KEY` or `nvidia` for backward compat.
-4. **Added skip-if-already-enhanced logic** — Script now checks `memory/lessons/topic_NN_<concept_snake>.md` on disk before calling the LLM, so partial runs resume cleanly without re-processing completed concepts.
-5. **Produced 39 high-quality local lesson markdown files** covering Topics 3–10 (39 concepts) in `memory/lessons/`. Topics 1–2 lessons remain stored directly in MongoDB (`lesson_artifacts` collection) from the prior session.
-6. **Topics fully enhanced this session:**
-   - **Topic 3** (Read): `find()`, `findOne()`, `Projections`, `Cursors`, `sort/limit/skip`, `countDocuments()`
-   - **Topic 4** (Update): `replaceOne()`, `updateOne()`, `updateMany()`, `$set`, `$push`, `$inc`, `$unset`, `upsert`, `findAndModify()`
-   - **Topic 5** (Delete): `deleteOne()`, `deleteMany()`
-   - **Topic 6** (Query Operators): Comparison (`$eq/$gt/$lt/$in/$nin`), Logical (`$and/$or/$not/$nor`), Element (`$exists/$type`), Atlas Search Query Basics
-   - **Topic 7** (Arrays & Embedded): `$elemMatch`, Dot Notation, Array Size Queries
-   - **Topic 8** (Aggregation): `$match`, `$group`, `$project`, `$sort`, `$limit`, `$lookup`, `$unwind`, `$addFields`, `$out`
-   - **Topic 9** (Indexes): Single-Field, Compound, Multikey, `explain()`, `collscan vs ixscan`, Atlas Search Indexes
-   - **Topic 10** (Data Modeling): `embedding vs referencing`
+1. **Deleted `scratch/`** (24 unreferenced, already-gitignored debug scripts, including the known pytest hazard file) after confirming nothing imports it.
+2. **Drafted then dropped `inspect_doc.py`** (a per-doc question-yield estimator) after the user redirected toward the simplest working loop; removed the file, its test, and its entry point rather than leave dead scaffolding.
+3. **Fixed `nightly_seed_questions._get_db_style_counts()`** to gate on `database.is_practice_ready()` instead of `is_contract_active()` alone -- the deficit calculator was blind to the provenance gate and reported 0 generation slots needed for concepts that are actually 100% unconfirmed.
+4. **Proved the full doc-to-question loop live** on Topic 1 → BSON Data Types: correct doc pulled, MCQ generated with a style tag and citation, seven-part explanation attached.
+5. **Fixed `database.verify_citation()`** to strip markdown emphasis punctuation before comparing quote to source -- a genuinely verbatim quote was being rejected only because the doc wrapped the same words in backticks.
+6. **Benchmarked 5 local Ollama models** for the self-consistency check and switched the default from `deepseek-r1:8b` (produced 14,000+ characters of reasoning and still timed out) to `qwen2.5-coder:7b` (fast and correct on the genuinely-good test case). Noted but deferred: none of the 5 models reliably caught a deliberately-broken test case, a separate prompt-design weakness.
+7. **Reprocessed the 2 live test questions** through the fixed pipeline -- both now `sourced`.
+8. **Improved `review_questions.py`**: full seven-part explanation now renders as Markdown (was silently truncated at 800 characters, cutting off the last 4 of 7 sections); source filename is now a clickable `file://` link (Windows Terminal renders this as clickable; older console hosts won't); removed the "Source excerpt" preview entirely (redundant now that the file is one click away, and its own quote-matching logic didn't share the markdown fix in #5).
+9. **Fixed `planner.score_md_file_for_concept()`** to strip `$` from concept tokens -- bare-operator concepts (`$set`, `$elemMatch`, `$match`, etc.) were scoring 0 against their own dedicated reference docs because filenames never contain a literal `$`. Improved doc resolution for Topics 4, 7, and 8.
+10. **Built and saved [[study_order_map|Study Order Map]]**: all 58 syllabus concepts mapped to their official doc(s) in canonical study order, generated after the fix above.
+
+## Completed This Session (2026-07-06, continued)
+
+1. **Verified live state instead of trusting the last snapshot**: found the working tree byte-identical to the prior handoff, but the live DB had moved -- the user confirmed 2 of the 4 `sourced` questions independently via `certcoach-review-questions` between sessions, and 2 new suspect records had appeared. Corrected a mid-investigation false alarm: an initial query used top-level `topic_id`/`concept` fields, which don't exist on question documents (they live under `metadata.*`), and wrongly suggested 375/379 suspect records had no topic at all; re-querying the correct field path confirmed the real count matches the known 23.
+2. **Built `certcoach-map-questions-to-docs`** (`src/certcoach/jobs/map_questions_to_docs.py`), a read-only report requested by the user to map every question to its syllabus topic/concept and official doc(s), explicitly scoped to no DB writes (user's choice among three offered options). Reuses `find_best_concept()` from the existing `map_questions.py` job for topic-id-less records and the same `planner.score_md_file_for_concept()`/`prioritize_md_files()` scoring that built [[study_order_map|Study Order Map]]. Added entry point `certcoach-map-questions-to-docs` (`pyproject.toml`) and 8 unit tests (`tests/unit/test_map_questions_to_docs.py`).
+3. **Ran it against the live bank**: 356/379 questions had stored topic/concept; the 23 orphaned records were placed via inference (none stayed fully unmapped). 238 questions resolve to a concept-exact official doc, 118 fall back to topic-level docs (genuine corpus gaps, same pattern as `study_order_map.md`), 23 have no topic to resolve a doc against at all. 333/379 questions carry a citation value that isn't one of the resolved official docs -- expected, since legacy `citation_source` is a human-readable title or URL, never a real filename. Full per-question detail written to a scratch CSV (not committed, regenerate with `--out <path>` when needed).
+4. Reinstalled the package (`pip install -e .`) to register the new entry point; full suite verified at 249/249 passing.
 
 ## Next Action
 
-Continue with Topics 11 and 12 lesson enhancement (remaining concepts not yet in `memory/lessons/`). Then resume Phase 4 question-bank population starting at Topic 4 `$unset` (current selector target).
-
-## Recent Note
-
-## Recent Note
-
-- **Bulk lesson enhancement complete for Topics 3–10**: 39 enhanced lesson markdown files are now in `memory/lessons/`. Topics 1–2 lessons are stored in MongoDB `lesson_artifacts` from the prior session.
-- `scripts/enhance_all_lessons.py` now skips already-generated files; safe to re-run at any time to resume from where a rate-limited run stopped.
-- NVIDIA API key env var is `NVIDIA_API_KEY` (canonical); the legacy bare `nvidia` var is still accepted in `model_runner.py` and `enhance_all_lessons.py` for backward compat.
-- Topics 11 and 12 lesson markdown exports are the remaining gap; they can be enhanced in the next session using the same script.
-- Phase 4 question-bank selector target remains `Topic 4 → $unset`. Resume there before advancing to later topics.
-- Stored-lesson runtime is read-first: if a validated concept lesson exists in `lesson_artifacts`, the CLI uses it; otherwise it falls back to live generation.
-- Lesson prebuild pipeline is 100% complete in MongoDB. The local `memory/lessons/` export is a convenience cache for agent context and offline review.
+1. User to run `certcoach-review-questions` themselves (interactive, human-judgment step) to confirm the 2 remaining questions currently in the review queue.
+2. Decide: purge the 25 unrecoverable screenshot questions via `certcoach-purge-screenshot-backlog` (backs up first, deletes only `suspect` + `pics_qa/`-sourced), or hold for manual review.
+3. Decide: investigate, regenerate, or delete the 23 `topic_id: None` suspect records -- the new doc-mapping report gives all 23 an inferred topic/concept and a doc lead, so regeneration is now a viable option, not just purge.
+4. Once a few questions are confirmed, try an actual practice session to verify the full loop works end-to-end for a learner, not just at the data layer.
+5. Ask before committing the uncommitted provenance-system code and all three sessions' worth of fixes/tools to git -- this is a lot of accumulated, tested, uncommitted work now.
+6. Resume the Phase 4 lesson/population thread (Topics 11-12 lesson exports, population from Topic 4 `$unset`) once provenance-confirmed inventory exists to make it meaningful again.
 
 ## Known Blockers
 
-- 50 concepts not study-ready (need Phase 4 question-bank population)
-- Plain `pytest` collects `scratch/test_zhipu_vision.py` (optional `zhipuai`)
-- Phase 5 full study-flow and mixed-mock smoke tests remain manual
+- Practice/mocks are non-functional right now: only 2 `confirmed` questions in the live bank, both for the same concept (2 more are `sourced` and awaiting human review).
+- The provenance-system code and all three sessions' fixes are uncommitted -- growing risk the longer this stays in the working tree only.
+- 50 concepts (pre-provenance count) were not study-ready under the old content-contract gate alone; the provenance gate is now the binding constraint regardless.
+- The self-consistency check still can't reliably catch a subtle cross-check failure (marked-correct answer contradicting the explanation) on any tested local model -- deferred, not blocking today's loop.
+- Phase 5 full study-flow and mixed-mock smoke tests remain manual and are blocked on having any meaningful `confirmed` inventory.
 
 ## Commands
 
 ```powershell
-# Preview next concept
-.\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic
+# Provenance/trust pipeline
+.\.venv\Scripts\python.exe -m certcoach.jobs.analyze_backlog
+.\.venv\Scripts\python.exe -m certcoach.jobs.map_questions_to_docs --out <path.csv>
+.\.venv\Scripts\python.exe -m certcoach.jobs.backfill_provenance --dry-run
+.\.venv\Scripts\python.exe -m certcoach.jobs.reocr_pics_qa
+.\.venv\Scripts\python.exe -m certcoach.jobs.recover_screenshot_citations
+.\.venv\Scripts\python.exe -m certcoach.jobs.purge_screenshot_backlog
+.\.venv\Scripts\python.exe -m certcoach.jobs.review_questions
 
-# Run overnight batch (current)
-.\scripts\run_phase4_overnight.ps1 -RepairBatchSize 25 -PopulationBatchSize 25
+# Preview next Phase 4 concept (secondary thread)
+.\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic
 
 # Run unit tests
 .\.venv\Scripts\python.exe -m pytest tests\unit -q

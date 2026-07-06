@@ -11,6 +11,10 @@ def _active_question(question_id: str, concept: str) -> dict:
             "content_contract_version": 2,
             "content_contract_status": "generated",
         },
+        # Practice-readiness now requires BOTH contract-active AND human-confirmed
+        # provenance (see database.is_practice_ready) -- these fixtures represent
+        # questions that have already been through the confirm review screen.
+        "provenance": {"state": "confirmed"},
     }
 
 
@@ -96,6 +100,27 @@ def test_concept_lesson_context_uses_only_relevant_files_when_available(tmp_path
         assert "unrelated index content" not in context
     finally:
         planner.DATA_DIR = original_data_dir
+
+
+def test_score_md_file_for_concept_matches_bare_dollar_operator_names():
+    """A concept that is just a bare operator name (e.g. '$set') must still
+    match its own dedicated reference doc, whose filename never contains the
+    literal '$' character (e.g. ..._operator_update_set__....md). Regression
+    for a real gap found while mapping the syllabus to official docs: every
+    bare-operator concept in Topics 4/7/8 ($set, $push, $inc, $unset,
+    $elemMatch, $match, $group, ...) was scoring 0 against its correct doc and
+    silently falling back to a generic topic-level doc instead."""
+    from certcoach.core import planner
+
+    assert planner.score_md_file_for_concept(
+        "topic_04_docs_manual_reference_operator_update_set__0d2334e3f5.md", "$set"
+    ) > 0
+    assert planner.score_md_file_for_concept(
+        "topic_07_docs_manual_reference_operator_query_elemmatch__1986be12b6.md", "$elemMatch"
+    ) > 0
+    assert planner.score_md_file_for_concept(
+        "topic_08_docs_manual_reference_operator_aggregation_match__f0bbcf2597.md", "$match"
+    ) > 0
 
 
 def test_topic_benchmark_context_loads_topic_record(tmp_path):

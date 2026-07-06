@@ -1281,21 +1281,26 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
         if context.get("scenario_description"):
             console.print(Panel(context["scenario_description"], title="📋 Scenario", border_style="dim", box=box.ROUNDED, padding=(0, 1)))
             
+        is_multi = str(q.get("metadata", {}).get("response_type", "single")).strip().lower() == "multi"
+        if is_multi:
+            console.print("  [bold magenta]Select ALL that apply[/bold magenta] [dim](e.g. type AC for options A and C)[/dim]")
         console.print(Panel(f"[bold]{q.get('question_text', '')}[/bold]", border_style="bright_black", box=box.ROUNDED, padding=(0, 2)))
-        
+
         valid_options = []
+        selected_letters = set((user_answers[current_idx] or "").upper())
         for opt in q.get("options", []):
             letter = opt.get("option_letter", "?")
             valid_options.append(letter.upper())
             snippet = opt.get("code_snippet", "")
-            
-            if user_answers[current_idx] == letter:
+
+            if letter.upper() in selected_letters:
                 console.print(f"    [bold green]➜ {letter})  {snippet}  [Selected][/bold green]")
             else:
                 console.print(f"    [bold yellow]   {letter})[/bold yellow]  {snippet}")
-                
+
         console.print()
-        console.print(f"  [dim]Commands: [A/B/C/D] answer | [N]ext | [P]rev | [R]eview Flag | [S]ummary Grid | [1-{len(questions)}] jump | [F]inalize | [Q]uit[/dim]")
+        answer_hint = "[A/B/C/D combo, e.g. AC]" if is_multi else "[A/B/C/D]"
+        console.print(f"  [dim]Commands: {answer_hint} answer | [N]ext | [P]rev | [R]eview Flag | [S]ummary Grid | [1-{len(questions)}] jump | [F]inalize | [Q]uit[/dim]")
         
         try:
             cmd = Prompt.ask("  [bold blue]Exam ❯[/bold blue]").strip()
@@ -1324,8 +1329,13 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
             else:
                 continue
                 
-        if cmd_upper in ("A", "B", "C", "D"):
-            user_answers[current_idx] = cmd_upper
+        current_valid_letters = {opt.get("option_letter", "").upper() for opt in questions[current_idx].get("options", [])}
+        is_current_multi = str(questions[current_idx].get("metadata", {}).get("response_type", "single")).strip().lower() == "multi"
+        is_answer_token = bool(cmd_upper) and set(cmd_upper) <= current_valid_letters and (
+            len(cmd_upper) == 1 or (is_current_multi and len(set(cmd_upper)) == len(cmd_upper))
+        )
+        if is_answer_token:
+            user_answers[current_idx] = "".join(sorted(set(cmd_upper))) if is_current_multi else cmd_upper
             if current_idx < len(questions) - 1:
                 now = time.time()
                 response_times[current_idx] += (now - last_question_time)
@@ -1384,19 +1394,15 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
 
     score = 0
     for idx, q in enumerate(questions):
-        correct_letter = "A"
-        is_correct = False
-        for opt in q.get("options", []):
-            if opt.get("is_correct"):
-                correct_letter = opt.get("option_letter", "A").upper()
-                break
+        correct_letters = {opt.get("option_letter", "").upper() for opt in q.get("options", []) if opt.get("is_correct")}
         ans = user_answers[idx]
-        if ans == correct_letter:
-            is_correct = True
+        chosen_letters = set((ans or "").upper())
+        is_correct = bool(chosen_letters) and chosen_letters == correct_letters
+        if is_correct:
             score += 1
-            
+
         q_topic = q.get("metadata", {}).get("topic", "General")
-        
+
         database.save_attempt(USER_ID, str(q.get("_id", "unknown")), q_topic, ans or "—", is_correct, "High")
         database.update_question_exposure(str(q.get("_id", "unknown")), is_correct, response_times[idx])
         
@@ -1431,7 +1437,33 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
     return score
 
 
-def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: bool = False, question_keywords: list = None, concepts: list = None) -> int | None:
+def show_wrong_attempt_remediation(question_id: str) -> None:
+    """Stateless lookup only -- no new explanation is generated or saved.
+    Primary surface is the missed question's own citation; secondary is a
+    small sample of domain-matched flashcards (spec point 10)."""
+    remediation = database.get_remediation_for_wrong_attempt(question_id)
+
+    citation = remediation.get("citation")
+    if citation and citation.get("quote"):
+        console.print(Panel(
+            f"[dim]{citation.get('doc_file', '')}[/dim]\n\n\"{citation['quote']}\"",
+            title="📄 Re-read the source", border_style="cyan", box=box.ROUNDED, padding=(0, 2)
+        ))
+
+    flashcards = remediation.get("flashcards") or []
+    if flashcards:
+        lines = []
+        for card in flashcards:
+            answer = (card.get("answer", "") or "")[:400]
+            lines.append(f"[bold]{card.get('title', '')}[/bold]\n{answer}")
+        console.print(Panel(
+            "\n\n".join(lines),
+            title=f"🗂️ Related flashcards — {remediation.get('domain', '')}",
+            border_style="magenta", box=box.ROUNDED, padding=(0, 2)
+        ))
+
+
+def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: bool = False, question_keywords: list = None, concepts: list = None, preselected_questions: list = None) -> int | None:
     if is_mock:
         clear()
 
@@ -1442,8 +1474,13 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
     # Gather questions filtered by topic + keyword relevance
     questions = []
-    
-    if not is_mock:
+
+    if preselected_questions is not None:
+        # Domain-weighted mocks (Full Mock, Timed Mock Exam) already selected
+        # and shortfall-reported their own questions -- use them as-is, even
+        # if fewer than `num` were available. Never silently pad here.
+        questions = preselected_questions
+    elif not is_mock:
         # Standard concept practice is exactly 3 Easy and 2 Medium questions.
         easy_qs = []
         medium_qs = []
@@ -1510,7 +1547,12 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         random.shuffle(unique)
         questions = unique[:num]
 
-    if len(questions) < num:
+    if not questions:
+        console.print("\n  [bold yellow]No confirmed questions are available yet.[/bold yellow]")
+        time.sleep(2)
+        return None
+
+    if preselected_questions is None and len(questions) < num:
         console.print(f"\n  [bold yellow]The required 3 Easy + 2 Medium concept-practice mix is unavailable.[/bold yellow]")
         console.print(Panel(
             "[bold]This concept is not study-ready yet.[/bold]\n\n"
@@ -1561,13 +1603,32 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
             console.print(f"    [bold yellow]{letter})[/bold yellow]  {clean_option_text(letter, opt.get('code_snippet', ''))}")
 
         console.print()
-        
+
+        is_multi = str(meta.get("response_type", "single")).strip().lower() == "multi"
+        valid_letter_set = set(valid_options)
+
         # Track response time
         q_start = time.time()
-        try:
-            ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK"]).upper()
-        except (KeyboardInterrupt, EOFError):
-            raise SystemExit
+        if is_multi:
+            console.print("  [bold magenta]Select ALL that apply[/bold magenta] [dim](e.g. type AC for options A and C)[/dim]")
+            while True:
+                try:
+                    raw = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]").strip().upper()
+                except (KeyboardInterrupt, EOFError):
+                    raise SystemExit
+                if raw in ("Q", "BACK"):
+                    ans = raw
+                    break
+                token = raw.replace(" ", "").replace(",", "")
+                if token and set(token) <= valid_letter_set and len(set(token)) == len(token):
+                    ans = "".join(sorted(set(token)))
+                    break
+                console.print(f"  [red]Enter a combination of {', '.join(sorted(valid_letter_set))} (e.g. AC), or Q/BACK.[/red]")
+        else:
+            try:
+                ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK"]).upper()
+            except (KeyboardInterrupt, EOFError):
+                raise SystemExit
         elapsed_sec = time.time() - q_start
 
         if ans in ("Q", "BACK"):
@@ -1590,13 +1651,17 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
         correct_option = None
         user_feedback = ""
-        is_correct = False
+        chosen_letters = set(ans)
+        correct_letters = set()
         for opt in q.get("options", []):
             if opt.get("is_correct"):
                 correct_option = opt
-            if opt.get("option_letter", "").upper() == ans:
-                user_feedback = opt.get("feedback", "")
-                is_correct = opt.get("is_correct", False)
+                correct_letters.add(opt.get("option_letter", "").upper())
+            if opt.get("option_letter", "").upper() in chosen_letters:
+                fb = opt.get("feedback", "")
+                if fb:
+                    user_feedback = (user_feedback + " / " + fb) if user_feedback else fb
+        is_correct = bool(chosen_letters) and chosen_letters == correct_letters
 
         # Save individual attempt and update question exposure (seen, times, average time)
         database.save_attempt(USER_ID, str(q.get("_id", "unknown")), q_topic, ans, is_correct, confidence)
@@ -1608,8 +1673,8 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         else:
             weak_signals.append(extract_question_focus_label(q))
             console.print(f"\n  [bold red]❌ Wrong.[/bold red]")
-            if correct_option:
-                console.print(f"  Correct answer: [bold]{correct_option.get('option_letter')}[/bold]")
+            if correct_letters:
+                console.print(f"  Correct answer: [bold]{', '.join(sorted(correct_letters))}[/bold]")
 
         # Restructure to the strict seven-part Explanation Template
         correct_letter = correct_option.get("option_letter") if correct_option else "A"
@@ -1618,6 +1683,9 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
             explanation_markdown = format_explanation_template(correct_letter, q)
         
         console.print(Panel(Markdown(explanation_markdown, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
+
+        if not is_correct and not is_mock:
+            show_wrong_attempt_remediation(str(q.get("_id", "unknown")))
 
         if not is_mock:
             with console.status("[dim]🤖 Coach is reflecting...[/dim]", spinner="dots"):
@@ -1910,7 +1978,36 @@ def show_analytics():
         
     elements.append(Text("\n"))
     elements.append(Panel("\n".join(mastery_lines), title="🏅 Topic Mastery Dashboard", border_style="blue", box=box.ROUNDED))
-    
+
+    # 2b. Domain vs. Exam-Weight Accuracy (heaviest domain first, so a weak
+    # CRUD score reads louder than a weak Tools score, not sorted by accuracy)
+    domain_report = database.get_domain_accuracy_report(USER_ID)
+    domain_lines = []
+    for d in domain_report:
+        if d["accuracy_pct"] is None:
+            domain_lines.append(f"  {d['domain']:<26} : [dim]{d['exam_weight_pct']:>2.0f}% of exam — no attempts yet[/dim]")
+            continue
+        acc = d["accuracy_pct"]
+        col = "green" if acc >= 80 else "yellow" if acc >= 60 else "red"
+        domain_lines.append(
+            f"  {d['domain']:<26} : {d['exam_weight_pct']:>2.0f}% of exam — [{col}]{acc:>5.1f}%[/{col}] ({d['correct']}/{d['attempts']})"
+        )
+    elements.append(Text("\n"))
+    elements.append(Panel("\n".join(domain_lines), title="⚖️ Domain vs. Exam-Weight Accuracy", border_style="cyan", box=box.ROUNDED))
+
+    # 2c. Concept-Level Accuracy (weakest first)
+    concept_report = [c for c in database.get_concept_accuracy_report(USER_ID) if c["attempts"] > 0]
+    if concept_report:
+        concept_lines = []
+        for c in concept_report[:10]:
+            col = "green" if c["accuracy_pct"] >= 80 else "yellow" if c["accuracy_pct"] >= 60 else "red"
+            domain_lbl = c["domain"] or "Unmapped"
+            concept_lines.append(
+                f"  {c['concept']:<32} [dim]({domain_lbl})[/dim] : [{col}]{c['accuracy_pct']:>5.1f}%[/{col}] ({c['correct']}/{c['attempts']})"
+            )
+        elements.append(Text("\n"))
+        elements.append(Panel("\n".join(concept_lines), title="🔎 Weakest Concepts (bottom 10)", border_style="red", box=box.ROUNDED))
+
     # 3. Strong & Weak Areas Side-by-Side
     areas_lines = []
     areas_lines.append("[bold green]💪 Strong Areas (Acc >= 80% / Mastered):[/bold green]")
@@ -2188,6 +2285,44 @@ def recalibrate_study_plan():
 # MAIN MENU Helpers & Submenus
 # ---------------------------------------------------------------------------
 
+def _render_shortfall_report(selection: dict) -> bool:
+    """Prints the domain/concept shortfall report for a weighted mock. Returns
+    True if there's at least one confirmed question to run with."""
+    if selection["domain_shortfall"]:
+        lines = [
+            f"[bold]{domain}[/bold]: needed {gap['needed']}, only {gap['available']} confirmed available"
+            for domain, gap in selection["domain_shortfall"].items()
+        ]
+        console.print(Panel(
+            "\n".join(lines),
+            title="⚠️ Domain Shortfall (never padded, never silent)",
+            border_style="yellow", box=box.ROUNDED
+        ))
+    if selection["concept_notes"]:
+        lines = [
+            f"[dim]{note['domain']}[/dim] / {note['concept']}: {note['available']} confirmed "
+            f"(even split target ~{note['even_share_target']})"
+            for note in selection["concept_notes"]
+        ]
+        console.print(Panel(
+            "\n".join(lines),
+            title="Under-represented concepts within their domain",
+            border_style="yellow", box=box.ROUNDED
+        ))
+    if not selection["questions"]:
+        console.print(Panel(
+            "No confirmed questions are available in the bank yet. Confirm some questions via "
+            "`certcoach-review-questions` before a mock can run.",
+            title="Mock unavailable", border_style="red", box=box.ROUNDED
+        ))
+        time.sleep(2)
+        return False
+    if len(selection["questions"]) < selection["requested"]:
+        console.print(f"\n  [dim]Running with {len(selection['questions'])} of the requested "
+                       f"{selection['requested']} questions -- see shortfall above.[/dim]")
+    return True
+
+
 def run_full_mock():
     pep = coach.get_mock_exam_pep_talk()
     console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
@@ -2195,10 +2330,10 @@ def run_full_mock():
         Prompt.ask("\n  Press Enter when ready...")
     except (KeyboardInterrupt, EOFError):
         return
-    all_keys = []
-    for item in planner.load_syllabus():
-        all_keys.extend(item.get("bank_topic_keys", []))
-    run_practice_questions("Full Mock", list(set(all_keys)), num=60, is_mock=True)
+    selection = database.get_weighted_mock_questions(53)
+    if not _render_shortfall_report(selection):
+        return
+    run_practice_questions("Full Mock", [], num=53, is_mock=True, preselected_questions=selection["questions"])
 
 def run_timed_mock():
     pep = coach.get_mock_exam_pep_talk()
@@ -2207,11 +2342,11 @@ def run_timed_mock():
         Prompt.ask("\n  Press Enter when ready...")
     except (KeyboardInterrupt, EOFError):
         return
-    all_keys = []
-    for item in planner.load_syllabus():
-        all_keys.extend(item.get("bank_topic_keys", []))
+    selection = database.get_weighted_mock_questions(20)
+    if not _render_shortfall_report(selection):
+        return
     start_time = time.time()
-    score = run_practice_questions("Timed Mock Exam", list(set(all_keys)), num=20, is_mock=True)
+    score = run_practice_questions("Timed Mock Exam", [], num=20, is_mock=True, preselected_questions=selection["questions"])
     elapsed_time = time.time() - start_time
     minutes, seconds = divmod(int(elapsed_time), 60)
     console.print(f"\n  [bold cyan]⏱️ Time Taken: {minutes}m {seconds}s[/bold cyan]")
@@ -2420,6 +2555,64 @@ def show_error_book_menu():
                 time.sleep(2)
 
 
+def show_flashcard_browser():
+    """Browse the same flashcard deck the mobile/web companion apps bundle,
+    directly in the CLI. Read-only, no scheduling -- pick a domain, flip
+    through cards. See database.load_flashcards() for the shared data source."""
+    clear()
+    console.print(Rule("[bold cyan]🗂️ Flashcard Deck[/bold cyan]"))
+    cards = database.load_flashcards()
+    if not cards:
+        console.print("[yellow]No flashcards found.[/yellow]")
+        time.sleep(2)
+        return
+
+    categories = sorted({c.get("category", "Uncategorized") for c in cards})
+    console.print("\n  [bold]Domains:[/bold]")
+    for idx, cat in enumerate(categories, 1):
+        count = sum(1 for c in cards if c.get("category") == cat)
+        console.print(f"    {idx}. {cat} ({count} cards)")
+    all_option = len(categories) + 1
+    console.print(f"    {all_option}. All domains ({len(cards)} cards)")
+
+    try:
+        choice = Prompt.ask("\n  Choose a domain (number) or 'q' to go back", default=str(all_option))
+    except (KeyboardInterrupt, EOFError):
+        return
+    if choice.strip().lower() in EXIT_COMMANDS:
+        return
+
+    try:
+        choice_idx = int(choice.strip())
+    except ValueError:
+        choice_idx = all_option
+
+    if 1 <= choice_idx <= len(categories):
+        selected = [c for c in cards if c.get("category") == categories[choice_idx - 1]]
+    else:
+        selected = list(cards)
+    random.shuffle(selected)
+
+    for idx, card in enumerate(selected, 1):
+        clear()
+        console.print(Rule(f"[bold cyan]🗂️ {card.get('category', '')} — {idx}/{len(selected)}[/bold cyan]"))
+        console.print(Panel(card.get("title", ""), title="Front", border_style="cyan", box=box.ROUNDED, padding=(1, 2)))
+        try:
+            Prompt.ask("\n  [dim]Press Enter to reveal[/dim]", default="")
+        except (KeyboardInterrupt, EOFError):
+            return
+        console.print(Panel(Markdown(card.get("answer", ""), code_theme="monokai"), title="Back", border_style="green", box=box.ROUNDED, padding=(1, 2)))
+        try:
+            next_action = Prompt.ask("\n  [dim]Enter for next / q to quit[/dim]", default="")
+        except (KeyboardInterrupt, EOFError):
+            return
+        if next_action.strip().lower() in EXIT_COMMANDS:
+            return
+
+    console.print("\n  [bold green]Deck complete.[/bold green]")
+    time.sleep(1.5)
+
+
 def run_library_submenu():
     while True:
         console.print("\n  [bold blue]📖 Reference Library & Progress[/bold blue]")
@@ -2430,14 +2623,15 @@ def run_library_submenu():
         console.print("    [bold cyan]d.[/bold cyan] 📊 Performance Analytics Dashboard")
         console.print("    [bold cyan]e.[/bold cyan] 💻 View Lexical Casing Contrast Sheet (mongosh vs PyMongo)")
         console.print("    [bold cyan]f.[/bold cyan] 🛑 View Active Error Book (Mistake Log & Diagnostic Reviews)")
-        console.print("    [bold cyan]g.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]g.[/bold cyan] 🗂️  Browse Flashcard Deck")
+        console.print("    [bold cyan]h.[/bold cyan] ⬅️  Back to Main Menu")
         console.print()
-        
+
         try:
             ans = Prompt.ask("  [bold blue]Library ❯[/bold blue]").strip().lower()
         except (KeyboardInterrupt, EOFError):
             break
-            
+
         if ans == "a":
             show_study_journal()
         elif ans == "b":
@@ -2450,7 +2644,9 @@ def run_library_submenu():
             show_casing_contrast_sheet()
         elif ans == "f":
             show_error_book_menu()
-        elif ans in ("g", "back", "b", "q"):
+        elif ans == "g":
+            show_flashcard_browser()
+        elif ans in ("h", "back", "q"):
             break
 
 
@@ -2887,7 +3083,7 @@ def run_settings_submenu(profile, status):
         
         # Gated Mock
         if status["mock_exam_unlocked"]:
-            console.print("    [bold cyan]c.[/bold cyan] 🏆 Full Mock Exam (60 Questions)")
+            console.print("    [bold cyan]c.[/bold cyan] 🏆 Full Mock Exam (53 Questions)")
             console.print("    [bold cyan]d.[/bold cyan] ⏱️  Timed Mock Exam (20 Questions)")
         else:
             console.print("    [dim]c. 🔒 Full Mock Exam (Locked — need 70% mastery)[/dim]")

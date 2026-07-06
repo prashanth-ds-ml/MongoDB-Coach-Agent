@@ -68,19 +68,33 @@ def test_topic_matches_bank_topic_substring():
     assert not _topic_matches(target, "aggregation")
 
 
-def test_style_counts_include_only_active_contract_questions():
+def test_style_counts_include_only_practice_ready_questions():
+    """Contract-active alone is not enough to count toward the population
+    target -- a question also needs provenance.state == 'confirmed', since
+    database.is_practice_ready() now gates both. A contract-active-but-suspect
+    record (the state of most of the legacy bank after the provenance
+    backfill) must not silently satisfy the deficit and block regeneration."""
     from certcoach.jobs import nightly_seed_questions as job
 
-    active = {
+    confirmed = {
         "metadata": {
             "question_style_type": "Type A",
             "content_contract_version": 2,
             "content_contract_status": "generated",
-        }
+        },
+        "provenance": {"state": "confirmed"},
     }
-    legacy = {"metadata": {"question_style_type": "Type B"}}
+    contract_active_but_suspect = {
+        "metadata": {
+            "question_style_type": "Type B",
+            "content_contract_version": 2,
+            "content_contract_status": "generated",
+        },
+        "provenance": {"state": "suspect"},
+    }
+    legacy_no_contract = {"metadata": {"question_style_type": "Type B"}}
     questions_col = MagicMock()
-    questions_col.find.return_value = [active, legacy]
+    questions_col.find.return_value = [confirmed, contract_active_but_suspect, legacy_no_contract]
 
     with patch.object(job.database, "questions_col", questions_col):
         counts = job._get_db_style_counts(1, "Concept", "Easy")
@@ -90,7 +104,7 @@ def test_style_counts_include_only_active_contract_questions():
         "metadata.topic_id": 1,
         "metadata.concept": "Concept",
         "metadata.difficulty": "Easy",
-    }, {"metadata": 1})
+    }, {"metadata": 1, "provenance": 1})
 
 
 def test_audit_does_not_overpopulate_to_force_style_distribution():
@@ -528,3 +542,119 @@ def test_concept_variation_guidance_covers_topic4_operator_families():
         )
         guidance = _concept_variation_guidance(target, [])
         assert expected in guidance
+
+
+def _seven_part_explanation() -> str:
+    return "\n".join([
+        "### 1. Correct Answer",
+        "The options that pass both the field-order and syntax checks are correct.",
+        "### 2. Why Correct",
+        "Both marked options satisfy the query's select-all-that-apply criteria for a valid compound index call.",
+        "### 3. Why Other Options Are Wrong",
+        "The unmarked options either pass the wrong argument shape to createIndex() or use invalid positional "
+        "arguments instead of a single document/list of tuples, so MongoDB rejects them before an index is built.",
+        "### 4. Exam Trap",
+        "Selecting only one option on a select-all-that-apply question loses full credit under no-partial-credit scoring.",
+        "### 5. Memory Hook",
+        "Select-all means evaluate every option independently, not just find the first correct one.",
+        "### 6. Follow-Up Practice Recommendation",
+        "- Review multi-response scoring rules.",
+        "- Practice select-all-that-apply questions.",
+        "### 7. Syntax Example",
+        "```javascript\ndb.collection.createIndex({ a: 1, b: 1 });\n```",
+    ])
+
+
+def test_validate_question_quality_accepts_multi_response_with_two_correct():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which of the following are valid ways to specify a compound index? (Select all that apply.)",
+        "metadata": {"topic_id": 9, "concept": "Compound indexes", "response_type": "multi"},
+        "options": [
+            {"code_snippet": "db.collection.createIndex({a: 1, b: 1})", "is_correct": True},
+            {"code_snippet": "db.collection.createIndex({a: 1, b: -1})", "is_correct": True},
+            {"code_snippet": "db.collection.createIndex('a', 'b')", "is_correct": False},
+            {"code_snippet": "db.collection.createIndex([a, b])", "is_correct": False},
+        ],
+        "explanation": _seven_part_explanation(),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    # This test targets the multi-response correct-option-count rule specifically;
+    # it deliberately does not assert overall validity, since other unrelated
+    # content-quality checks (explanation depth, syntax examples, etc.) are
+    # covered by their own dedicated tests elsewhere in this file.
+    assert not any("correct option" in issue for issue in issues)
+
+
+def test_validate_question_quality_rejects_multi_response_with_only_one_correct():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which of the following are valid ways to specify a compound index? (Select all that apply.)",
+        "metadata": {"topic_id": 9, "concept": "Compound indexes", "response_type": "multi"},
+        "options": [
+            {"code_snippet": "db.collection.createIndex({a: 1, b: 1})", "is_correct": True},
+            {"code_snippet": "db.collection.createIndex({a: 1, b: -1})", "is_correct": False},
+            {"code_snippet": "db.collection.createIndex('a', 'b')", "is_correct": False},
+            {"code_snippet": "db.collection.createIndex([a, b])", "is_correct": False},
+        ],
+        "explanation": _seven_part_explanation(),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("fewer than two options are marked correct" in issue for issue in issues)
+
+
+def test_validate_question_quality_still_requires_exactly_one_for_single_response():
+    from certcoach.jobs.nightly_seed_questions import validate_question_quality
+
+    question = {
+        "question_text": "Which method inserts exactly one document?",
+        "metadata": {"topic_id": 2, "concept": "insertOne()"},
+        "options": [
+            {"code_snippet": "insertOne()", "is_correct": True},
+            {"code_snippet": "insertMany()", "is_correct": True},
+            {"code_snippet": "updateOne()", "is_correct": False},
+            {"code_snippet": "replaceOne()", "is_correct": False},
+        ],
+        "explanation": _seven_part_explanation(),
+    }
+
+    is_valid, issues = validate_question_quality(question)
+
+    assert not is_valid
+    assert any("does not have exactly one correct option" in issue for issue in issues)
+
+
+def test_resolve_correct_answers_handles_multi_response_letters():
+    from certcoach.jobs.nightly_seed_questions import SeedMCQ, _resolve_correct_answers
+
+    mcq = SeedMCQ(
+        question="Which of the following are valid?",
+        options=["Option A text", "Option B text", "Option C text", "Option D text"],
+        response_type="multi",
+        correct_answers=["A", "C"],
+    )
+
+    resolved = _resolve_correct_answers(mcq)
+
+    assert resolved == ["Option A text", "Option C text"]
+
+
+def test_resolve_correct_answers_falls_back_to_singular_field():
+    from certcoach.jobs.nightly_seed_questions import SeedMCQ, _resolve_correct_answers
+
+    mcq = SeedMCQ(
+        question="Which method inserts one document?",
+        options=["insertOne()", "insertMany()", "updateOne()", "replaceOne()"],
+        correct_answer="insertOne()",
+    )
+
+    resolved = _resolve_correct_answers(mcq)
+
+    assert resolved == ["insertOne()"]

@@ -24,6 +24,13 @@ certcoach-repair-explanations = "certcoach.jobs.repair_explanations:main"
 certcoach-dedupe-questions = "certcoach.jobs.dedupe_questions:main"
 certcoach-map-questions = "certcoach.jobs.map_questions:main"
 certcoach-prebuild-lesson = "certcoach.jobs.prebuild_lessons:main"
+certcoach-backfill-provenance = "certcoach.jobs.backfill_provenance:main"
+certcoach-review-questions = "certcoach.jobs.review_questions:main"
+certcoach-analyze-backlog = "certcoach.jobs.analyze_backlog:main"
+certcoach-reocr-pics-qa = "certcoach.jobs.reocr_pics_qa:main"
+certcoach-recover-screenshot-citations = "certcoach.jobs.recover_screenshot_citations:main"
+certcoach-purge-screenshot-backlog = "certcoach.jobs.purge_screenshot_backlog:main"
+certcoach-map-questions-to-docs = "certcoach.jobs.map_questions_to_docs:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

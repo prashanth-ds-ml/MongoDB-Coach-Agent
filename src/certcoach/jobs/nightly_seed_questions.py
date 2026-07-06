@@ -30,12 +30,13 @@ from certcoach.core.config import (
     get_population_easy_target,
     get_population_medium_target,
     get_population_source_chars,
+    get_self_consistency_model,
 )
 from certcoach.core.content_contract import (
     contract_metadata,
     has_invented_topic1_type,
-    is_contract_active,
     is_topic1_concept_only,
+    provenance_metadata,
 )
 from certcoach.core.question_targets import QuestionTarget, build_weighted_targets
 from certcoach.core.model_runner import get_model_runner
@@ -131,7 +132,9 @@ SYNTAX_EXAMPLE_HINTS = (
 class SeedMCQ(BaseModel):
     question: str = Field(default="", description="The multiple choice question.")
     options: list[str] = Field(default_factory=list, description="Exactly four options.")
-    correct_answer: str = Field(default="", description="The exact correct option text or a single letter A/B/C/D.")
+    response_type: str = Field(default="single", description="'single' (exactly one correct option) or 'multi' (two or more correct options, select-all-that-apply).")
+    correct_answer: str = Field(default="", description="For response_type='single': the exact correct option text or a single letter A/B/C/D.")
+    correct_answers: list[str] = Field(default_factory=list, description="For response_type='multi': the exact correct option texts or letters (A/B/C/D), two or more.")
     feedbacks: list[str] = Field(default_factory=list, description="Exactly four feedback strings, one per option.")
     trap_analysis: str = Field(default="", description="The main exam trap.")
     explanation_correct_answer: str = Field(default="", description="What is the correct answer and a brief statement of it.")
@@ -142,6 +145,7 @@ class SeedMCQ(BaseModel):
     explanation_practice_recommendations: list[str] = Field(default_factory=list, description="A list of 3 to 5 compact but specific action items or recall points for practice.")
     explanation_syntax_example: str = Field(default="", description="A markdown string containing a fenced code block of a syntax example if the concept is syntax-heavy, or exactly 'Not required for this concept.' if not syntax-heavy.")
     citation_source: str = Field(default="", description="Official source filename or section.")
+    citation_quote: str = Field(default="", description="A 10-30 word passage copied VERBATIM, character-for-character, from the provided documentation context that directly supports the correct answer. Leave empty if no single passage supports it -- never paraphrase or invent one.")
 
 
 def _load_env() -> tuple[str, str]:
@@ -249,11 +253,11 @@ def _get_db_style_counts(topic_id: int, concept: str, difficulty: str) -> dict[s
         "metadata.topic_id": topic_id,
         "metadata.concept": concept,
         "metadata.difficulty": difficulty,
-    }, {"metadata": 1})
-    
+    }, {"metadata": 1, "provenance": 1})
+
     counts = {"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}
     for q in cursor:
-        if not is_contract_active(q):
+        if not database.is_practice_ready(q):
             continue
         meta = q.get("metadata", {}) or {}
         style = meta.get("question_style_type")
@@ -346,18 +350,47 @@ def audit_weighted_deficits(
     return deficits
 
 
-def _resolve_correct_answer(mcq: SeedMCQ) -> str | None:
-    answer = (mcq.correct_answer or "").strip()
+def _resolve_single_answer(answer: str, options: list[str]) -> str | None:
+    answer = (answer or "").strip()
     if answer.upper() in ("A", "B", "C", "D"):
         idx = ["A", "B", "C", "D"].index(answer.upper())
-        if idx < len(mcq.options):
-            return mcq.options[idx]
-    if answer in mcq.options:
+        if idx < len(options):
+            return options[idx]
+    if answer in options:
         return answer
-    for option in mcq.options:
+    for option in options:
         if option.strip().startswith(answer):
             return option
     return None
+
+
+def _resolve_correct_answer(mcq: SeedMCQ) -> str | None:
+    return _resolve_single_answer(mcq.correct_answer, mcq.options)
+
+
+def _resolve_correct_answers(mcq: SeedMCQ) -> list[str]:
+    """Resolve one or more correct answers, honoring response_type.
+
+    Falls back to the singular `correct_answer` field when `correct_answers`
+    is empty, so existing single-answer generation is unaffected.
+    """
+    if str(mcq.response_type or "single").strip().lower() == "multi" and mcq.correct_answers:
+        resolved = [
+            answer for answer in (
+                _resolve_single_answer(raw, mcq.options) for raw in mcq.correct_answers
+            )
+            if answer
+        ]
+        # de-duplicate while preserving order
+        seen: set[str] = set()
+        deduped = []
+        for answer in resolved:
+            if answer not in seen:
+                seen.add(answer)
+                deduped.append(answer)
+        return deduped
+    single = _resolve_correct_answer(mcq)
+    return [single] if single else []
 
 
 def _slug(text: str, max_len: int = 36) -> str:
@@ -500,8 +533,14 @@ def validate_question_quality(question: dict, require_explanation: bool = True) 
         issues.append("does not have exactly four options")
     if any(not str(option.get("code_snippet", "")).strip() for option in options):
         issues.append("contains blank option text")
-    if sum(1 for option in options if option.get("is_correct")) != 1:
-        issues.append("does not have exactly one correct option")
+    response_type = str(metadata.get("response_type", "single")).strip().lower() or "single"
+    correct_count = sum(1 for option in options if option.get("is_correct"))
+    if response_type == "multi":
+        if correct_count < 2:
+            issues.append("response_type is 'multi' but fewer than two options are marked correct")
+    else:
+        if correct_count != 1:
+            issues.append("does not have exactly one correct option")
     if any("placeholder" in str(option.get("code_snippet", "")).lower() for option in options):
         issues.append("contains placeholder option text")
     if is_topic1_concept_only(metadata, topic_text):
@@ -956,6 +995,7 @@ Rules:
   - options: exactly four short strings, each under 35 words.
   - correct_answer or correct_option_letter: one clear answer marker.
   - citation_source: one official filename or section from the provided docs.
+  - citation_quote: copy a 10-30 word passage VERBATIM, character-for-character, from the "Official documentation context" below that directly supports the correct answer. Do not paraphrase. Leave it empty if no single passage supports it -- an empty quote is honest; an invented one is not.
 - Optional fields are allowed, but do not spend tokens on long explanations here.
 - Do not include the seven-part explanation in this response; explanation repair will add it later.
 - If you include trap_analysis, keep it short and concrete.
@@ -991,12 +1031,20 @@ Rules:
     if not mcq or len(mcq.options) != 4:
         return None
 
-    correct_answer = _resolve_correct_answer(mcq)
-    if not correct_answer:
-        return None
+    response_type = str(mcq.response_type or "single").strip().lower()
+    if response_type == "multi":
+        correct_answers = _resolve_correct_answers(mcq)
+        if len(correct_answers) < 2:
+            return None
+        correct_indices = {mcq.options.index(answer) for answer in correct_answers}
+    else:
+        response_type = "single"
+        correct_answer = _resolve_correct_answer(mcq)
+        if not correct_answer:
+            return None
+        correct_indices = {mcq.options.index(correct_answer)}
 
-    correct_idx = mcq.options.index(correct_answer)
-    trap_idx = 1 if correct_idx != 1 else 0
+    trap_idx = next((idx for idx in range(len(mcq.options)) if idx not in correct_indices), 0)
     fingerprint = question_fingerprint(target.bank_topic, target.concept, mcq.question)
     question_number = _next_question_number(target)
     q_id = make_question_id(target, question_number, fingerprint)
@@ -1004,6 +1052,8 @@ Rules:
     chosen_citation_source = (mcq.citation_source or citation_source or "").strip()
     return {
         "_id": q_id,
+        "citation_quote": (mcq.citation_quote or "").strip(),
+        "generation_model": result.get("model_used"),
         "metadata": {
             "topic": target.bank_topic,
             "syllabus_topic": target.topic,
@@ -1018,6 +1068,8 @@ Rules:
             "concept_weight": target.concept_weight,
             "generation_source": "nightly_weighted_seed",
             "citation_source": chosen_citation_source,
+            "response_type": response_type,
+            "num_correct": len(correct_indices),
             "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ"),
             **contract_metadata("nightly_weighted_seed"),
         },
@@ -1030,7 +1082,7 @@ Rules:
             {
                 "option_letter": LETTERS[idx],
                 "code_snippet": option,
-                "is_correct": idx == correct_idx,
+                "is_correct": idx in correct_indices,
                 "is_trap": idx == trap_idx,
                 "feedback": mcq.feedbacks[idx] if idx < len(mcq.feedbacks) else "",
             }
@@ -1046,6 +1098,105 @@ Rules:
             "average_time_seconds": 0.0,
         },
     }
+
+
+def _strip_think_block(text: str) -> str:
+    return re.sub(r"<think>.*?</think>", "", text or "", flags=re.DOTALL).strip()
+
+
+def run_self_consistency_check(
+    question: dict,
+    local_llm_url: str,
+    model: str | None = None,
+    timeout: float = 120.0,
+) -> tuple[bool, str]:
+    """Checks a generated question's INTERNAL coherence only: does the marked
+    answer agree with its own explanation, and are the four options
+    meaningfully distinct? This model never sees the source documentation --
+    it is not a MongoDB fact-checker, and must never be described as one.
+    Any error, empty response, or unparseable verdict counts as a failure;
+    this never silently assumes a pass."""
+    model = model or get_self_consistency_model()
+    options_text = "\n".join(
+        f"{opt.get('option_letter', '?')}. {opt.get('code_snippet', '')}"
+        + (" [marked correct]" if opt.get("is_correct") else "")
+        for opt in question.get("options", [])
+    )
+    prompt = f"""Check this multiple-choice question for INTERNAL consistency only.
+You are NOT being asked whether the MongoDB facts are true -- only whether the
+pieces of this question agree with each other.
+
+Question: {question.get('question_text', '')}
+
+Options:
+{options_text}
+
+Explanation:
+{str(question.get('explanation', ''))[:2000]}
+
+Check:
+1. Does the explanation's reasoning actually support the option marked [marked correct], and not one of the others?
+2. Are all four options meaningfully different from each other (not near-duplicates)?
+3. Does the explanation ever contradict itself about which option is correct?
+
+Respond with brief reasoning, then end with exactly one final line, no more text after it:
+FINAL: CONSISTENT
+or
+FINAL: INCONSISTENT: <short reason>
+"""
+    try:
+        response = _ollama_json_request(
+            local_llm_url,
+            "/api/generate",
+            {"model": model, "prompt": prompt, "stream": False},
+            timeout=timeout,
+        )
+    except Exception as exc:
+        return False, f"self-consistency check errored: {exc}"
+
+    raw_text = _strip_think_block(response.get("response", ""))
+    match = re.search(r"FINAL:\s*(CONSISTENT|INCONSISTENT)(?::\s*(.*))?", raw_text, re.IGNORECASE)
+    if not match:
+        return False, "self-consistency check produced no parseable verdict"
+
+    if match.group(1).upper() == "CONSISTENT":
+        return True, "self-consistency check passed"
+    reason = (match.group(2) or "").strip() or "marked inconsistent"
+    return False, f"self-consistency check failed: {reason}"
+
+
+def run_generation_pipeline_checks(
+    question: dict,
+    citation_doc_file: str,
+    citation_quote: str,
+    local_llm_url: str,
+    generation_model: str | None = None,
+) -> dict:
+    """Spec point 7's pipeline, run once a question has its seven-part
+    explanation: deterministic citation check (no model call), then --
+    only if that passes -- the self-consistency check above. Returns the
+    provenance sub-document to store; state is 'sourced' only if both
+    checks pass, otherwise 'draft' with the failing reason recorded so the
+    review screen (and a human) can see exactly why."""
+    provenance = provenance_metadata(
+        state="draft",
+        citation_doc_file=citation_doc_file,
+        citation_quote=citation_quote,
+        model=generation_model,
+    )
+    check_doc = dict(question)
+    check_doc["provenance"] = provenance
+
+    citation_ok, citation_msg = database.verify_citation(check_doc)
+    if citation_ok:
+        consistency_ok, consistency_msg = run_self_consistency_check(question, local_llm_url)
+    else:
+        consistency_ok, consistency_msg = False, "skipped -- citation check failed first"
+
+    if citation_ok and consistency_ok:
+        provenance["state"] = "sourced"
+    provenance["pipeline_note"] = f"citation: {citation_msg}; self-consistency: {consistency_msg}"
+    return provenance
 
 
 def run_weighted_seed(
@@ -1188,6 +1339,24 @@ def run_weighted_seed(
                             if repair:
                                 apply_repair(repair_candidate, repair)
                                 repaired_question = database.questions_col.find_one({"_id": question["_id"]}) or repair_candidate
+
+                                provenance = run_generation_pipeline_checks(
+                                    repaired_question,
+                                    citation_doc_file=primary_source,
+                                    citation_quote=repaired_question.get("citation_quote", ""),
+                                    local_llm_url=local_llm_url,
+                                    generation_model=repaired_question.get("generation_model"),
+                                )
+                                database.questions_col.update_one(
+                                    {"_id": repaired_question["_id"]},
+                                    {"$set": {"provenance": provenance}},
+                                )
+                                repaired_question["provenance"] = provenance
+                                progress.console.print(
+                                    f"  [{'green' if provenance['state'] == 'sourced' else 'yellow'}]"
+                                    f"provenance: {provenance['state']}[/] -- {provenance['pipeline_note']}"
+                                )
+
                                 inserted += 1
                                 generated_for_target += 1
                                 progress.advance(task_id)

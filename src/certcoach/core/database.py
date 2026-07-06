@@ -1,14 +1,32 @@
 import os
 import sys
+import json
 import random
+import re
 import uuid
 import hashlib
 import hmac
 import secrets
+from collections import deque
 from datetime import datetime, timezone
 from pymongo import MongoClient
 from dotenv import load_dotenv
-from certcoach.core.content_contract import CONTENT_CONTRACT_VERSION, contract_metadata, is_contract_active
+from certcoach.core.content_contract import (
+    CONTENT_CONTRACT_VERSION,
+    DEFAULT_PROVENANCE_STATE,
+    contract_metadata,
+    is_confirmed,
+    is_contract_active,
+    provenance_metadata,
+)
+
+
+def is_practice_ready(record: dict | None) -> bool:
+    """A question is eligible for practice/mocks only if it is BOTH structurally
+    well-formed (is_contract_active) AND human-confirmed (is_confirmed). Neither
+    check alone is sufficient -- that conflation is what let unverified content
+    reach learners throughout the bank's history."""
+    return is_contract_active(record) and is_confirmed(record)
 
 GLOBAL_CONFIG_DIR = os.path.expanduser("~/.certcoach")
 ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
@@ -138,7 +156,7 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
     if concepts:
         concept_query = dict(query)
         concept_query["metadata.concept"] = {"$in": concepts}
-        matched_questions = [q for q in questions_col.find(concept_query) if is_contract_active(q)]
+        matched_questions = [q for q in questions_col.find(concept_query) if is_practice_ready(q)]
 
         if strict_keywords:
             random.shuffle(matched_questions)
@@ -148,7 +166,7 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
         random.shuffle(matched_questions)
         return matched_questions[:limit]
         
-    all_topic_qs = [q for q in questions_col.find(query) if is_contract_active(q)]
+    all_topic_qs = [q for q in questions_col.find(query) if is_practice_ready(q)]
     
     # Gather search keywords
     search_keywords = []
@@ -187,17 +205,17 @@ def get_random_questions(topic=None, limit=10, subtopic_keywords=None, difficult
 
 
 def get_active_question_count(topic_id=None, concepts=None) -> int:
-    """Count active-contract questions mapped directly to a topic/concept scope."""
+    """Count practice-ready (contract-active AND human-confirmed) questions mapped to a topic/concept scope."""
     query = {}
     if topic_id is not None:
         query["metadata.topic_id"] = int(topic_id)
     if concepts:
         query["metadata.concept"] = {"$in": concepts}
-    return sum(1 for question in questions_col.find(query) if is_contract_active(question))
+    return sum(1 for question in questions_col.find(query) if is_practice_ready(question))
 
 
 def get_active_question_counts_by_difficulty(topic_id=None, concepts=None) -> dict[str, int]:
-    """Count active-contract questions by normalized difficulty for a concept scope."""
+    """Count practice-ready (contract-active AND human-confirmed) questions by normalized difficulty."""
     query = {}
     if topic_id is not None:
         query["metadata.topic_id"] = int(topic_id)
@@ -206,11 +224,120 @@ def get_active_question_counts_by_difficulty(topic_id=None, concepts=None) -> di
 
     counts = {"Easy": 0, "Medium": 0, "Hard": 0, "Other": 0}
     for question in questions_col.find(query):
-        if not is_contract_active(question):
+        if not is_practice_ready(question):
             continue
         difficulty = str(question.get("metadata", {}).get("difficulty", "")).strip().title()
         counts[difficulty if difficulty in counts else "Other"] += 1
     return counts
+
+
+# --- DOMAIN-WEIGHTED MOCK SELECTION ---
+#
+# The real exam's domain weights, and which syllabus topic_id belongs to which
+# domain. Domain names deliberately match flashcards.json's `category` field
+# exactly, so the same map also drives domain-matched remediation (spec point
+# 10) without a second vocabulary to keep in sync.
+
+DOMAIN_MAP: dict[int, str] = {
+    1: "Overview & Document Model",
+    2: "CRUD Operations",
+    3: "CRUD Operations",
+    4: "CRUD Operations",
+    5: "CRUD Operations",
+    6: "CRUD Operations",
+    7: "CRUD Operations",
+    8: "CRUD Operations",
+    9: "Indexes",
+    10: "Data Modeling",
+    11: "Drivers & PyMongo",
+    12: "Tools & Tooling",
+}
+
+EXAM_DOMAIN_WEIGHTS: dict[str, float] = {
+    "CRUD Operations": 51,
+    "Drivers & PyMongo": 18,
+    "Indexes": 17,
+    "Overview & Document Model": 8,
+    "Data Modeling": 4,
+    "Tools & Tooling": 2,
+}
+
+
+def apportion_largest_remainder(total: int, weights: dict[str, float]) -> dict[str, int]:
+    """Split `total` items across `weights` proportionally, using the largest-
+    remainder method so the parts sum to exactly `total` (naive rounding does
+    not guarantee that)."""
+    weight_sum = sum(weights.values())
+    exact = {key: total * weight / weight_sum for key, weight in weights.items()}
+    floors = {key: int(value) for key, value in exact.items()}
+    remainder = total - sum(floors.values())
+    by_fractional_part = sorted(exact, key=lambda key: exact[key] - floors[key], reverse=True)
+    for key in by_fractional_part[:remainder]:
+        floors[key] += 1
+    return floors
+
+
+def _round_robin_pick(pools_by_concept: dict[str, list], limit: int) -> list:
+    """Draw up to `limit` items, cycling across concepts one at a time so no
+    single over-represented concept can dominate a domain's allotment."""
+    queues = deque(items for items in pools_by_concept.values() if items)
+    picked = []
+    while queues and len(picked) < limit:
+        queue = queues.popleft()
+        picked.append(queue.pop())
+        if queue:
+            queues.append(queue)
+    return picked
+
+
+def get_weighted_mock_questions(num: int) -> dict:
+    """Domain-apportioned selection from `confirmed` inventory only, with a
+    per-concept round-robin cap inside each domain's share and an explicit
+    shortfall report -- never silent padding. Used by the Timed Mock Exam and
+    Full Mock; the session-scoped Mini-Mock is intentionally exempt."""
+    domain_targets = apportion_largest_remainder(num, EXAM_DOMAIN_WEIGHTS)
+
+    selected = []
+    domain_shortfall = {}
+    concept_notes = []
+
+    for domain, target in domain_targets.items():
+        topic_ids = [tid for tid, d in DOMAIN_MAP.items() if d == domain]
+        pool = [
+            q for q in questions_col.find({"metadata.topic_id": {"$in": topic_ids}})
+            if is_practice_ready(q)
+        ]
+        random.shuffle(pool)
+
+        if len(pool) < target:
+            domain_shortfall[domain] = {"needed": target, "available": len(pool)}
+
+        by_concept: dict[str, list] = {}
+        for q in pool:
+            concept = q.get("metadata", {}).get("concept", "Unknown")
+            by_concept.setdefault(concept, []).append(q)
+
+        if by_concept:
+            even_share = target / len(by_concept)
+            for concept, items in by_concept.items():
+                if len(items) < even_share:
+                    concept_notes.append({
+                        "domain": domain,
+                        "concept": concept,
+                        "available": len(items),
+                        "even_share_target": round(even_share, 1),
+                    })
+
+        selected.extend(_round_robin_pick(by_concept, target))
+
+    random.shuffle(selected)
+    return {
+        "questions": selected,
+        "requested": num,
+        "domain_targets": domain_targets,
+        "domain_shortfall": domain_shortfall,
+        "concept_notes": concept_notes,
+    }
 
 
 def get_all_topics():
@@ -223,6 +350,9 @@ def get_questions_count():
 def save_generated_question(mcq_data: dict):
     """Saves a newly LLM-generated question into the standard Ultimate Schema."""
     q_id = str(uuid.uuid4())
+    correct_answers = mcq_data.get("correct_answers") or [mcq_data.get("correct_answer", "")]
+    correct_answers_normalized = {str(a).strip() for a in correct_answers if str(a).strip()}
+    response_type = "multi" if len(correct_answers_normalized) > 1 else "single"
     rich_question = {
         "_id": q_id,
         "metadata": {
@@ -231,6 +361,8 @@ def save_generated_question(mcq_data: dict):
             "citation_source": mcq_data.get("citation_source", ""),
             "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
             "source_files": mcq_data.get("source_files", []),
+            "response_type": response_type,
+            "num_correct": len(correct_answers_normalized),
             **contract_metadata("save_generated_question"),
         },
         "context": {
@@ -242,20 +374,26 @@ def save_generated_question(mcq_data: dict):
         "global_metrics": {
             "total_attempts": 0,
             "correct_attempts": 0
-        }
+        },
+        "provenance": provenance_metadata(
+            state=DEFAULT_PROVENANCE_STATE,
+            citation_doc_file=mcq_data.get("citation_source", "") or (mcq_data.get("source_files") or [""])[0],
+            citation_quote=mcq_data.get("citation_quote", ""),
+            model=mcq_data.get("generation_model"),
+        ),
     }
-    
+
     letters = ['A', 'B', 'C', 'D']
     for idx, opt_text in enumerate(mcq_data.get("options", [])):
-        is_correct = (opt_text.strip() == mcq_data.get("correct_answer", "").strip())
+        is_correct = (opt_text.strip() in correct_answers_normalized)
         is_trap = False
         trap_analysis = mcq_data.get("trap_analysis", "")
         feedback = mcq_data.get("explanation", "")
-        
+
         if not is_correct and trap_analysis and letters[idx] in trap_analysis:
             is_trap = True
             feedback = trap_analysis
-            
+
         rich_question["options"].append({
             "option_letter": letters[idx],
             "code_snippet": opt_text,
@@ -266,6 +404,100 @@ def save_generated_question(mcq_data: dict):
 
     questions_col.insert_one(rich_question)
     return q_id
+
+
+# --- PROVENANCE REVIEW QUEUE ---
+
+def get_questions_for_review(limit: int = 50, topic_id: int | None = None) -> list:
+    """Questions awaiting a human decision -- draft or sourced, not yet confirmed/suspect.
+    Ordered by topic/concept so a review session can move through one concept at a time."""
+    query = {"provenance.state": {"$in": ["draft", "sourced"]}}
+    if topic_id is not None:
+        query["metadata.topic_id"] = int(topic_id)
+    return list(
+        questions_col.find(query)
+        .sort([("metadata.topic_id", 1), ("metadata.concept", 1)])
+        .limit(limit)
+    )
+
+
+def count_questions_for_review(topic_id: int | None = None) -> int:
+    query = {"provenance.state": {"$in": ["draft", "sourced"]}}
+    if topic_id is not None:
+        query["metadata.topic_id"] = int(topic_id)
+    return questions_col.count_documents(query)
+
+
+def confirm_question(question_id: str, user_id: str) -> bool:
+    """Human has read the question against its citation and approved it."""
+    result = questions_col.update_one(
+        {"_id": question_id},
+        {"$set": {
+            "provenance.state": "confirmed",
+            "provenance.confirmed_by": user_id,
+            "provenance.confirmed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        }},
+    )
+    return result.matched_count > 0
+
+
+def mark_question_suspect(question_id: str, reason: str = "") -> bool:
+    """Human flagged this question as wrong -- quarantined the same way draft is."""
+    result = questions_col.update_one(
+        {"_id": question_id},
+        {"$set": {
+            "provenance.state": "suspect",
+            "provenance.suspect_reason": reason,
+            "provenance.suspect_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+        }},
+    )
+    return result.matched_count > 0
+
+
+CITABLE_SOURCE_DIRS = ("cleaned_markdowns", "pics_qa_transcripts")
+
+
+def _strip_markdown_emphasis(text: str) -> str:
+    """Remove markdown inline-code/emphasis punctuation (`, **, __, *, _) so a
+    quote copied verbatim in plain prose still matches a doc that wraps the
+    same words in markdown formatting -- the words are what's being verified,
+    not the doc's markdown punctuation around them."""
+    return re.sub(r"[`*_]", "", text)
+
+
+def verify_citation(question: dict) -> tuple[bool, str]:
+    """Deterministic check: does the question's cited quote actually occur,
+    character-for-character (normalized whitespace and markdown emphasis
+    punctuation only), in its named source file? No model call -- this is the
+    honest replacement for a "fact-checking judge." Checks each of
+    CITABLE_SOURCE_DIRS in order -- cleaned_markdowns/ (official docs) first,
+    then pics_qa_transcripts/ (OCR'd MongoDB University screenshots, a
+    legitimate but separate source category). Returns (verified, message)."""
+    citation = (question.get("provenance") or {}).get("citation") or {}
+    doc_file = citation.get("doc_file", "")
+    quote = citation.get("quote", "")
+    if not doc_file or not quote:
+        return False, "missing citation doc_file or quote"
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    doc_path = None
+    for source_dir in CITABLE_SOURCE_DIRS:
+        candidate = os.path.join(here, "..", "data", source_dir, doc_file)
+        if os.path.exists(candidate):
+            doc_path = candidate
+            break
+    if doc_path is None:
+        return False, f"source file not found: {doc_file}"
+
+    with open(doc_path, encoding="utf-8") as f:
+        doc_text = f.read()
+
+    quote_norm = " ".join(_strip_markdown_emphasis(quote).split())
+    doc_norm = " ".join(_strip_markdown_emphasis(doc_text).split())
+    if quote_norm and quote_norm in doc_norm:
+        return True, "citation verified"
+    return False, "quote does not appear verbatim in the cited source file"
+
 
 # --- USER PROGRESS & ANALYTICS ---
 
@@ -349,36 +581,51 @@ def get_error_book(user_id: str, limit: int = 50) -> list:
 
 
 def save_attempt(user_id: str, question_id: str, topic: str, user_selected_letter: str, is_correct: bool, confidence: str):
-    """Save an individual question attempt to MongoDB and manage error book entries."""
+    """Save an individual question attempt to MongoDB and manage error book entries.
+
+    `user_selected_letter` accepts either a single letter ("A") for single-answer
+    questions, or a concatenated multi-letter string ("AC") for multi-response
+    questions -- both are stored as-is; `selected` additionally stores it as a
+    list for callers that want concept/domain-aware analytics later.
+    """
+    q_doc = questions_col.find_one({"_id": question_id})
+    metadata = (q_doc or {}).get("metadata", {}) or {}
+    selected_letters = list(str(user_selected_letter or "").strip().upper())
+
     attempt = {
         "user_id": user_id,
         "question_id": question_id,
         "topic": topic,
+        "topic_id": metadata.get("topic_id"),
+        "concept": metadata.get("concept"),
+        "difficulty": metadata.get("difficulty"),
+        "response_type": metadata.get("response_type", "single"),
         "user_selected_letter": user_selected_letter,
+        "selected": selected_letters,
         "is_correct": is_correct,
         "confidence_level": confidence,
         "timestamp": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
     }
     attempts_col.insert_one(attempt)
-    
+
     if is_correct:
         resolve_mistake(user_id, question_id)
     else:
         # Fetch question details to run heuristic classification
         try:
-            q_doc = questions_col.find_one({"_id": question_id})
             if q_doc:
                 question_text = q_doc.get("question_text", "")
                 concept = q_doc.get("metadata", {}).get("concept", "")
-                
+
                 correct_snippet = ""
-                selected_snippet = ""
+                selected_snippets = []
                 for opt in q_doc.get("options", []):
                     if opt.get("is_correct"):
                         correct_snippet = opt.get("code_snippet", "")
-                    if opt.get("option_letter") == user_selected_letter:
-                        selected_snippet = opt.get("code_snippet", "")
-                
+                    if opt.get("option_letter") in selected_letters:
+                        selected_snippets.append(opt.get("code_snippet", ""))
+                selected_snippet = " / ".join(s for s in selected_snippets if s)
+
                 trap_type = classify_mistake_trap(topic, question_text, correct_snippet, selected_snippet)
                 log_mistake(
                     user_id=user_id,
@@ -434,6 +681,106 @@ def get_analytics(user_id: str):
         "correct_attempts": correct,
         "topic_stats": sorted(topic_stats, key=lambda x: x["correct"], reverse=True)
     }
+
+
+def get_concept_accuracy_report(user_id: str) -> list[dict]:
+    """Per-concept accuracy, weakest first -- so a specific concept can be
+    called out for review instead of only a whole topic."""
+    user_attempts = list(attempts_col.find({"user_id": user_id}))
+
+    by_concept: dict[str, dict] = {}
+    for a in user_attempts:
+        concept = a.get("concept") or "Unclassified"
+        entry = by_concept.setdefault(concept, {
+            "concept": concept,
+            "topic_id": a.get("topic_id"),
+            "domain": DOMAIN_MAP.get(a.get("topic_id")),
+            "attempts": 0,
+            "correct": 0,
+        })
+        entry["attempts"] += 1
+        if a.get("is_correct"):
+            entry["correct"] += 1
+
+    report = []
+    for entry in by_concept.values():
+        entry["accuracy_pct"] = round(100 * entry["correct"] / entry["attempts"], 1) if entry["attempts"] else 0.0
+        report.append(entry)
+
+    return sorted(report, key=lambda e: e["accuracy_pct"])
+
+
+def get_domain_accuracy_report(user_id: str) -> list[dict]:
+    """Accuracy per exam domain, ordered by exam weight (heaviest first) so a
+    weak CRUD score (51%) reads louder than a weak Tools score (2%) -- rather
+    than sorting by accuracy, which would bury the domain that matters most."""
+    user_attempts = list(attempts_col.find({"user_id": user_id}))
+
+    by_domain: dict[str, dict] = {domain: {"attempts": 0, "correct": 0} for domain in EXAM_DOMAIN_WEIGHTS}
+    for a in user_attempts:
+        domain = DOMAIN_MAP.get(a.get("topic_id"))
+        if domain not in by_domain:
+            continue
+        by_domain[domain]["attempts"] += 1
+        if a.get("is_correct"):
+            by_domain[domain]["correct"] += 1
+
+    report = []
+    for domain, weight in sorted(EXAM_DOMAIN_WEIGHTS.items(), key=lambda item: item[1], reverse=True):
+        stats = by_domain[domain]
+        accuracy_pct = round(100 * stats["correct"] / stats["attempts"], 1) if stats["attempts"] else None
+        report.append({
+            "domain": domain,
+            "exam_weight_pct": weight,
+            "attempts": stats["attempts"],
+            "correct": stats["correct"],
+            "accuracy_pct": accuracy_pct,
+        })
+    return report
+
+
+# --- WRONG-ATTEMPT REMEDIATION (stateless lookup, no scheduling) ---
+#
+# Spec point 10, with point 12 corrected: there is no per-item scheduling
+# engine to hook flashcards into, and none is built here. On a wrong attempt,
+# this surfaces existing material only -- the missed question's own
+# citation, plus flashcards from the same domain -- and stores nothing.
+
+def load_flashcards() -> list[dict]:
+    """Flashcards live only in the repo-root data/ folder (the same file the
+    mobile/web companion apps bundle statically) -- not the packaged
+    certcoach/data/ tree -- so the path is resolved independently here."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    repo_root = os.path.abspath(os.path.join(here, "..", "..", ".."))
+    flashcards_path = os.path.join(repo_root, "data", "flashcards.json")
+    if not os.path.exists(flashcards_path):
+        return []
+    with open(flashcards_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
+def get_remediation_for_wrong_attempt(question_id: str, flashcard_limit: int = 3) -> dict:
+    """Primary surface: the missed question's own citation (concept-exact by
+    construction). Secondary surface: a small random sample of flashcards
+    from the same domain. No new explanation is generated; nothing is saved."""
+    question = questions_col.find_one({"_id": question_id})
+    if not question:
+        return {"citation": None, "domain": None, "flashcards": []}
+
+    citation = (question.get("provenance") or {}).get("citation") or {}
+    topic_id = question.get("metadata", {}).get("topic_id")
+    domain = DOMAIN_MAP.get(topic_id)
+
+    domain_matched = [c for c in load_flashcards() if c.get("category") == domain] if domain else []
+    if len(domain_matched) > flashcard_limit:
+        domain_matched = random.sample(domain_matched, flashcard_limit)
+
+    return {
+        "citation": citation if citation.get("quote") else None,
+        "domain": domain,
+        "flashcards": domain_matched,
+    }
+
 
 # --- USER PROFILE & COACH PLANNER ---
 
@@ -569,13 +916,18 @@ def approve_draft_question(draft_id: str) -> bool:
         return False
 
     # Convert draft to standard Ultimate Schema
+    correct_answers = draft.get("correct_answers") or [draft.get("correct_answer", "")]
+    correct_answers_normalized = {str(a).strip() for a in correct_answers if str(a).strip()}
+    response_type = "multi" if len(correct_answers_normalized) > 1 else "single"
     rich_question = {
         "_id": draft["_id"],
         "metadata": {
             "topic": draft["topic"],
             "difficulty": draft["difficulty"],
             "citation_source": draft["citation_source"],
-            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
+            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "response_type": response_type,
+            "num_correct": len(correct_answers_normalized),
         },
         "context": {
             "scenario_description": draft["scenario"],
@@ -590,12 +942,18 @@ def approve_draft_question(draft_id: str) -> bool:
             "times_correct": 0,
             "times_incorrect": 0,
             "average_time_seconds": 0.0
-        }
+        },
+        "provenance": provenance_metadata(
+            state=DEFAULT_PROVENANCE_STATE,
+            citation_doc_file=draft.get("citation_source", ""),
+            citation_quote=draft.get("citation_quote", ""),
+            model=draft.get("generation_model"),
+        ),
     }
 
     letters = ['A', 'B', 'C', 'D']
     for idx, opt_text in enumerate(draft["options"]):
-        is_correct = (opt_text.strip() == draft["correct_answer"].strip())
+        is_correct = (opt_text.strip() in correct_answers_normalized)
         is_trap = False
         trap_analysis = draft.get("trap_analysis", "")
         feedback = draft.get("explanation", "")

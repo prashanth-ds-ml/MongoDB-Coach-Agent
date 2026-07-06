@@ -30,6 +30,8 @@ def test_get_random_questions_skips_legacy_and_quarantined_records():
                 "content_contract_version": 2,
                 "content_contract_status": "generated",
             },
+            # Practice-readiness now requires human-confirmed provenance too.
+            "provenance": {"state": "confirmed"},
         },
     ]
 

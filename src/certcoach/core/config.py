@@ -11,6 +11,7 @@ GLOBAL_ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
 DEFAULT_STUDY_MODEL = "qwen3.5:4b"
 DEFAULT_POPULATION_MODEL = "gemma4:12b"
 DEFAULT_REPAIR_MODEL = "gemma4:12b"
+DEFAULT_SELF_CONSISTENCY_MODEL = "qwen2.5-coder:7b"
 DEFAULT_LOCAL_LLM_URL = "http://localhost:11434"
 
 
@@ -53,6 +54,19 @@ def get_population_model() -> str:
 def get_repair_model() -> str:
     load_environment()
     return os.getenv("REPAIR_MODEL") or get_population_model()
+
+
+def get_self_consistency_model() -> str:
+    """Checks a generated question's internal coherence only (does the marked
+    answer agree with its own explanation, are the options distinct) -- not a
+    MongoDB fact-checker. Defaults to a fast, non-reasoning local model:
+    benchmarked against deepseek-r1:8b (a reasoning model), which produced
+    14000+ characters of "thinking" and still timed out before ever reaching
+    a verdict. A quick internal-consistency check does not need deep
+    reasoning, and a model that reliably answers is more useful than one that
+    reasons carefully but never finishes."""
+    load_environment()
+    return os.getenv("SELF_CONSISTENCY_MODEL", DEFAULT_SELF_CONSISTENCY_MODEL)
 
 
 def get_study_num_ctx() -> int:

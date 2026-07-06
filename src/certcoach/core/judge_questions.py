@@ -168,28 +168,31 @@ def _validate_explanation_structure(explanation: str, needs_syntax_example: bool
     return issues
 
 
-def _validate_options(options: List[Dict]) -> List[str]:
+def _validate_options(options: List[Dict], response_type: str = "single") -> List[str]:
     issues = []
     normalized = _normalize_options(options)
-    
+
     if len(normalized) != 4:
         issues.append("does not have exactly four options")
-        
+
     option_texts = [str(opt.get("code_snippet", "")).strip() for opt in normalized]
     if any(not text for text in option_texts):
         issues.append("contains blank option text")
-        
+
     if any("placeholder" in text.lower() for text in option_texts):
         issues.append("contains placeholder option text")
-        
+
     if len({text.lower() for text in option_texts}) != len(option_texts):
         issues.append("duplicate option text")
 
-    if any(isinstance(opt, dict) and opt.get("is_correct") for opt in normalized) and sum(
-        1 for opt in normalized if isinstance(opt, dict) and opt.get("is_correct")
-    ) != 1:
-        issues.append("does not have exactly one correct option")
-        
+    correct_count = sum(1 for opt in normalized if isinstance(opt, dict) and opt.get("is_correct"))
+    if response_type == "multi":
+        if correct_count < 2:
+            issues.append("response_type is 'multi' but fewer than two options are marked correct")
+    else:
+        if correct_count != 1:
+            issues.append("does not have exactly one correct option")
+
     return issues
 
 
@@ -296,9 +299,10 @@ def judge_question(question: Dict, source_files: List[str], context_text: str) -
         return issues
         
     metadata = question.get("metadata", {})
-    
+    response_type = str(metadata.get("response_type", "single")).strip().lower() or "single"
+
     issues.extend(_validate_question_text(question.get("question_text", "")))
-    issues.extend(_validate_options(question.get("options", [])))
+    issues.extend(_validate_options(question.get("options", []), response_type=response_type))
     issues.extend(_validate_casing_rules(
         question.get("question_text", ""),
         question.get("options", []),

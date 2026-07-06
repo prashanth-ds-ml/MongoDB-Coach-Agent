@@ -18,6 +18,7 @@ This is the Obsidian and cross-agent navigation hub. Start with the compact cont
 ## Product And Architecture
 
 - [[coach_flow_spec|Coach Flow Spec]]
+- [[study_order_map|Study Order Map: Syllabus to Official Docs]]
 - [[lesson_template_rules|Lesson Template Rules]]
 - [[study_pattern_guardrails|Study Pattern Guardrails]]
 - [[architecture_decisions|Architecture Decisions]]

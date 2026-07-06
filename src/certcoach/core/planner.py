@@ -31,7 +31,16 @@ def load_syllabus() -> list:
 def score_md_file_for_concept(filename: str, concept: str) -> int:
     if not concept:
         return 0
-    tokens = [t.lower() for t in concept.replace("()", " ").replace("/", " ").replace("-", " ").split() if len(t) > 2]
+    # Strip "$" so a bare operator concept like "$set" tokenizes to "set" --
+    # official doc filenames never include the literal dollar sign (e.g.
+    # ..._operator_update_set__....md), so leaving it in the token silently
+    # blocked every purely-operator-named concept from matching its own
+    # dedicated reference doc.
+    tokens = [
+        t.lower()
+        for t in concept.replace("()", " ").replace("/", " ").replace("-", " ").replace("$", " ").split()
+        if len(t) > 2
+    ]
     filename_lower = filename.lower()
     score = 0
     for token in tokens:
