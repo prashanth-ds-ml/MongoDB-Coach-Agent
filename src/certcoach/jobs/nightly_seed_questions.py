@@ -38,7 +38,7 @@ from certcoach.core.content_contract import (
     is_topic1_concept_only,
     provenance_metadata,
 )
-from certcoach.core.question_targets import QuestionTarget, build_weighted_targets
+from certcoach.core.question_targets import MIN_CONCEPT_TARGETS, QuestionTarget, build_weighted_targets
 from certcoach.core.model_runner import get_model_runner
 from certcoach.core.judge_questions import judge_question
 
@@ -278,6 +278,17 @@ def _get_db_style_counts(topic_id: int, concept: str, difficulty: str) -> dict[s
     return counts
 
 
+def _default_total_bank_target(syllabus: list[dict]) -> int:
+    """The pool size build_weighted_targets redistributes by exam weight when the
+    caller hasn't set an explicit --target-easy/--target-medium. Preserves the
+    previous flat per-concept average (get_population_easy_target() +
+    get_population_medium_target(), still respecting any user config override)
+    as the overall bank scale -- only the *distribution* across concepts changes,
+    from identical-for-everyone to proportional-to-real-exam-weight."""
+    num_concepts = sum(len(item.get("subtopics") or [item["topic"]]) for item in syllabus) or 1
+    return (get_population_easy_target() + get_population_medium_target()) * num_concepts
+
+
 def audit_weighted_deficits(
     total_bank_target: int | None = None,
     topic_filter: str | None = None,
@@ -287,30 +298,36 @@ def audit_weighted_deficits(
     extra_easy: int = 0,
     extra_medium: int = 0,
 ) -> list[tuple[StyleTarget, int]]:
+    syllabus = planner.load_syllabus()
     targets = build_weighted_targets(
-        planner.load_syllabus(),
-        total_bank_target=total_bank_target,
-        extra_easy=extra_easy,
-        extra_medium=extra_medium,
+        syllabus,
+        total_bank_target=total_bank_target if total_bank_target is not None else _default_total_bank_target(syllabus),
     )
     deficits = []
-    population_targets = {
-        "Easy": max(3, target_easy if target_easy is not None else get_population_easy_target()),
-        "Medium": max(2, target_medium if target_medium is not None else get_population_medium_target()),
+    # An explicit --target-easy/--target-medium always wins outright, applied flat
+    # across every matched concept (unchanged from before). When neither is passed,
+    # each concept's own weight-driven target.target_count applies instead of a
+    # single flat number for every concept regardless of real exam weight.
+    explicit_override = {
+        "Easy": max(MIN_CONCEPT_TARGETS["Easy"], target_easy) if target_easy is not None else None,
+        "Medium": max(MIN_CONCEPT_TARGETS["Medium"], target_medium) if target_medium is not None else None,
     }
-    
+
     for target in targets:
         if not _topic_matches(target, topic_filter):
             continue
         if concept_filter and target.concept.casefold() != concept_filter.strip().casefold():
             continue
-            
+
         # Get active counts in database for each style under this (topic, concept, difficulty)
         db_counts = _get_db_style_counts(target.topic_id, target.concept, target.difficulty)
-        
+
         current_total = sum(db_counts.values())
         requested_extra = extra_easy if target.difficulty == "Easy" else extra_medium
-        requested_count = max(population_targets[target.difficulty], current_total) + requested_extra
+        base_target = explicit_override[target.difficulty]
+        if base_target is None:
+            base_target = target.target_count
+        requested_count = max(base_target, current_total) + requested_extra
 
         # Distribute the requested count into style guidance.
         if target.topic_id in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}:
@@ -1238,10 +1255,13 @@ def run_weighted_seed(
 
     total_missing = sum(missing for _, missing in deficits)
     print(f"\nCertCoach Weighted Nightly Seeder")
-    effective_easy_target = max(3, target_easy if target_easy is not None else get_population_easy_target())
-    effective_medium_target = max(2, target_medium if target_medium is not None else get_population_medium_target())
-    print("Study-ready threshold: 3 Easy + 2 Medium per concept")
-    print(f"Population inventory target: {effective_easy_target} Easy + {effective_medium_target} Medium per concept")
+    print(f"Practice-readiness floor: {MIN_CONCEPT_TARGETS['Easy']} Easy + {MIN_CONCEPT_TARGETS['Medium']} Medium per concept (unlocks the five-question practice session)")
+    if target_easy is not None or target_medium is not None:
+        effective_easy_target = max(MIN_CONCEPT_TARGETS["Easy"], target_easy) if target_easy is not None else MIN_CONCEPT_TARGETS["Easy"]
+        effective_medium_target = max(MIN_CONCEPT_TARGETS["Medium"], target_medium) if target_medium is not None else MIN_CONCEPT_TARGETS["Medium"]
+        print(f"Explicit population target override: {effective_easy_target} Easy + {effective_medium_target} Medium per concept (flat, ignores exam weight)")
+    else:
+        print("Population target: weighted by real exam-blueprint share per concept (see memory/MongoDB_Exam_Blueprint.md) -- deeper for high-weight concepts, floored at the readiness threshold for low-weight ones")
     if extra_easy or extra_medium:
         print(f"Explicit extras requested per concept: +{extra_easy} Easy, +{extra_medium} Medium")
     if topic_filter:
@@ -1259,6 +1279,10 @@ def run_weighted_seed(
     failures = 0
     attempted_slots = 0
     total_to_attempt = min(total_missing, max_questions) if max_questions is not None else total_missing
+    # Doc corpus can't always sustain every concept's weighted target -- track shortfalls
+    # explicitly instead of treating the target as mandatory (same "never silent padding"
+    # philosophy as the weighted mock's domain_shortfall report).
+    shortfall_by_concept: dict[tuple[int, str, str], int] = {}
 
     progress = Progress(
         TextColumn("[bold cyan]{task.description}[/bold cyan]"),
@@ -1293,6 +1317,7 @@ def run_weighted_seed(
                 progress.console.print(f"  - Injected Context Length: {len(context_text)} characters")
 
                 generated_for_target = 0
+                clean_sourced_for_target = 0
                 while generated_for_target < missing:
                     if max_questions is not None and attempted_slots >= max_questions:
                         progress.console.print(
@@ -1359,6 +1384,8 @@ def run_weighted_seed(
 
                                 inserted += 1
                                 generated_for_target += 1
+                                if provenance["state"] == "sourced":
+                                    clean_sourced_for_target += 1
                                 progress.advance(task_id)
                                 print_question_template(repaired_question)
                                 slot_filled = True
@@ -1380,11 +1407,23 @@ def run_weighted_seed(
                         generated_for_target += 1
                         progress.advance(task_id)
                         progress.console.print(f"[red]Slot failed:[/red] {label} after {max_attempts_per_slot} attempts")
+
+                gap = missing - clean_sourced_for_target
+                if gap > 0:
+                    concept_key = (target.topic_id, target.concept, target.difficulty)
+                    shortfall_by_concept[concept_key] = shortfall_by_concept.get(concept_key, 0) + gap
     finally:
         # Model unloading is now handled by model_runner internally
         pass
 
     print(f"\nWeighted seeding complete. Inserted {inserted} questions. Failed/skipped quality generations: {failures}.")
+    if shortfall_by_concept:
+        print("\nShortfall report -- concepts that did not fully reach their weighted target this run")
+        print("(the doc corpus, quality gate, or duplicate check couldn't sustain the full request; never silently padded):")
+        for (topic_id, concept, difficulty), gap in sorted(shortfall_by_concept.items()):
+            print(f"  - Topic {topic_id} | {concept} | {difficulty}: short by {gap}")
+    else:
+        print("All requested slots this run reached their weighted target.")
     return inserted
 
 

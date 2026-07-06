@@ -24,8 +24,9 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 ## Current Constraints
 
 - `certcoach_db` is the source of truth for learner state and questions.
-- `3 Easy + 2 Medium` active questions is the study-readiness gate.
-- Ordered population continues toward configurable per-concept inventory targets, default `5 Easy + 5 Medium`.
+- `3 Easy + 2 Medium` active questions is the study-readiness gate (fixed -- mirrors the five-question practice-session composition in `cli.py`, not weight-adjustable).
+- Above that floor, population targets scale with each concept's real MongoDB exam-blueprint weight (`question_targets.build_weighted_targets`, cascaded from `EXAM_DOMAIN_WEIGHTS` -- see `memory/MongoDB_Exam_Blueprint.md`) instead of a flat per-concept default. High-weight concepts (e.g. Drivers, Indexes) get deeper targets; low-weight ones (e.g. Tools) stay near the floor.
+- Generation is adaptive to what the doc corpus can sustain: a concept that can't reach its weighted target after retries is reported as an explicit shortfall, never silently padded or treated as a hard requirement.
 - Repair and population run in canonical syllabus topic/concept order.
 - Long live-bank repair/population jobs run only as controlled overnight batches.
 - Do not add optional product features before the preparation-readiness blockers are cleared.

@@ -19,6 +19,7 @@ from certcoach.core.content_contract import (
     is_contract_active,
     provenance_metadata,
 )
+from certcoach.core.question_targets import DOMAIN_MAP, EXAM_DOMAIN_WEIGHTS
 
 
 def is_practice_ready(record: dict | None) -> bool:
@@ -237,30 +238,12 @@ def get_active_question_counts_by_difficulty(topic_id=None, concepts=None) -> di
 # domain. Domain names deliberately match flashcards.json's `category` field
 # exactly, so the same map also drives domain-matched remediation (spec point
 # 10) without a second vocabulary to keep in sync.
-
-DOMAIN_MAP: dict[int, str] = {
-    1: "Overview & Document Model",
-    2: "CRUD Operations",
-    3: "CRUD Operations",
-    4: "CRUD Operations",
-    5: "CRUD Operations",
-    6: "CRUD Operations",
-    7: "CRUD Operations",
-    8: "CRUD Operations",
-    9: "Indexes",
-    10: "Data Modeling",
-    11: "Drivers & PyMongo",
-    12: "Tools & Tooling",
-}
-
-EXAM_DOMAIN_WEIGHTS: dict[str, float] = {
-    "CRUD Operations": 51,
-    "Drivers & PyMongo": 18,
-    "Indexes": 17,
-    "Overview & Document Model": 8,
-    "Data Modeling": 4,
-    "Tools & Tooling": 2,
-}
+#
+# DOMAIN_MAP/EXAM_DOMAIN_WEIGHTS now live in question_targets.py (imported at
+# top of file) since population targets need them too, to cascade real exam
+# weight down to per-concept generation targets. Re-exported as module
+# attributes here so existing `database.DOMAIN_MAP`/`database.EXAM_DOMAIN_WEIGHTS`
+# references and test patches keep working unchanged.
 
 
 def apportion_largest_remainder(total: int, weights: dict[str, float]) -> dict[str, int]:

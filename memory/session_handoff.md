@@ -1,17 +1,19 @@
 # Session Handoff
 
-Last updated: 2026-07-06 (session 2)
+Last updated: 2026-07-06 (session 3)
 
 Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[decision_log|Decision Log]], [[study_order_map|Study Order Map]]
 
 ## Current State
 
-- Phase: Provenance/trust rollout (see [[agent_context|Agent Context]] for the full rule set). This supersedes the Phase 4 lesson/population narrative that previously occupied this file -- that thread is not abandoned, just secondary until practice has usable inventory again.
-- The provenance system (core `database.py`/`content_contract.py` changes, 6 new job scripts, ~15 new/updated test files) was implemented in a prior working session that was **never committed to git and never documented in memory** -- this was discovered and reconstructed at the start of the 2026-07-05 session by reading the working-tree diff and querying the live DB directly, since this file's prior content (last updated 2026-07-03) described an entirely different, now-stale Phase 4 narrative.
-- The 2026-07-06 session proved the doc-to-question generation loop end-to-end on real data (Topic 1 BSON Data Types) and fixed 4 real bugs surfaced along the way: a population deficit-calculator that ignored the provenance gate, a citation checker that falsely rejected verbatim quotes over markdown backticks, a self-consistency model that reasoned for 14K+ characters and never answered, and a doc-scoring function that couldn't match bare `$`-operator concepts to their own reference docs. See Decision Log 2026-07-06 for full reasoning on each.
-- A later 2026-07-06 session found the user had confirmed 2 of the 4 `sourced` questions independently (via `certcoach-review-questions`, outside git) and built a new read-only report, `certcoach-map-questions-to-docs`, that maps every question to its syllabus topic/concept and official doc(s) and flags citation drift. See "Completed This Session (2026-07-06, continued)" below.
-- Live DB right now: 379 total questions, 2 `confirmed` (Topic 1 BSON Data Types, Easy), 2 `sourced` awaiting review (Topic 10 Embedding vs Referencing Easy, Topic 11 PyMongo purpose Easy), 375 `suspect`. Practice and mocks still have **effectively zero usable inventory** -- 2 confirmed items for one concept is well short of the `3 Easy + 2 Medium` readiness gate.
-- All 249 unit tests pass. Nothing from this thread is committed yet.
+- Phase: Provenance/trust rollout, now committed (see [[agent_context|Agent Context]] for the full rule set). This supersedes the Phase 4 lesson/population narrative that previously occupied this file -- that thread is not abandoned, just secondary until practice has usable inventory again.
+- **Committed to git** (branch `codex/publish-bank-loop`, nothing pushed): `730d8e7` (provenance/trust rollout -- 107 files) and `f350d2a` (unrelated flashcards.json data sync, split out separately). The 3-sessions-deep uncommitted-work risk flagged in every prior handoff is resolved for that work specifically -- but see below, the weighted-target work built *after* those commits is itself uncommitted again.
+- **Learner history wiped for a fresh start** (user's explicit request): `user_attempts`, `user_study_sessions`, `user_profiles`, `lesson_artifacts` all cleared (20/4/3/58 docs), backed up to `backups/learner-history-backup-20260706-201216/`. Question bank and login untouched.
+- **Topic 1 BSON Data Types reset to true zero**: user chose "discard and redo" over keeping the 2 already-confirmed questions, so those were also deleted (backed up to `backups/bson-data-types-confirmed-backup-20260706-210908/`). Concept #1 in canonical study order now has 0 confirmed, 0 sourced, 29 inert `suspect` legacy questions left purely as generation reference.
+- **25 unrecoverable screenshot-sourced suspects purged** (`certcoach-purge-screenshot-backlog`, auto-backed up). The 23 orphan (`topic_id: None`) suspects were kept, folded into the seeding loop as regeneration signal per `map_questions_to_docs.py`'s inferred topic/concept -- not purged, not confirmed.
+- **Population targets are now exam-weighted, not flat** (see Decision Log 2026-07-06 continued for full reasoning): `question_targets.build_weighted_targets` cascades the real `EXAM_DOMAIN_WEIGHTS` (51/18/17/8/4/2, previously used only by the mock exam) down through topic and concept, so high-weight concepts (Drivers 18%, Indexes 17%) get deeper targets and low-weight ones (Tools 2%) stay near the floor. The `3 Easy + 2 Medium` readiness gate itself is unchanged -- it mirrors a hardcoded practice-session composition in `cli.py`, a separate product/UX decision this work did not touch. `nightly_seed_questions.audit_weighted_deficits` now actually consumes the weighted target for the default (no `--target-easy`/`--target-medium`) path; explicit CLI overrides still apply flatly as before. Generation shortfalls (concept can't reach target after retries) are now reported explicitly at the end of a `certcoach-seed-nightly` run instead of silently accepted.
+- Live DB right now: 354 total questions, 0 `confirmed`, 0 `sourced`, 354 `suspect` (all inert, reference-only). **Practice has zero usable inventory** -- starting genuinely from scratch at concept #1.
+- All 255 unit tests pass (249 baseline + 6 new: 5 for the weight cascade in `question_targets.py`, 1 more replacing a test that encoded the old flat-target behavior, plus 2 in `nightly_seed_questions` verifying the weighted-vs-explicit-override paths).
 - New reference: [[study_order_map|Study Order Map]] -- the full syllabus-to-official-docs mapping for all 58 concepts across 93 docs, in canonical study order.
 
 ## Completed This Session (2026-07-05)
@@ -42,22 +44,30 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 3. **Ran it against the live bank**: 356/379 questions had stored topic/concept; the 23 orphaned records were placed via inference (none stayed fully unmapped). 238 questions resolve to a concept-exact official doc, 118 fall back to topic-level docs (genuine corpus gaps, same pattern as `study_order_map.md`), 23 have no topic to resolve a doc against at all. 333/379 questions carry a citation value that isn't one of the resolved official docs -- expected, since legacy `citation_source` is a human-readable title or URL, never a real filename. Full per-question detail written to a scratch CSV (not committed, regenerate with `--out <path>` when needed).
 4. Reinstalled the package (`pip install -e .`) to register the new entry point; full suite verified at 249/249 passing.
 
+## Completed This Session (2026-07-06, session 3)
+
+1. **Committed** the 3-sessions-deep provenance/trust rollout (`730d8e7`) and a separate unrelated flashcards.json sync (`f350d2a`); deleted a stray garbled debug file that had no reference anywhere.
+2. **Wiped learner history** (`user_attempts`, `user_study_sessions`, `user_profiles`, `lesson_artifacts`) at the user's explicit request, backed up first, to give a genuinely fresh start.
+3. **Reset Topic 1 BSON Data Types to true zero**, including deleting its 2 already-confirmed questions per the user's explicit "discard and redo" choice, backed up first.
+4. **Purged the 25 confirmed-unrecoverable screenshot suspects**; kept the 23 orphan suspects as regeneration signal rather than purging them.
+5. **Built the exam-weighted population target system**: `question_targets.topic_exam_weight_map()` cascades the real `EXAM_DOMAIN_WEIGHTS` down through topic and concept (replacing the flat 5E/5M-for-everyone default); `nightly_seed_questions.audit_weighted_deficits` now consumes it for the default path; added a shortfall report; updated `AGENTS.md`/`agent_context.md`'s documented rule. 255/255 tests pass. **This code (question_targets.py, nightly_seed_questions.py, database.py, AGENTS.md, agent_context.md, 2 test files) is not committed.**
+6. Dry-ran the new weighted targets against Topic 1 BSON Data Types (confirmed correct: 16 slots, 7 Easy + 9 Medium) but stopped before any live generation -- no questions generated yet this session.
+
 ## Next Action
 
-1. User to run `certcoach-review-questions` themselves (interactive, human-judgment step) to confirm the 2 remaining questions currently in the review queue.
-2. Decide: purge the 25 unrecoverable screenshot questions via `certcoach-purge-screenshot-backlog` (backs up first, deletes only `suspect` + `pics_qa/`-sourced), or hold for manual review.
-3. Decide: investigate, regenerate, or delete the 23 `topic_id: None` suspect records -- the new doc-mapping report gives all 23 an inferred topic/concept and a doc lead, so regeneration is now a viable option, not just purge.
-4. Once a few questions are confirmed, try an actual practice session to verify the full loop works end-to-end for a learner, not just at the data layer.
-5. Ask before committing the uncommitted provenance-system code and all three sessions' worth of fixes/tools to git -- this is a lot of accumulated, tested, uncommitted work now.
-6. Resume the Phase 4 lesson/population thread (Topics 11-12 lesson exports, population from Topic 4 `$unset`) once provenance-confirmed inventory exists to make it meaningful again.
+1. Ask before committing the weighted-target work (9 modified files, listed above) -- it's tested but uncommitted, the same pattern that grew risky before.
+2. Start the per-concept loop at concept #1 (Topic 1, BSON Data Types -- now genuinely at zero): `certcoach-seed-nightly --topic 1 --concept "BSON Data Types"`, which now uses the exam-weighted target instead of a flat one. A first small batch (`--max-questions 3`) was suggested but not yet run.
+3. Run `certcoach-review-questions` scoped to Topic 1 to confirm what gets generated.
+4. Check the weighted target was actually reached (not just the 3E+2M floor) before moving to concept #2 in `study_order_map.md` order; watch for the new shortfall report at the end of the seed run if the doc corpus can't sustain it.
+5. Once a few concepts are confirmed, run an actual practice session to verify the learner-facing loop, not just the data layer.
+6. Resume the Phase 4 lesson/population thread (Topics 11-12 lesson exports, population from Topic 4 `$unset`) only after provenance-confirmed inventory exists to make it meaningful again.
 
 ## Known Blockers
 
-- Practice/mocks are non-functional right now: only 2 `confirmed` questions in the live bank, both for the same concept (2 more are `sourced` and awaiting human review).
-- The provenance-system code and all three sessions' fixes are uncommitted -- growing risk the longer this stays in the working tree only.
-- 50 concepts (pre-provenance count) were not study-ready under the old content-contract gate alone; the provenance gate is now the binding constraint regardless.
+- Practice/mocks have **zero** usable inventory right now (Topic 1's prior 2 confirmed questions were deliberately reset) -- this is the expected starting state for the fresh-start loop, not a bug.
 - The self-consistency check still can't reliably catch a subtle cross-check failure (marked-correct answer contradicting the explanation) on any tested local model -- deferred, not blocking today's loop.
 - Phase 5 full study-flow and mixed-mock smoke tests remain manual and are blocked on having any meaningful `confirmed` inventory.
+- The exam-weighted population target has been unit-tested and sanity-checked against the real syllabus (weights sum to 100%, high/low-weight concepts differentiate as expected) but not yet exercised through a real `certcoach-seed-nightly` run -- Topic 1 is the first live test.
 
 ## Commands
 
@@ -70,6 +80,9 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 .\.venv\Scripts\python.exe -m certcoach.jobs.recover_screenshot_citations
 .\.venv\Scripts\python.exe -m certcoach.jobs.purge_screenshot_backlog
 .\.venv\Scripts\python.exe -m certcoach.jobs.review_questions
+
+# Per-concept seeding loop (now exam-weighted by default)
+.\.venv\Scripts\python.exe -m certcoach.jobs.nightly_seed_questions --topic 1 --concept "BSON Data Types"
 
 # Preview next Phase 4 concept (secondary thread)
 .\.venv\Scripts\python.exe -m certcoach.jobs.next_phase4_topic

@@ -107,6 +107,48 @@ def test_style_counts_include_only_practice_ready_questions():
     }, {"metadata": 1, "provenance": 1})
 
 
+def test_audit_weighted_deficits_defaults_scale_with_real_exam_weight():
+    """Without an explicit --target-easy/--target-medium, the deficit should follow
+    each concept's real exam-blueprint weight (question_targets.topic_exam_weight_map),
+    not a flat number identical for every concept regardless of how heavily it's
+    tested -- this is the behavior audit_weighted_deficits ignored before, always
+    recomputing a flat get_population_easy_target()/get_population_medium_target()
+    default instead of consuming target.target_count from build_weighted_targets."""
+    from certcoach.jobs import nightly_seed_questions as job
+
+    syllabus = [
+        {"id": 12, "topic": "Low Topic", "subtopics": ["A"], "bank_topic_keys": ["Low Bank"]},
+        {"id": 11, "topic": "High Topic", "subtopics": ["B"], "bank_topic_keys": ["High Bank"]},
+    ]
+
+    with patch.object(job.planner, "load_syllabus", return_value=syllabus), \
+         patch.object(job, "_get_db_style_counts", return_value={"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}):
+        deficits = job.audit_weighted_deficits(total_bank_target=200)
+
+    low_total = sum(missing for target, missing in deficits if target.topic_id == 12)
+    high_total = sum(missing for target, missing in deficits if target.topic_id == 11)
+    assert high_total > low_total
+
+
+def test_audit_weighted_deficits_explicit_override_stays_flat_across_concepts():
+    """An explicit --target-easy/--target-medium always wins outright and applies
+    identically regardless of weight -- unchanged from before this feature."""
+    from certcoach.jobs import nightly_seed_questions as job
+
+    syllabus = [
+        {"id": 12, "topic": "Low Topic", "subtopics": ["A"], "bank_topic_keys": ["Low Bank"]},
+        {"id": 11, "topic": "High Topic", "subtopics": ["B"], "bank_topic_keys": ["High Bank"]},
+    ]
+
+    with patch.object(job.planner, "load_syllabus", return_value=syllabus), \
+         patch.object(job, "_get_db_style_counts", return_value={"Type A": 0, "Type B": 0, "Type C": 0, "Type D": 0}):
+        deficits = job.audit_weighted_deficits(target_easy=4, target_medium=3)
+
+    low_total = sum(missing for target, missing in deficits if target.topic_id == 12)
+    high_total = sum(missing for target, missing in deficits if target.topic_id == 11)
+    assert low_total == high_total == 7
+
+
 def test_audit_does_not_overpopulate_to_force_style_distribution():
     from certcoach.jobs import nightly_seed_questions as job
 
