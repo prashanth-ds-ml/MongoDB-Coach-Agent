@@ -1,6 +1,5 @@
 import os
 import json
-import random
 import datetime
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -9,7 +8,6 @@ REPO_ROOT = os.path.abspath(os.path.join(_HERE, "../../../"))
 MEMORY_DIR = os.path.join(REPO_ROOT, "memory")
 
 SYLLABUS_FILE = os.path.join(DATA_DIR, "syllabus.json")
-RAW_MD_DIR = os.path.join(DATA_DIR, "raw_markdowns")
 
 MOCK_EXAM_UNLOCK_THRESHOLD = 0.70  # 70% topics mastered required
 PRACTICE_QUESTION_COUNT = 5
@@ -59,16 +57,36 @@ def prioritize_md_files(md_files: list[str], concept: str) -> list[str]:
     return sorted(md_files, key=lambda filename: score_md_file_for_concept(filename, concept), reverse=True)
 
 
+def resolve_concept_docs(md_files: list[str], concept: str, max_files: int = 3) -> list[str]:
+    """Doc-relevance filter shared by lesson delivery, question generation, and
+    the dry-run preview job. A flat `score > 0` threshold let a single generic
+    token (e.g. "data" in "BSON Data Types") falsely match unrelated topic-level
+    docs whose filenames merely happen to contain that word (`..._data_modeling_
+    introduction`, `..._databases_and_collections`) alongside the real match.
+    Requiring each candidate to reach at least half the top score for this
+    concept filters those out while still keeping every doc in a genuinely-tied
+    multi-doc concept (e.g. sort/limit/skip's three cursor docs, which all score
+    equally and would otherwise be wrongly narrowed by an absolute cutoff).
+    """
+    if not concept:
+        return md_files[:max_files]
+    scored = [(filename, score_md_file_for_concept(filename, concept)) for filename in md_files]
+    max_score = max((score for _, score in scored), default=0)
+    if max_score <= 0:
+        return md_files[:2][:max_files]
+    threshold = max_score * 0.5
+    relevant = [
+        filename for filename, score in sorted(scored, key=lambda pair: pair[1], reverse=True)
+        if score >= threshold
+    ]
+    return relevant[:max_files]
+
+
 def load_md_context(md_files: list, prioritize_concept: str = None) -> str:
     """Load markdown file content as context for the LLM."""
     if prioritize_concept:
-        md_files = prioritize_md_files(md_files, prioritize_concept)
-        relevant_files = [
-            filename for filename in md_files
-            if score_md_file_for_concept(filename, prioritize_concept) > 0
-        ]
-        md_files = (relevant_files or md_files[:2])[:3]
-        
+        md_files = resolve_concept_docs(md_files, prioritize_concept)
+
     texts = []
     CLEANED_MD_DIR = os.path.join(DATA_DIR, "cleaned_markdowns")
     RAW_MD_DIR_DYNAMIC = os.path.join(DATA_DIR, "raw_markdowns")
@@ -253,19 +271,6 @@ def generate_study_calendar(days: int, experience_level: str = None, diagnostic_
     return calendar
 
 
-def get_today_calendar_item(calendar: list) -> dict | None:
-    """Return the calendar entry for today."""
-    today_iso = datetime.date.today().isoformat()
-    for item in calendar:
-        if item["date_iso"] == today_iso:
-            return item
-    # Fallback: return the first uncompleted study day
-    for item in calendar:
-        if item["phase"] == "Study":
-            return item
-    return None
-
-
 # ---------------------------------------------------------------------------
 # SYLLABUS STATUS
 # ---------------------------------------------------------------------------
@@ -353,9 +358,12 @@ def get_syllabus_status(user_id: str) -> dict:
         if is_mastered:
             mastered_count += 1
         else:
-            if has_topic_documentation(item) and ready_subtopics:
+            # Lesson/Q&A eligibility is doc coverage only -- question-bank readiness
+            # (ready_subtopics) gates practice separately inside run_practice_questions,
+            # so a concept with no confirmed questions yet must still be teachable today.
+            if has_topic_documentation(item) and readiness_concepts:
                 if next_topic is None:
-                    next_topic = {**item, "next_ready_subtopic": ready_subtopics[0]}
+                    next_topic = {**item, "next_ready_subtopic": readiness_concepts[0]}
             else:
                 if not has_topic_documentation(item):
                     skipped_unmapped_topics.append({
@@ -443,7 +451,11 @@ def calculate_readiness_metrics(user_id: str) -> dict:
         "current_readiness": round(current_readiness, 1),
         "expected_readiness": round(expected_readiness, 1),
         "target_readiness": target_readiness,
-        "pass_probability": round(pass_probability, 1)
+        "pass_probability": round(pass_probability, 1),
+        # Same threshold the dampener above saturates at -- below it, these
+        # numbers are still mostly noise, not a real prediction, and the
+        # display should say so rather than presenting a bare percentage.
+        "low_data": total_attempts < 30,
     }
 
 

@@ -2,7 +2,9 @@
 topic/concept and the official doc(s) that concept maps to (the same
 resolution used to build memory/study_order_map.md), then compare that
 against whatever citation doc the question currently carries. Writes
-nothing to the database or filesystem outside the optional --out CSV.
+nothing to the database or filesystem outside the optional --out CSV,
+unless --write is passed (see backfill_missing_topics), which persists a
+resolved topic_id/concept only onto documents that currently lack one.
 """
 from __future__ import annotations
 
@@ -76,9 +78,10 @@ def resolve_official_docs(topic_id: int | None, concept: str | None, topics_by_i
     if not concept:
         return md_files[:2], False
 
-    matched = [f for f in planner.prioritize_md_files(md_files, concept) if planner.score_md_file_for_concept(f, concept) > 0]
-    if matched:
-        return matched, True
+    resolved = planner.resolve_concept_docs(md_files, concept)
+    is_concept_exact = any(planner.score_md_file_for_concept(f, concept) > 0 for f in resolved)
+    if is_concept_exact:
+        return resolved, True
     return md_files[:2], False
 
 
@@ -156,6 +159,43 @@ def print_summary(rows: list[dict]) -> None:
     console.print(table)
 
 
+def backfill_missing_topics(write: bool = False) -> dict:
+    """For questions whose metadata.topic_id is missing/None (the orphan
+    legacy records invisible to any topic/concept-scoped review query),
+    resolves a topic/concept via the exact same resolve_topic_and_concept()
+    heuristic the read-only report already uses, and -- only when write=True
+    -- persists metadata.topic_id/metadata.concept onto those documents.
+    Never touches a document that already has a topic_id, never touches
+    provenance.state or anything else, and never fabricates a placement for
+    a question resolve_topic_and_concept genuinely can't place."""
+    topics_by_id, topics_by_bank_key = build_syllabus_index()
+    orphan_query = {"$or": [{"metadata.topic_id": {"$exists": False}}, {"metadata.topic_id": None}]}
+
+    backfilled: list[dict] = []
+    unresolved: list = []
+    for q in database.questions_col.find(orphan_query):
+        placement = resolve_topic_and_concept(q, topics_by_id, topics_by_bank_key)
+        if placement["topic_id"] is None:
+            unresolved.append(q["_id"])
+            continue
+        if write:
+            database.questions_col.update_one(
+                {"_id": q["_id"]},
+                {"$set": {"metadata.topic_id": placement["topic_id"], "metadata.concept": placement["concept"]}},
+            )
+        backfilled.append({"_id": q["_id"], "topic_id": placement["topic_id"], "concept": placement["concept"]})
+
+    return {"backfilled": backfilled, "unresolved": unresolved, "write": write}
+
+
+def print_backfill_summary(result: dict) -> None:
+    total = len(result["backfilled"]) + len(result["unresolved"])
+    verb = "Backfilled" if result["write"] else "Would backfill"
+    console.print(f"\n[bold]{verb} {len(result['backfilled'])} of {total} orphan(s); {len(result['unresolved'])} remain unresolved.[/bold]")
+    if not result["write"] and result["backfilled"]:
+        console.print("[dim]Dry run only -- pass --write to persist these onto the database.[/dim]")
+
+
 def write_csv(rows: list[dict], path: str) -> None:
     fieldnames = [
         "_id", "provenance_state", "topic_id", "topic_name", "concept", "concept_source",
@@ -173,6 +213,11 @@ def write_csv(rows: list[dict], path: str) -> None:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only report mapping every question to its syllabus topic/concept and official doc(s).")
     parser.add_argument("--out", help="Optional path to write the full per-question detail as CSV.")
+    parser.add_argument(
+        "--write", action="store_true",
+        help="Persist resolved topic_id/concept onto orphan documents that currently lack one "
+             "(default: dry-run count only, no database writes).",
+    )
     args = parser.parse_args(argv)
 
     database.check_connection()
@@ -183,7 +228,13 @@ def main(argv: list[str] | None = None) -> int:
         write_csv(rows, args.out)
         console.print(f"\n[dim]Full per-question detail written to {args.out}[/dim]")
 
-    console.print("\n[dim]This script wrote nothing to the database.[/dim]")
+    backfill_result = backfill_missing_topics(write=args.write)
+    print_backfill_summary(backfill_result)
+
+    if args.write:
+        console.print("\n[dim]This script wrote resolved topic_id/concept only onto previously topic-less documents.[/dim]")
+    else:
+        console.print("\n[dim]This script wrote nothing to the database (pass --write to backfill orphans).[/dim]")
     return 0
 
 

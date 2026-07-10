@@ -55,10 +55,37 @@ def _clickable_doc_link(doc_file: str) -> str:
     return f"[link={file_uri}]{doc_file}[/link]"
 
 
+def render_citation_panel(question: dict) -> Panel:
+    """The doc-file link, cited quote in its source paragraph, and the
+    deterministic verify message, as a standalone Panel -- shared by the
+    review screen and the CLI's live review-quiz mode."""
+    citation = (question.get("provenance", {}) or {}).get("citation", {}) or {}
+    doc_file = citation.get("doc_file", "")
+    excerpt = database.get_citation_excerpt(question)
+    verified, msg = excerpt["verified"], excerpt["message"]
+
+    verify_style = "green" if verified else "yellow"
+    if excerpt["excerpt_before"] or excerpt["excerpt_after"]:
+        # Quote located in its own source paragraph -- same contextual view
+        # Docket shows, instead of just the bare quote string.
+        quote_display = (
+            f"[dim]{excerpt['excerpt_before']}[/dim]"
+            f"[bold {verify_style}]{excerpt['excerpt_match']}[/bold {verify_style}]"
+            f"[dim]{excerpt['excerpt_after']}[/dim]"
+        )
+    else:
+        quote_display = f"\"{excerpt['quote']}\"" if excerpt["quote"] else "(none on record)"
+
+    return Panel(
+        f"[bold]Source file:[/bold] {_clickable_doc_link(doc_file)}\n\n"
+        f"[bold]Cited quote in context:[/bold]\n{quote_display}\n\n"
+        f"[bold]Deterministic check:[/bold] [{verify_style}]{msg}[/{verify_style}]",
+        title="Citation", border_style=verify_style, box=box.ROUNDED
+    )
+
+
 def render_question(question: dict) -> None:
     metadata = question.get("metadata", {}) or {}
-    provenance = question.get("provenance", {}) or {}
-    citation = provenance.get("citation", {}) or {}
 
     header = (
         f"Topic {metadata.get('topic_id', '?')} | {metadata.get('concept', 'Unknown concept')} | "
@@ -81,23 +108,28 @@ def render_question(question: dict) -> None:
         # parts that a fixed character cutoff used to silently drop.
         console.print(Panel(Markdown(explanation, code_theme="monokai"), title="Explanation", border_style="dim", box=box.ROUNDED))
 
-    doc_file = citation.get("doc_file", "")
-    quote = citation.get("quote", "")
-    verified, msg = database.verify_citation(question)
+    console.print(render_citation_panel(question))
 
-    verify_style = "green" if verified else "yellow"
+
+def render_legacy_reference(topic_id: int | None, concept: str | None) -> None:
+    """Read-only panel of old-bank `suspect` questions already mapped to this
+    same topic/concept, for context while reviewing fresh ones -- never an
+    actionable confirm/suspect target, matching Docket's legacy panel."""
+    legacy = database.get_legacy_reference_questions(topic_id, concept)
+    if not legacy:
+        return
+    lines = [f"[dim]{q.get('question_text', '')}[/dim]" for q in legacy]
     console.print(Panel(
-        f"[bold]Source file:[/bold] {_clickable_doc_link(doc_file)}\n"
-        f"[bold]Cited quote:[/bold] \"{quote}\"" + ("" if quote else " (none on record)") + "\n"
-        f"[bold]Deterministic check:[/bold] [{verify_style}]{msg}[/{verify_style}]",
-        title="Citation", border_style=verify_style, box=box.ROUNDED
+        "\n\n".join(lines),
+        title=f"Legacy reference ({len(legacy)}) -- not actionable, for context only",
+        border_style="bright_black", box=box.ROUNDED,
     ))
 
 
-def run_review_session(topic_id: int | None = None, limit: int = 50) -> dict:
+def run_review_session(topic_id: int | None = None, concept: str | None = None, limit: int = 50) -> dict:
     stats = {"confirmed": 0, "suspect": 0, "skipped": 0}
-    queue = database.get_questions_for_review(limit=limit, topic_id=topic_id)
-    total_remaining = database.count_questions_for_review(topic_id=topic_id)
+    queue = database.get_questions_for_review(limit=limit, topic_id=topic_id, concept=concept)
+    total_remaining = database.count_questions_for_review(topic_id=topic_id, concept=concept)
 
     if not queue:
         console.print("[green]Nothing waiting for review.[/green]")
@@ -108,6 +140,8 @@ def run_review_session(topic_id: int | None = None, limit: int = 50) -> dict:
     for i, question in enumerate(queue, 1):
         console.print(f"\n[dim]--- {i}/{len(queue)} this session ---[/dim]")
         render_question(question)
+        q_meta = question.get("metadata", {}) or {}
+        render_legacy_reference(q_meta.get("topic_id"), q_meta.get("concept"))
 
         citation_verified, _ = database.verify_citation(question)
         if citation_verified:
@@ -126,6 +160,7 @@ def run_review_session(topic_id: int | None = None, limit: int = 50) -> dict:
                 prompt_label,
                 choices=allowed_choices,
                 default="k",
+                case_sensitive=False,
             ).lower()
         except (KeyboardInterrupt, EOFError):
             break
@@ -153,11 +188,12 @@ def run_review_session(topic_id: int | None = None, limit: int = 50) -> dict:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="One-at-a-time confirm/suspect review for questions awaiting provenance decisions.")
     parser.add_argument("--topic", type=int, default=None, help="Restrict review to one topic_id.")
+    parser.add_argument("--concept", default=None, help="Restrict review to one concept (requires --topic).")
     parser.add_argument("--limit", type=int, default=50, help="Max questions to review this session.")
     args = parser.parse_args(argv)
 
     database.check_connection()
-    stats = run_review_session(topic_id=args.topic, limit=args.limit)
+    stats = run_review_session(topic_id=args.topic, concept=args.concept, limit=args.limit)
 
     console.print(
         f"\n[bold]Session summary:[/bold] {stats['confirmed']} confirmed, "

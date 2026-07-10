@@ -123,6 +123,66 @@ def test_score_md_file_for_concept_matches_bare_dollar_operator_names():
     ) > 0
 
 
+def test_resolve_concept_docs_drops_generic_token_false_positives():
+    """Regression for a real bug found live: 'BSON Data Types' tokenizes to
+    ['bson', 'data', 'types'], and the generic 'data' token alone was enough
+    to score topic-level filler docs (core_data_modeling_introduction,
+    core_databases_and_collections) above the score>0 threshold purely because
+    'data' is a substring of their filenames -- both got concatenated into the
+    lesson/generation context alongside the real BSON-types doc. Requiring a
+    candidate to reach half the top score for the concept excludes these
+    single-token coincidental matches (score 10) while keeping the real match
+    (score 25, matching both 'bson' and 'types')."""
+    from certcoach.core import planner
+
+    md_files = [
+        "topic_01_docs_manual_core_data_modeling_introduction__c1bfc595e5.md",
+        "topic_01_docs_manual_core_databases_and_collections__6c0162b19c.md",
+        "topic_01_docs_manual_core_document__a8bd5970ef.md",
+        "topic_01_docs_manual_reference_bson_types__cf63661090.md",
+    ]
+
+    resolved = planner.resolve_concept_docs(md_files, "BSON Data Types")
+
+    assert resolved == ["topic_01_docs_manual_reference_bson_types__cf63661090.md"]
+
+
+def test_resolve_concept_docs_keeps_all_tied_top_scores():
+    """A concept whose docs are genuinely tied for the top score (e.g. the
+    three cursor docs for sort/limit/skip) must all survive the relative
+    threshold, not just the first one -- otherwise a real multi-doc concept
+    would be wrongly narrowed to a single file."""
+    from certcoach.core import planner
+
+    md_files = [
+        "topic_03_docs_manual_reference_method_cursor_limit__fadfb5c4f7.md",
+        "topic_03_docs_manual_reference_method_cursor_skip__b2de4f9998.md",
+        "topic_03_docs_manual_reference_method_cursor_sort__fe46cee93b.md",
+    ]
+
+    resolved = planner.resolve_concept_docs(md_files, "sort/limit/skip")
+
+    assert set(resolved) == set(md_files)
+
+
+def test_resolve_concept_docs_falls_back_to_first_two_when_nothing_scores():
+    from certcoach.core import planner
+
+    resolved = planner.resolve_concept_docs(["a.md", "b.md", "c.md"], "totally unrelated concept")
+
+    assert resolved == ["a.md", "b.md"]
+
+
+def test_resolve_concept_docs_caps_at_max_files():
+    from certcoach.core import planner
+
+    md_files = [f"topic_09_docs_manual_core_index_{name}__abc123.md" for name in ("single", "compound", "multikey", "hashed")]
+
+    resolved = planner.resolve_concept_docs(md_files, "index", max_files=3)
+
+    assert len(resolved) <= 3
+
+
 def test_topic_benchmark_context_loads_topic_record(tmp_path):
     from certcoach.core import planner
 

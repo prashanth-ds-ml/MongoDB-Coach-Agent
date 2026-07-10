@@ -27,8 +27,9 @@ from rich.rule import Rule
 from rich.text import Text
 from rich import box
 
-from certcoach.core import auth, database, lesson_bank, planner
+from certcoach.core import auth, database, planner
 from certcoach.core.persona import CoachPersona
+from certcoach.jobs.review_questions import render_citation_panel
 import certcoach.core.memory_manager as memory_manager
 
 console = Console()
@@ -36,8 +37,11 @@ coach = CoachPersona()
 DEFAULT_USER_ID = "local_user_1"
 USER_ID = auth.get_session_user_id(DEFAULT_USER_ID)
 
-EXIT_COMMANDS = {"q", "quit", "exit"}
-BACK_COMMANDS = {"back", "b", "menu"}
+EXIT_COMMANDS = {"q", "quit", "exit", "/q", "/quit", "/exit"}
+BACK_COMMANDS = {"back", "b", "menu", "/back", "/b", "/menu"}
+PRACTICE_COMMANDS = {"practice", "p", "/practice", "/p"}
+CONTINUE_COMMANDS = {"done", "next", "/done", "/next"}
+MOCK_SECONDS_PER_QUESTION = 90
 ACK_CONTINUE_COMMANDS = {
     "y",
     "yes",
@@ -90,8 +94,16 @@ def ask(prompt_text: str, choices: list = None) -> str:
     """
     try:
         if choices:
-            # Add 'q' as always-valid meta-choice
-            value = Prompt.ask(prompt_text, choices=choices + ["q"]).strip().lower()
+            # Add the exit/back meta-choices (kept in sync with the real
+            # EXIT_COMMANDS/BACK_COMMANDS sets) so Rich's own validation
+            # doesn't reject them before the checks below ever see the
+            # input -- case_sensitive=False so "Quit"/"QUIT"/"Y" etc. aren't
+            # silently rejected just for not matching the displayed case.
+            value = Prompt.ask(
+                prompt_text,
+                choices=choices + sorted(EXIT_COMMANDS | BACK_COMMANDS),
+                case_sensitive=False,
+            ).strip().lower()
         else:
             value = Prompt.ask(prompt_text).strip()
     except (KeyboardInterrupt, EOFError):
@@ -102,6 +114,17 @@ def ask(prompt_text: str, choices: list = None) -> str:
     if value.lower() in BACK_COMMANDS:
         return "__back__"
     return value
+
+
+def confirm(prompt_text: str, default: bool = False) -> bool:
+    """Wrapper around Confirm.ask that treats Ctrl+C/EOF as declining --
+    the safe, non-destructive answer -- instead of letting a raw
+    KeyboardInterrupt escape mid-confirmation. case_sensitive=False so
+    typing "Y"/"N" (capitalized) isn't silently rejected."""
+    try:
+        return Confirm.ask(prompt_text, default=default, case_sensitive=False)
+    except (KeyboardInterrupt, EOFError):
+        return False
 
 
 def exit_message():
@@ -154,7 +177,7 @@ def build_onboarding_commitment_text(total_days: int, experience_level: str) -> 
     )
 
 
-def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent: float) -> str:
+def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent: float, practice_ready: bool = True) -> str:
     topic = agenda_item.get("topic", "Unknown Topic")
     agenda_type = agenda_item.get("type", "Learn")
     active_subtopic = agenda_item.get("active_subtopic")
@@ -176,15 +199,26 @@ def build_agenda_mission_text(agenda_item: dict, days_left: int, mastery_percent
             f"Refresh the weak point, clear the trap, and turn shaky recall into clean exam-speed answers on [bold]{topic}[/bold]."
         )
         why_today = "Review comes before new material because forgotten topics leak points on exam day."
+        flow_line = "teach one concept, clear the checkpoint, practice only that concept, then move on."
     elif agenda_type == "BossFight":
         win_condition = "Beat the timed checkpoint and prove the last domain is strong enough to build on."
         why_today = "Boss fights stop weak foundations from snowballing into bigger gaps."
+        flow_line = "teach one concept, clear the checkpoint, practice only that concept, then move on."
+    elif not practice_ready:
+        # Scored practice isn't available for this concept yet -- say so up
+        # front rather than promising a step that will turn out blocked.
+        win_condition = (
+            f"Understand [bold]{focus_concept}[/bold] and answer the Micro-Challenge. "
+            f"Scored practice isn't unlocked for this concept yet -- the question bank is still being built."
+        )
+        why_today = "One concept understood properly each day is safer than skimming multiple topics."
+        flow_line = "teach one concept, clear the checkpoint, then move on -- scored practice unlocks once enough questions are confirmed."
     else:
         win_condition = (
             f"Understand [bold]{focus_concept}[/bold], answer the Micro-Challenge, and score at least [bold green]4/5[/bold green] in practice so the concept counts as complete."
         )
         why_today = "One concept mastered properly each day is safer than skimming multiple topics."
-    flow_line = "teach one concept, clear the checkpoint, practice only that concept, then move on."
+        flow_line = "teach one concept, clear the checkpoint, practice only that concept, then move on."
 
     return (
         f"[bold]Mission[/bold]: {agenda_type}\n"
@@ -351,75 +385,89 @@ def run_onboarding():
         "[bold white]I am CertCoach — your strict but friendly MongoDB Certification Instructor.[/bold white]\n\n"
         "I will build a personalised, day-by-day study plan and guide you through every topic. "
         "Full Mock Exams are [bold yellow]locked[/bold yellow] until you master "
-        "[bold yellow]70%[/bold yellow] of the syllabus.\n\n"
+        f"[bold yellow]{int(planner.MOCK_EXAM_UNLOCK_THRESHOLD * 100)}%[/bold yellow] of the syllabus.\n\n"
         "[dim]Tip: Type [bold]q[/bold] at any prompt to save and quit.[/dim]",
         title="👋  Welcome", border_style="cyan", box=box.ROUNDED
     ))
     console.print()
 
-    # --- Ask exam date ---
+    # The whole plan-building flow repeats if the user rejects the final
+    # preview -- nothing is persisted until they confirm (see the bottom of
+    # this loop), so "no" genuinely lets them redo it instead of just
+    # printing advice that doesn't work.
     while True:
-        date_str = ask("[bold]Enter your MongoDB exam date (YYYY-MM-DD):[/bold]")
-        if date_str == "__back__":
-            continue
-        try:
-            exam_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
-            today = datetime.datetime.now(datetime.timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=None)
-            if exam_date <= today:
-                console.print("[red]The exam date must be in the future (after today).[/red]")
+        # --- Ask exam date ---
+        while True:
+            date_str = ask("[bold]Enter your MongoDB exam date (YYYY-MM-DD):[/bold]")
+            if date_str == "__back__":
                 continue
-            delta = exam_date - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-            days = max(1, delta.days)
+            try:
+                exam_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").replace(hour=23, minute=59, second=59)
+                # Compare like-for-like (both at end-of-day) so entering today's
+                # date is correctly rejected as not "in the future".
+                today = datetime.datetime.now(datetime.timezone.utc).replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=None)
+                if exam_date <= today:
+                    console.print("[red]The exam date must be in the future (after today).[/red]")
+                    continue
+                delta = exam_date - datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                days = max(1, delta.days)
+                break
+            except ValueError:
+                console.print("[red]Please enter a valid date in YYYY-MM-DD format (e.g. 2026-06-30).[/red]")
+
+        # --- Ask experience level ---
+        console.print()
+        exp_map = {"1": "Beginner", "2": "Intermediate", "3": "Advanced"}
+        while True:
+            exp_in = ask("[bold]What is your current MongoDB experience level?[/bold] (1=Beginner, 2=Intermediate, 3=Advanced)", choices=["1", "2", "3"])
+            if exp_in == "__back__":
+                console.print("[yellow]  Nothing to go back to yet -- please choose 1, 2, or 3.[/yellow]")
+                continue
             break
-        except ValueError:
-            console.print("[red]Please enter a valid date in YYYY-MM-DD format (e.g. 2026-06-30).[/red]")
-    
-    # --- Ask experience level ---
-    console.print()
-    exp_in = ask("[bold]What is your current MongoDB experience level?[/bold] (1=Beginner, 2=Intermediate, 3=Advanced)", choices=["1", "2", "3"])
-    exp_map = {"1": "Beginner", "2": "Intermediate", "3": "Advanced"}
-    if exp_in == "__back__": exp_in = "1"
-    experience_level = exp_map.get(exp_in, "Beginner")
+        experience_level = exp_map.get(exp_in, "Beginner")
 
-    diagnostic_mastered = []
-    console.print()
-    if Confirm.ask("[bold]Take a quick 10-question diagnostic to skip topics you already know?[/bold]"):
-        all_topics = planner.load_syllabus()
-        all_keys = []
-        for item in all_topics:
-            all_keys.extend(item.get("bank_topic_keys", []))
-            
-        run_practice_questions("Diagnostic Test", list(set(all_keys)), num=10, is_mock=True)
-        stats = database.get_analytics(USER_ID)
-        for ts in stats.get("topic_stats", []):
-            if ts["attempts"] > 0 and (ts["correct"] / ts["attempts"]) >= 0.8:
-                diagnostic_mastered.append(ts["topic"])
-                planner.mark_topic_complete(USER_ID, ts["topic"])
+        diagnostic_mastered = []
+        console.print()
+        if confirm("[bold]Take a quick 10-question diagnostic to skip topics you already know?[/bold]"):
+            all_topics = planner.load_syllabus()
+            all_keys = []
+            for item in all_topics:
+                all_keys.extend(item.get("bank_topic_keys", []))
 
-    database.update_user_profile(USER_ID, {"exam_date": exam_date.isoformat(), "experience_level": experience_level})
+            run_practice_questions("Diagnostic Test", list(set(all_keys)), num=10, is_mock=True)
+            stats = database.get_analytics(USER_ID)
+            for ts in stats.get("topic_stats", []):
+                if ts["attempts"] > 0 and (ts["correct"] / ts["attempts"]) >= 0.8:
+                    diagnostic_mastered.append(ts["topic"])
+                    planner.mark_topic_complete(USER_ID, ts["topic"])
 
-    # --- Generate calendar ---
-    console.print()
-    console.print("[dim]Building your study plan...[/dim]")
-    calendar = planner.generate_study_calendar(days, experience_level, diagnostic_mastered)
-    database.update_user_profile(USER_ID, {"study_calendar": calendar})
+        # --- Generate calendar (not yet saved) ---
+        console.print()
+        console.print("[dim]Building your study plan...[/dim]")
+        calendar = planner.generate_study_calendar(days, experience_level, diagnostic_mastered)
 
-    # --- Show the plan ---
-    show_plan_preview(calendar, days)
-    console.print()
-    console.print(Panel(
-        build_onboarding_commitment_text(days, experience_level),
-        title="🎯 How You Win With CertCoach",
-        border_style="green",
-        box=box.ROUNDED,
-    ))
+        # --- Show the plan ---
+        show_plan_preview(calendar, days)
+        console.print()
+        console.print(Panel(
+            build_onboarding_commitment_text(days, experience_level),
+            title="🎯 How You Win With CertCoach",
+            border_style="green",
+            box=box.ROUNDED,
+        ))
 
-    # --- Confirm ---
-    console.print()
-    answer = ask("[bold]Does this plan work for you? Start studying now?[/bold] (yes/no)", choices=["yes", "no", "y", "n"])
-    if answer in ("no", "n"):
-        console.print("[yellow]No problem — edit the plan by restarting and entering a different number of days.[/yellow]")
-        time.sleep(2)
+        # --- Confirm ---
+        console.print()
+        answer = ask("[bold]Does this plan work for you? Start studying now?[/bold] (yes/no)", choices=["yes", "no", "y", "n"])
+        if answer in ("no", "n"):
+            console.print("[yellow]No problem -- let's adjust the exam date, experience level, or plan.[/yellow]")
+            time.sleep(1.5)
+            continue
+
+        # Only persist once the user has actually confirmed the plan.
+        database.update_user_profile(USER_ID, {"exam_date": exam_date.isoformat(), "experience_level": experience_level})
+        database.update_user_profile(USER_ID, {"study_calendar": calendar})
+        break
 
 
 def show_plan_preview(calendar: list, total_days: int):
@@ -454,7 +502,7 @@ def show_plan_preview(calendar: list, total_days: int):
     footer_text = Text.from_markup(
         f"\n  📘 [bold]{sum(1 for i in calendar if i['phase']=='Study')}[/bold] study days  |  "
         f"🏆 [bold]{sum(1 for i in calendar if i['phase']=='Mock & Revision')}[/bold] mock/revision days  |  "
-        f"🔒 Full Mock unlocks at [bold]70%[/bold] syllabus mastery"
+        f"🔒 Full Mock unlocks at [bold]{int(planner.MOCK_EXAM_UNLOCK_THRESHOLD * 100)}%[/bold] syllabus mastery"
     )
     group = Group(table, footer_text)
     print_paginated(group, title=f"{total_days}-Day Study Plan")
@@ -478,16 +526,34 @@ def run_teach_session(agenda_item: dict):
     bank_keys = agenda_item.get("bank_keys", [topic])
     question_keywords = agenda_item.get("question_keywords", [])
 
+    # Resolved once up front -- used both by the per-subtopic review-quiz offer
+    # below and the practice offer at the end of this function.
+    syllabus = planner.load_syllabus()
+    topic_item = next((item for item in syllabus if item["topic"] == topic), None)
+    topic_id = topic_item["id"] if topic_item else None
+
     console.print(Rule(f"[bold cyan]Today's Topic: {topic}[/bold cyan]"))
     console.print("[dim]  Type [bold]q[/bold] at any point to save and quit.\n[/dim]")
     profile = database.get_user_profile(USER_ID)
     status = planner.get_syllabus_status(USER_ID)
     days_left = planner.calculate_days_left(profile.get("exam_date"))
+
+    # Know up front whether today's concept can actually deliver scored
+    # practice, so the mission brief doesn't promise a step that turns out
+    # blocked once the learner gets there.
+    mission_focus_concept = agenda_item.get("active_subtopic") or (subtopics[0] if subtopics else topic)
+    insufficient_concepts = status.get("insufficient_concepts", []) or []
+    practice_ready = not any(
+        item.get("topic") == topic and item.get("concept") == mission_focus_concept
+        for item in insufficient_concepts
+    )
+
     console.print(Panel(
         build_agenda_mission_text(
             agenda_item,
             days_left=days_left,
             mastery_percent=status.get("mastery_percent", 0.0),
+            practice_ready=practice_ready,
         ),
         title="🎯 Daily Mission Brief",
         border_style="cyan",
@@ -504,45 +570,59 @@ def run_teach_session(agenda_item: dict):
 
     force_practice = False
     explained_subtopics = []
+    qa_instructions_shown = False
     for idx, subtopic in enumerate(subtopics):
-        md_context = planner.load_md_context(md_files, prioritize_concept=subtopic)
-        topic_id = agenda_item.get("topic_id") or agenda_item.get("id") or planner.resolve_topic_id(topic)
-        weak_focus_context = planner.load_topic_benchmark_focus(topic_id, subtopic)
-        benchmark_context = planner.load_topic_benchmark_context(topic_id, subtopic)
-        if isinstance(weak_focus_context, str) and weak_focus_context.strip():
-            md_context = "\n\n---\n\n".join(
-                part for part in (weak_focus_context, md_context, benchmark_context)
-                if isinstance(part, str) and part.strip()
-            )
-        stored_lesson = lesson_bank.get_validated_lesson(int(topic_id), subtopic) if topic_id is not None else None
-        if stored_lesson:
-            explanation = stored_lesson.get("lesson_markdown", "")
-        else:
-            with console.status(f"[dim]🤖 Coach is preparing lesson for: {subtopic}...[/dim]", spinner="dots"):
-                explanation = coach.explain_topic(topic, subtopic, md_context)
-        
-        if "not covered in my official docs" in explanation.lower():
+        resolved_files = planner.resolve_concept_docs(md_files, subtopic)
+
+        if not resolved_files:
             console.print(f"  [dim]• '{subtopic}' is not covered in reference documents. Skipping...[/dim]")
             continue
-            
-        from certcoach.core.persona import clean_lesson_explanation
-        explanation = clean_lesson_explanation(explanation)
-            
+
         explained_subtopics.append(subtopic)
-        panel = Panel(
-            Markdown(explanation, code_theme="monokai"),
-            title=f"🧑‍🏫  CertCoach teaches: {subtopic}",
-            border_style="cyan", box=box.ROUNDED,
-            padding=(1, 2),
-        )
-        print_paginated(panel, title=f"Lesson: {subtopic}")
-        
+        doc_texts = []
+        jump_to_practice = False
+        for doc_idx, filename in enumerate(resolved_files):
+            doc_text = planner.load_md_context([filename])
+            doc_texts.append(doc_text)
+            panel = Panel(
+                Markdown(doc_text, code_theme="monokai"),
+                title=f"📄  Study Material: {subtopic} ({doc_idx + 1}/{len(resolved_files)})",
+                border_style="cyan", box=box.ROUNDED,
+                padding=(1, 2),
+            )
+            print_paginated(panel, title=f"Lesson: {subtopic}")
+
+            if doc_idx < len(resolved_files) - 1:
+                console.print()
+                try:
+                    next_doc_input = Prompt.ask(
+                        "  [dim]Press Enter to read the next official doc on this concept, or type [bold]practice[/bold] to jump to MCQs[/dim]",
+                        default=""
+                    ).strip().lower()
+                except (KeyboardInterrupt, EOFError):
+                    raise SystemExit
+                if next_doc_input in EXIT_COMMANDS:
+                    raise SystemExit
+                if next_doc_input in PRACTICE_COMMANDS:
+                    jump_to_practice = True
+                    break
+
+        explanation = "\n\n---\n\n".join(doc_texts)
         memory_manager.log_interaction("assistant", explanation)
         chat_history = memory_manager.load_active_history()
+
+        if jump_to_practice:
+            force_practice = True
+            break
+
         console.print()
-        console.print(
-            "  [dim]Answer the challenge using only this concept, ask a question about this concept, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
-        )
+        if not qa_instructions_shown:
+            console.print(
+                "  [dim]Answer the challenge using only this concept, ask a question about this concept, type [bold]next[/bold] to continue, or type [bold]practice[/bold] to start MCQs.[/dim]"
+            )
+            qa_instructions_shown = True
+        else:
+            console.print("  [dim]([bold]next[/bold] to continue / [bold]practice[/bold] to start MCQs / or ask a question)[/dim]")
 
         while True:
             console.print()
@@ -560,20 +640,20 @@ def run_teach_session(agenda_item: dict):
             if user_input.lower() in BACK_COMMANDS:
                 return
 
-            if user_input.lower() in ("practice", "p"):
+            if user_input.lower() in PRACTICE_COMMANDS:
                 force_practice = True
                 break
 
             lowered_input = user_input.lower()
 
-            if lowered_input in ("done", "next") or lowered_input in ACK_CONTINUE_COMMANDS:
+            if lowered_input in CONTINUE_COMMANDS or lowered_input in ACK_CONTINUE_COMMANDS:
                 break
 
             # Generate follow-up answer
             memory_manager.log_interaction("user", user_input)
             chat_history = memory_manager.load_active_history()
             with console.status("[dim]🤖 CertCoach is thinking...[/dim]", spinner="dots"):
-                answer = coach.handle_followup(topic, subtopic, user_input, chat_history)
+                answer = coach.handle_followup(topic, subtopic, user_input, chat_history, md_context=explanation)
             
             from certcoach.core.persona import clean_lesson_explanation
             answer = clean_lesson_explanation(answer)
@@ -588,6 +668,26 @@ def run_teach_session(agenda_item: dict):
                 border_style="blue", box=box.ROUNDED,
                 padding=(1, 2),
             ))
+
+        if not force_practice and topic_id is not None:
+            pending = database.count_questions_for_review(topic_id=topic_id, concept=subtopic)
+            if pending:
+                console.print()
+                console.print(Panel(
+                    f"[bold]{pending} question(s) for '{subtopic}' are still pending human review.[/bold]\n"
+                    "Self-test on them live and help review them now?",
+                    border_style="magenta", box=box.ROUNDED,
+                ))
+                try:
+                    review_choice = Prompt.ask(
+                        "  [bold]Review quiz[/bold]", choices=["y", "n", "q"], default="y", case_sensitive=False
+                    ).lower()
+                except (KeyboardInterrupt, EOFError):
+                    raise SystemExit
+                if review_choice == "q":
+                    raise SystemExit
+                if review_choice == "y":
+                    run_review_quiz(topic_id, subtopic)
 
         if force_practice:
             break
@@ -614,9 +714,7 @@ def run_teach_session(agenda_item: dict):
     ))
     time.sleep(1)
 
-    # Look up syllabus topic ID for dynamic presentation
-    syllabus = planner.load_syllabus()
-    topic_item = next((item for item in syllabus if item["topic"] == topic), None)
+    # Dynamic presentation label using the topic_id resolved at the top of this function.
     topic_id_str = f"Topic {topic_item['id']}" if topic_item else "Topic"
     header_topic = f"{topic_id_str}: {topic}"
 
@@ -670,7 +768,8 @@ def run_teach_session(agenda_item: dict):
             mock_choice = Prompt.ask(
                 "  [bold]Mini-Mock[/bold]",
                 choices=["10", "20", "skip", "q"],
-                default="skip"
+                default="skip",
+                case_sensitive=False,
             ).lower()
         except (KeyboardInterrupt, EOFError):
             raise SystemExit
@@ -688,7 +787,7 @@ def run_teach_session(agenda_item: dict):
             )
 
     try:
-        ans = Prompt.ask("\n  [bold]Ready for the next agenda item?[/bold] (Y/n)", choices=["y", "n", "yes", "no", "q"]).lower()
+        ans = Prompt.ask("\n  [bold]Ready for the next agenda item?[/bold] (Y/n)", choices=["y", "n", "yes", "no", "q"], case_sensitive=False).lower()
     except (KeyboardInterrupt, EOFError):
         raise SystemExit
 
@@ -760,34 +859,48 @@ def run_scenario_simulator():
     
     status = planner.get_syllabus_status(USER_ID)
     mastered = [s["topic"] for s in status["status_list"] if s["is_mastered"]]
-    
+
     if not mastered:
         topic = "MongoDB Basics / Document Model"
     else:
         topic = random.choice(mastered)
-        
+
+    # Resolve a concrete subtopic + official doc within the topic so the
+    # scenario and its evaluation are grounded in real reference material,
+    # not invented purely from the model's own unaided knowledge.
+    syllabus = planner.load_syllabus()
+    topic_item = next((item for item in syllabus if item["topic"] == topic), None)
+    md_context = ""
+    if topic_item:
+        subtopics = topic_item.get("subtopics") or [topic]
+        subtopic = random.choice(subtopics)
+        resolved_files = planner.resolve_concept_docs(topic_item.get("md_files", []), subtopic)
+        if resolved_files:
+            md_context = planner.load_md_context(resolved_files)
+
     with console.status(f"[dim]🤖 Coach is generating a scenario for: {topic}...[/dim]", spinner="dots"):
-        scenario = coach.generate_scenario(topic)
-    
+        scenario = coach.generate_scenario(topic, md_context=md_context)
+
     console.print(Panel(Markdown(scenario, code_theme="monokai"), title="📋 Product Requirement", border_style="bright_black", box=box.ROUNDED, padding=(1, 2)))
-    
+
     console.print()
     try:
-        user_answer = Prompt.ask("\n  [bold blue]❯[/bold blue] Your Approach / Query [dim](or 'q' to quit)[/dim]").strip()
+        user_answer = Prompt.ask("\n  [bold blue]❯[/bold blue] Your Approach / Query [dim](or 'q' to quit, 'back' to return)[/dim]").strip()
     except (KeyboardInterrupt, EOFError):
         return
-        
-    if user_answer.lower() in EXIT_COMMANDS:
+
+    if user_answer.lower() in EXIT_COMMANDS or user_answer.lower() in BACK_COMMANDS:
         return
-        
+
     with console.status("[dim]🤖 Coach is evaluating your approach...[/dim]", spinner="dots"):
-        eval_text = coach.evaluate_scenario(topic, scenario, user_answer)
+        eval_text = coach.evaluate_scenario(topic, scenario, user_answer, md_context=md_context)
     
     panel = Panel(Markdown(eval_text, code_theme="monokai"), title="🧑‍🏫 CertCoach Evaluation", border_style="blue", box=box.ROUNDED, padding=(1, 2))
     print_paginated(panel, title="Scenario Evaluation")
     try:
         ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return, or type a question to chat[/dim]")
-        if ans.strip() and ans.strip().lower() not in EXIT_COMMANDS:
+        lowered = ans.strip().lower()
+        if lowered and lowered not in EXIT_COMMANDS and lowered not in BACK_COMMANDS:
             run_free_chat_session(ans.strip())
     except (KeyboardInterrupt, EOFError):
         pass
@@ -1011,19 +1124,32 @@ def render_summary_grid(questions: list, user_answers: list, flagged: list) -> T
     return table
 
 
-def run_summary_grid_menu(questions: list, user_answers: list, flagged: list, current_idx: int) -> int:
+def run_summary_grid_menu(questions: list, user_answers: list, flagged: list, current_idx: int, start_time: float = None, time_limit: float = None) -> int:
     while True:
+        if start_time is not None and time_limit is not None:
+            time_left = max(0.0, time_limit - (time.time() - start_time))
+            if time_left <= 0:
+                console.print("\n[bold red]⏱️ Time's up! The exam has been automatically submitted.[/bold red]")
+                time.sleep(2)
+                return -99
+
         clear()
         console.print(Rule("[bold cyan]📊 Exam Summary Grid[/bold cyan]"))
         console.print()
-        
+
+        if start_time is not None and time_limit is not None:
+            minutes, seconds = divmod(int(time_left), 60)
+            time_col = "red" if time_left < 300 else "yellow"
+            console.print(f"[{time_col}]⏱️ Time Left: {minutes:02d}:{seconds:02d}[/{time_col}]")
+            console.print()
+
         grid_table = render_summary_grid(questions, user_answers, flagged)
         console.print(Panel(grid_table, title="📋 Question Status Board", border_style="cyan", padding=(1, 2)))
-        
+
         answered = sum(1 for ans in user_answers if ans is not None)
         unanswered = len(questions) - answered
         review_count = sum(1 for f in flagged if f)
-        
+
         console.print(f"  Answered: [green]{answered}[/green] | Unanswered: [yellow]{unanswered}[/yellow] | Flagged: [bold yellow]★ {review_count}[/bold yellow]")
         console.print()
         console.print("  [bold]Actions:[/bold]")
@@ -1043,7 +1169,7 @@ def run_summary_grid_menu(questions: list, user_answers: list, flagged: list, cu
             unanswered_count = sum(1 for ans in user_answers if ans is None)
             if unanswered_count > 0:
                 console.print(f"\n  [bold yellow]⚠️ Warning: You have {unanswered_count} unanswered question(s).[/bold yellow]")
-            if Confirm.ask("  [bold green]Are you sure you want to finalize and submit your exam?[/bold green]"):
+            if confirm("  [bold green]Are you sure you want to finalize and submit your exam?[/bold green]"):
                 return -99
             else:
                 continue
@@ -1214,15 +1340,19 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
                 f"Questions Answered: {sum(1 for a in active_state.get('user_answers', []) if a)}/{len(questions)}",
                 title="⚙️ CertCoach Autosaver", border_style="cyan"
             ))
-            if Confirm.ask("  [bold green]Would you like to resume this session and continue where you left off?[/bold green]"):
-                user_answers = active_state.get("user_answers", user_answers)
-                flagged = active_state.get("flagged", flagged)
-                elapsed = active_state.get("elapsed", 0.0)
-                if active_state.get("questions") and len(active_state["questions"]) == len(questions):
-                    questions = active_state["questions"]
-                start_time = time.time() - elapsed
-                last_question_time = time.time()
-                console.print("[green]  ✔ Resumed session successfully.[/green]")
+            if confirm("  [bold green]Would you like to resume this session and continue where you left off?[/bold green]"):
+                saved_questions = active_state.get("questions") or []
+                if len(saved_questions) == len(questions):
+                    questions = saved_questions
+                    user_answers = active_state.get("user_answers", user_answers)
+                    flagged = active_state.get("flagged", flagged)
+                    elapsed = active_state.get("elapsed", 0.0)
+                    start_time = time.time() - elapsed
+                    last_question_time = time.time()
+                    console.print("[green]  ✔ Resumed session successfully.[/green]")
+                else:
+                    database.clear_active_exam(USER_ID)
+                    console.print("[yellow]  Saved session no longer matches the current question set -- starting fresh.[/yellow]")
                 time.sleep(1.5)
             else:
                 database.clear_active_exam(USER_ID)
@@ -1319,8 +1449,9 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
             continue
             
         cmd_upper = cmd.upper()
-        if cmd_upper in EXIT_COMMANDS or cmd_upper in BACK_COMMANDS or cmd_upper == "Q":
-            if Confirm.ask("  [bold red]Are you sure you want to quit the exam? Active progress will be lost.[/bold red]"):
+        cmd_lower = cmd.lower()
+        if cmd_lower in EXIT_COMMANDS or cmd_lower in BACK_COMMANDS:
+            if confirm("  [bold red]Are you sure you want to quit the exam? Active progress will be lost.[/bold red]"):
                 try:
                     database.clear_active_exam(USER_ID)
                 except Exception:
@@ -1365,7 +1496,7 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
             now = time.time()
             response_times[current_idx] += (now - last_question_time)
             
-            res = run_summary_grid_menu(questions, user_answers, flagged, current_idx)
+            res = run_summary_grid_menu(questions, user_answers, flagged, current_idx, start_time, time_limit)
             last_question_time = time.time()
             
             if res == -99:
@@ -1376,7 +1507,7 @@ def run_exam_simulator(topic: str, questions: list, time_limit: int) -> int | No
             unanswered = sum(1 for ans in user_answers if ans is None)
             if unanswered > 0:
                 console.print(f"\n  [bold yellow]⚠️ Warning: You have {unanswered} unanswered question(s).[/bold yellow]")
-            if Confirm.ask("  [bold green]Are you sure you want to finalize and submit your exam?[/bold green]"):
+            if confirm("  [bold green]Are you sure you want to finalize and submit your exam?[/bold green]"):
                 break
         elif cmd.isdigit():
             val = int(cmd)
@@ -1461,6 +1592,82 @@ def show_wrong_attempt_remediation(question_id: str) -> None:
             title=f"🗂️ Related flashcards — {remediation.get('domain', '')}",
             border_style="magenta", box=box.ROUNDED, padding=(0, 2)
         ))
+
+
+def present_and_capture_answer(q: dict) -> tuple[str, bool, float]:
+    """Render a question + its options blind (no correctness hint) and prompt
+    for the learner's answer (single or multi-select). Returns (raw_answer,
+    is_multi, elapsed_sec). raw_answer may be 'Q'/'BACK' -- caller decides
+    exit behavior."""
+    meta = q.get("metadata", {})
+    context = q.get("context", {})
+
+    if context.get("scenario_description"):
+        console.print(Panel(context["scenario_description"], title="📋 Scenario", border_style="dim", box=box.ROUNDED, padding=(0, 1)))
+
+    console.print(Panel(f"[bold]{q.get('question_text', '')}[/bold]", border_style="bright_black", box=box.ROUNDED, padding=(0, 2)))
+
+    valid_options = []
+    for opt in q.get("options", []):
+        letter = opt.get("option_letter", "?")
+        valid_options.append(letter.upper())
+        console.print(f"    [bold yellow]{letter})[/bold yellow]  {clean_option_text(letter, opt.get('code_snippet', ''))}")
+
+    console.print()
+
+    is_multi = str(meta.get("response_type", "single")).strip().lower() == "multi"
+    valid_letter_set = set(valid_options)
+
+    # Track response time
+    q_start = time.time()
+    if is_multi:
+        console.print("  [bold magenta]Select ALL that apply[/bold magenta] [dim](e.g. type AC for options A and C)[/dim]")
+        while True:
+            try:
+                raw = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]").strip().upper()
+            except (KeyboardInterrupt, EOFError):
+                raise SystemExit
+            if raw in ("Q", "BACK"):
+                ans = raw
+                break
+            token = raw.replace(" ", "").replace(",", "")
+            if token and set(token) <= valid_letter_set and len(set(token)) == len(token):
+                ans = "".join(sorted(set(token)))
+                break
+            console.print(f"  [red]Enter a combination of {', '.join(sorted(valid_letter_set))} (e.g. AC), or Q/BACK.[/red]")
+    else:
+        try:
+            ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK"], case_sensitive=False).upper()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+    elapsed_sec = time.time() - q_start
+    return ans, is_multi, elapsed_sec
+
+
+def evaluate_answer(q: dict, ans: str) -> dict:
+    """Compare the learner's chosen letters against the question's marked-correct
+    option(s). Pure, no I/O, no DB writes. Returns a dict with is_correct,
+    correct_letters, correct_option, and user_feedback (concatenated per-option
+    feedback text for the chosen options)."""
+    chosen_letters = set(ans)
+    correct_option = None
+    correct_letters = set()
+    user_feedback = ""
+    for opt in q.get("options", []):
+        if opt.get("is_correct"):
+            correct_option = opt
+            correct_letters.add(opt.get("option_letter", "").upper())
+        if opt.get("option_letter", "").upper() in chosen_letters:
+            fb = opt.get("feedback", "")
+            if fb:
+                user_feedback = (user_feedback + " / " + fb) if user_feedback else fb
+    is_correct = bool(chosen_letters) and chosen_letters == correct_letters
+    return {
+        "is_correct": is_correct,
+        "correct_letters": correct_letters,
+        "correct_option": correct_option,
+        "user_feedback": user_feedback,
+    }
 
 
 def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: bool = False, question_keywords: list = None, concepts: list = None, preselected_questions: list = None) -> int | None:
@@ -1552,21 +1759,34 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         time.sleep(2)
         return None
 
-    if preselected_questions is None and len(questions) < num:
-        console.print(f"\n  [bold yellow]The required 3 Easy + 2 Medium concept-practice mix is unavailable.[/bold yellow]")
-        console.print(Panel(
-            "[bold]This concept is not study-ready yet.[/bold]\n\n"
-            "Practice requires exactly three Easy and two Medium active, validated questions mapped directly to the current concept. "
-            "Hard questions and arbitrary difficulty substitutions are not used, and the concept will remain open.",
-            title="Concept Practice Blocked",
-            border_style="yellow",
-            box=box.ROUNDED
-        ))
-        time.sleep(2)
-        return None
+    if preselected_questions is None:
+        if is_mock:
+            # Generic-pool callers (Diagnostic, Mini-Mock, Pop Quiz, Boss Fight) never use a
+            # 3E/2M mix -- run with whatever was found instead of hard-aborting on a
+            # message that describes a different quiz composition entirely.
+            if len(questions) < num:
+                console.print(
+                    f"\n  [bold yellow]Only {len(questions)} of {num} requested questions are "
+                    f"available for this quiz -- continuing with what's ready.[/bold yellow]"
+                )
+                time.sleep(1.5)
+        elif len(unique_easy) < 3 or len(unique_medium) < 2:
+            # Standard concept practice: the fixed 3 Easy + 2 Medium composition itself is
+            # what must be checked, independent of whatever `num` a caller happened to pass.
+            console.print(f"\n  [bold yellow]The required 3 Easy + 2 Medium concept-practice mix is unavailable.[/bold yellow]")
+            console.print(Panel(
+                "[bold]This concept is not study-ready yet.[/bold]\n\n"
+                "Practice requires exactly three Easy and two Medium active, validated questions mapped directly to the current concept. "
+                "Hard questions and arbitrary difficulty substitutions are not used, and the concept will remain open.",
+                title="Concept Practice Blocked",
+                border_style="yellow",
+                box=box.ROUNDED
+            ))
+            time.sleep(2)
+            return None
 
     if is_mock:
-        time_limit = num * 90
+        time_limit = num * MOCK_SECONDS_PER_QUESTION
         score = run_exam_simulator(topic, questions, time_limit)
         if score is not None:
             pct = score / len(questions) * 100
@@ -1585,51 +1805,12 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
     for idx, q in enumerate(questions):
         meta = q.get("metadata", {})
-        context = q.get("context", {})
         q_topic = meta.get("topic", topic)
 
         console.print()
         console.print(f"  [dim]Q {idx + 1}/{len(questions)}[/dim]")
 
-        if context.get("scenario_description"):
-            console.print(Panel(context["scenario_description"], title="📋 Scenario", border_style="dim", box=box.ROUNDED, padding=(0, 1)))
-
-        console.print(Panel(f"[bold]{q.get('question_text', '')}[/bold]", border_style="bright_black", box=box.ROUNDED, padding=(0, 2)))
-
-        valid_options = []
-        for opt in q.get("options", []):
-            letter = opt.get("option_letter", "?")
-            valid_options.append(letter.upper())
-            console.print(f"    [bold yellow]{letter})[/bold yellow]  {clean_option_text(letter, opt.get('code_snippet', ''))}")
-
-        console.print()
-
-        is_multi = str(meta.get("response_type", "single")).strip().lower() == "multi"
-        valid_letter_set = set(valid_options)
-
-        # Track response time
-        q_start = time.time()
-        if is_multi:
-            console.print("  [bold magenta]Select ALL that apply[/bold magenta] [dim](e.g. type AC for options A and C)[/dim]")
-            while True:
-                try:
-                    raw = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]").strip().upper()
-                except (KeyboardInterrupt, EOFError):
-                    raise SystemExit
-                if raw in ("Q", "BACK"):
-                    ans = raw
-                    break
-                token = raw.replace(" ", "").replace(",", "")
-                if token and set(token) <= valid_letter_set and len(set(token)) == len(token):
-                    ans = "".join(sorted(set(token)))
-                    break
-                console.print(f"  [red]Enter a combination of {', '.join(sorted(valid_letter_set))} (e.g. AC), or Q/BACK.[/red]")
-        else:
-            try:
-                ans = Prompt.ask("  [bold]Answer[/bold] [dim](or 'q' to quit, 'back' to return)[/dim]", choices=valid_options + ["Q", "BACK"]).upper()
-            except (KeyboardInterrupt, EOFError):
-                raise SystemExit
-        elapsed_sec = time.time() - q_start
+        ans, _is_multi, elapsed_sec = present_and_capture_answer(q)
 
         if ans in ("Q", "BACK"):
             console.print("[yellow]  Exiting practice session...[/yellow]")
@@ -1640,7 +1821,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         if not is_mock:
             try:
                 conf_in = Prompt.ask("  Confidence? [bold](H)[/bold] / [bold](M)[/bold] / [bold](L)[/bold]",
-                                     choices=["H", "M", "L", "q"]).upper()
+                                     choices=["H", "M", "L", "q"], case_sensitive=False).upper()
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit
             if conf_in.lower() in EXIT_COMMANDS:
@@ -1649,19 +1830,11 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         else:
             confidence = "High"
 
-        correct_option = None
-        user_feedback = ""
-        chosen_letters = set(ans)
-        correct_letters = set()
-        for opt in q.get("options", []):
-            if opt.get("is_correct"):
-                correct_option = opt
-                correct_letters.add(opt.get("option_letter", "").upper())
-            if opt.get("option_letter", "").upper() in chosen_letters:
-                fb = opt.get("feedback", "")
-                if fb:
-                    user_feedback = (user_feedback + " / " + fb) if user_feedback else fb
-        is_correct = bool(chosen_letters) and chosen_letters == correct_letters
+        evaluation = evaluate_answer(q, ans)
+        is_correct = evaluation["is_correct"]
+        correct_letters = evaluation["correct_letters"]
+        correct_option = evaluation["correct_option"]
+        user_feedback = evaluation["user_feedback"]
 
         # Save individual attempt and update question exposure (seen, times, average time)
         database.save_attempt(USER_ID, str(q.get("_id", "unknown")), q_topic, ans, is_correct, confidence)
@@ -1687,7 +1860,11 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
         if not is_correct and not is_mock:
             show_wrong_attempt_remediation(str(q.get("_id", "unknown")))
 
-        if not is_mock:
+        # Skip the coach reflection on a high-confidence correct answer -- it
+        # mostly restates the explanation panel just shown. Reserve it for
+        # wrong answers and correct-but-uncertain ones, where a second
+        # framing actually adds something.
+        if not is_mock and not (is_correct and confidence == "High"):
             with console.status("[dim]🤖 Coach is reflecting...[/dim]", spinner="dots"):
                 fb = coach.get_answer_feedback(q_topic, is_correct, user_feedback, confidence)
             console.print(Panel(Markdown(fb, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="blue", box=box.ROUNDED, padding=(0, 2)))
@@ -1697,7 +1874,7 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
                 next_action = Prompt.ask("\n  [dim]Enter for next / q to quit / back to return[/dim]", default="")
             except (KeyboardInterrupt, EOFError):
                 raise SystemExit
-            if next_action.strip().lower() in EXIT_COMMANDS or next_action.strip().lower() == "back":
+            if next_action.strip().lower() in EXIT_COMMANDS or next_action.strip().lower() in BACK_COMMANDS:
                 console.print("[yellow]  Exiting practice session...[/yellow]")
                 time.sleep(1)
                 return None
@@ -1740,6 +1917,104 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
             time.sleep(2)
 
     return score
+
+
+def run_review_quiz(topic_id: int, concept: str) -> dict:
+    """Live self-test over this concept's still-unconfirmed (draft/sourced)
+    question backlog. Reuses the same blind-answer interaction practice uses
+    (present_and_capture_answer/evaluate_answer), then layers on the citation
+    panel and the Confirm/Suspect decision certcoach-review-questions already
+    has -- the live-answer experience informs the decision instead of just
+    reading the question. Never calls save_attempt, update_question_exposure,
+    or any streak function: this pool is unconfirmed, so no official
+    mastery/readiness/streak stat may move from a session here."""
+    stats = {"correct": 0, "total": 0, "confirmed": 0, "suspect": 0, "skipped": 0}
+    queue = database.get_questions_for_review(topic_id=topic_id, concept=concept)
+    if not queue:
+        console.print("[green]Nothing pending review for this concept right now.[/green]")
+        return stats
+
+    console.print(Rule(f"[bold magenta]Review Quiz: {concept}[/bold magenta]"))
+    console.print(
+        f"[dim]{len(queue)} question(s) pending review. Answer each one, "
+        f"then decide Confirm/Suspect based on what you just saw.[/dim]"
+    )
+
+    for idx, q in enumerate(queue):
+        console.print()
+        console.print(f"  [dim]Q {idx + 1}/{len(queue)}[/dim]")
+
+        ans, _is_multi, _elapsed_sec = present_and_capture_answer(q)
+        if ans in ("Q", "BACK"):
+            console.print("[yellow]  Exiting review quiz...[/yellow]")
+            break
+
+        stats["total"] += 1
+        evaluation = evaluate_answer(q, ans)
+        is_correct = evaluation["is_correct"]
+        correct_letters = evaluation["correct_letters"]
+        correct_option = evaluation["correct_option"]
+
+        if is_correct:
+            stats["correct"] += 1
+            console.print("\n  [bold green]✅ Correct![/bold green]")
+        else:
+            console.print("\n  [bold red]❌ Wrong.[/bold red]")
+            if correct_letters:
+                console.print(f"  Correct answer: [bold]{', '.join(sorted(correct_letters))}[/bold]")
+
+        # Full explanation shown either way -- right or wrong -- same as practice.
+        correct_letter = correct_option.get("option_letter") if correct_option else "A"
+        explanation_markdown = q.get("explanation", "").strip()
+        if not explanation_markdown:
+            explanation_markdown = format_explanation_template(correct_letter, q)
+        console.print(Panel(Markdown(explanation_markdown, code_theme="monokai"), title="📖 Structured Explanation", border_style="yellow", box=box.ROUNDED, padding=(0, 2)))
+
+        console.print(render_citation_panel(q))
+
+        citation_verified, _ = database.verify_citation(q)
+        if citation_verified:
+            prompt_label = "\n  [bold]Decision[/bold] [C]onfirm / [S]uspect / s[K]ip / [Q]uit"
+            allowed_choices = ["c", "s", "k", "q"]
+        else:
+            console.print(
+                "[yellow]  Citation check failed -- Confirm is unavailable. "
+                "Mark Suspect or fix the citation and re-run.[/yellow]"
+            )
+            prompt_label = "\n  [bold]Decision[/bold] [S]uspect / s[K]ip / [Q]uit"
+            allowed_choices = ["s", "k", "q"]
+
+        try:
+            decision = Prompt.ask(prompt_label, choices=allowed_choices, default="k", case_sensitive=False).lower()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+
+        if decision == "q":
+            break
+        elif decision == "c":
+            database.confirm_question(q["_id"], USER_ID)
+            stats["confirmed"] += 1
+            console.print("[green]Confirmed.[/green]")
+        elif decision == "s":
+            try:
+                reason = Prompt.ask("  Reason (one line)")
+            except (KeyboardInterrupt, EOFError):
+                reason = ""
+            database.mark_question_suspect(q["_id"], reason)
+            stats["suspect"] += 1
+            console.print("[yellow]Marked suspect.[/yellow]")
+        else:
+            stats["skipped"] += 1
+
+    console.print()
+    console.print(Rule("[bold]Review Quiz Summary[/bold]"))
+    console.print(
+        f"\n  Score: [bold]{stats['correct']}/{stats['total']}[/bold]  |  "
+        f"Confirmed: [green]{stats['confirmed']}[/green]  |  "
+        f"Suspect: [yellow]{stats['suspect']}[/yellow]  |  "
+        f"Skipped: [dim]{stats['skipped']}[/dim]\n"
+    )
+    return stats
 
 
 # ---------------------------------------------------------------------------
@@ -1823,9 +2098,10 @@ def show_syllabus_status():
 
     try:
         ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Select option (a) or type a question to chat[/dim]")
-        if ans.strip().lower() == "a":
+        lowered = ans.strip().lower()
+        if lowered == "a":
             show_documentation_audit()
-        elif ans.strip() and ans.strip().lower() not in EXIT_COMMANDS:
+        elif lowered and lowered not in EXIT_COMMANDS and lowered not in BACK_COMMANDS:
             run_free_chat_session(ans.strip())
     except (KeyboardInterrupt, EOFError):
         raise SystemExit
@@ -1918,7 +2194,11 @@ def show_analytics():
     expected_readiness = readiness_data["expected_readiness"]
     target_readiness = readiness_data["target_readiness"]
     pass_probability = readiness_data["pass_probability"]
-    
+    pass_probability_note = (
+        "  [dim](early estimate -- firms up with more study sessions)[/dim]"
+        if readiness_data.get("low_data", False) else ""
+    )
+
     # Build Topic Mastery Dashboard data
     status = planner.get_syllabus_status(USER_ID)
     topic_mastery = []
@@ -1958,7 +2238,7 @@ def show_analytics():
         f"❓  [bold]Questions[/bold]: {total_attempts} (✅ {correct_attempts} / ❌ {wrong_attempts})  |  "
         f"🎯  [bold green]Accuracy[/bold green]: {overall_accuracy:.1f}%\n\n"
         f"📈  [bold green]Current Readiness[/bold green]: {current_readiness:.1f}% (Expected: {expected_readiness:.1f}% / Target: {target_readiness:.0f}%)\n"
-        f"🎲  [bold yellow]Pass Probability[/bold yellow]: {pass_probability:.1f}%"
+        f"🎲  [bold yellow]Pass Probability[/bold yellow]: {pass_probability:.1f}%{pass_probability_note}"
     )
     
     elements = [
@@ -2092,7 +2372,8 @@ def show_analytics():
     
     try:
         ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return, or type a question to chat[/dim]")
-        if ans.strip() and ans.strip().lower() not in EXIT_COMMANDS:
+        lowered = ans.strip().lower()
+        if lowered and lowered not in EXIT_COMMANDS and lowered not in BACK_COMMANDS:
             run_free_chat_session(ans.strip())
     except (KeyboardInterrupt, EOFError):
         raise SystemExit
@@ -2261,7 +2542,7 @@ def recalibrate_study_plan():
     
     # Offer option to clear mastered topics to start completely fresh
     console.print()
-    if Confirm.ask("[bold]Would you like to reset all topic mastery progress and start completely fresh?[/bold]"):
+    if confirm("[bold]Would you like to reset all topic mastery progress and start completely fresh?[/bold]"):
         completed_topics = []
         database.update_user_profile(USER_ID, {"progress": {"completed_topics": [], "current_agenda": []}})
         
@@ -2288,6 +2569,7 @@ def recalibrate_study_plan():
 def _render_shortfall_report(selection: dict) -> bool:
     """Prints the domain/concept shortfall report for a weighted mock. Returns
     True if there's at least one confirmed question to run with."""
+    has_shortfall_content = bool(selection["domain_shortfall"]) or bool(selection["concept_notes"])
     if selection["domain_shortfall"]:
         lines = [
             f"[bold]{domain}[/bold]: needed {gap['needed']}, only {gap['available']} confirmed available"
@@ -2320,6 +2602,13 @@ def _render_shortfall_report(selection: dict) -> bool:
     if len(selection["questions"]) < selection["requested"]:
         console.print(f"\n  [dim]Running with {len(selection['questions'])} of the requested "
                        f"{selection['requested']} questions -- see shortfall above.[/dim]")
+        has_shortfall_content = True
+    if has_shortfall_content:
+        # The mock's own clear() would otherwise wipe this report before it's readable.
+        try:
+            Prompt.ask("\n  [dim]Press Enter to continue...[/dim]")
+        except (KeyboardInterrupt, EOFError):
+            return False
     return True
 
 
@@ -2350,7 +2639,8 @@ def run_timed_mock():
     elapsed_time = time.time() - start_time
     minutes, seconds = divmod(int(elapsed_time), 60)
     console.print(f"\n  [bold cyan]⏱️ Time Taken: {minutes}m {seconds}s[/bold cyan]")
-    console.print(f"  [dim]Target: ~28m (1.4m per question)[/dim]")
+    target_minutes = (20 * MOCK_SECONDS_PER_QUESTION) / 60
+    console.print(f"  [dim]Target: ~{target_minutes:.0f}m ({MOCK_SECONDS_PER_QUESTION / 60:.1f}m per question)[/dim]")
     try:
         Prompt.ask("\n  [dim]Press Enter to return[/dim]")
     except (KeyboardInterrupt, EOFError):
@@ -2646,170 +2936,34 @@ def run_library_submenu():
             show_error_book_menu()
         elif ans == "g":
             show_flashcard_browser()
-        elif ans in ("h", "back", "q"):
+        elif ans in EXIT_COMMANDS:
+            raise SystemExit
+        elif ans in BACK_COMMANDS or ans == "h":
             break
 
 
-def validate_lexical_syntax_guard(topic: str, question: str, options: list) -> tuple[bool, str]:
-    """
-    Verifies casing rules by routing to the shared planner utility.
-    """
-    return planner.validate_lexical_syntax_guard(topic, question, options)
-
-
-def run_ai_question_wizard():
-    from certcoach.core.config import get_population_model
-    population_model = get_population_model()
+def run_question_bank_reports():
+    """Read-only question-bank reports. The generation/approval wizard that
+    used to live here was removed: it depended on a `chroma_db` vector store
+    that doesn't exist in this repo, so every generation attempt silently fell
+    back to the same hardcoded mock question regardless of topic, and it
+    wrote through a separate draft/approve path unrelated to the real
+    provenance pipeline (`certcoach-preview-concept` / `certcoach-seed-nightly`
+    / `certcoach-review-questions`)."""
     clear()
-    console.print(Rule("[bold cyan]🤖 AI Question Bank Management Wizard[/bold cyan]"))
-    console.print("  [dim]Workflow: Generate ➔ Validate ➔ Duplicate Check ➔ Save Draft ➔ Approve ➔ Add to Production Bank[/dim]\n")
-
-    
-    console.print("  [bold cyan]1.[/bold cyan] Generate & Approve New AI Questions (Interactive Wizard)")
-    console.print("  [bold cyan]2.[/bold cyan] View Question Quality Analytics & Difficulty Flags")
-    console.print("  [bold cyan]3.[/bold cyan] Audit Seven-Part Explanation Coverage")
-    console.print("  [bold cyan]4.[/bold cyan] Return to Settings Submenu")
+    console.print(Rule("[bold cyan]📊 Question Bank Reports[/bold cyan]"))
     console.print()
-    
-    choice = ask("  [bold]Select Option[/bold]", choices=["1", "2", "3", "4"])
-    if choice in ("4", "__back__"):
-        return
-        
-    if choice == "1":
-        # 1. Topic selection
-        all_topics = planner.load_syllabus()
-        console.print("\n  [bold cyan]Choose a Topic to generate questions for:[/bold cyan]")
-        for idx, t in enumerate(all_topics):
-            console.print(f"    [bold]{t['id']}.[/bold] {t['topic']}")
-            
-        topic_idx_str = ask("\n  [bold]Enter Topic Number[/bold]")
-        try:
-            topic_idx = int(topic_idx_str)
-            selected_topic_item = next(t for t in all_topics if t["id"] == topic_idx)
-        except Exception:
-            console.print("[red]  Invalid topic selection. Returning...[/red]")
-            time.sleep(1)
-            return
-            
-        topic = selected_topic_item["topic"]
-        bank_key = selected_topic_item.get("bank_topic_keys", ["General"])[0]
-        
-        # 2. structured question generation
-        with console.status(f"[dim]🧠 Phase 1/6 (Generate): Generating high-fidelity MCQ for '{topic}' using local {population_model}...[/dim]", spinner="dots"):
-            try:
-                from certcoach.core import quiz_generator
-                mcq = quiz_generator.generate_quiz_for_topic(bank_key)
-            except Exception:
-                mcq = None
-                
-        if not mcq:
-            # Resilient offline/local generation fallback
-            scenario = "Your team is migrating a legacy SQL catalog to MongoDB."
-            question = f"Which command properly inserts a document with _id 101 into the catalog collection in mongosh?"
-            options = [
-                "db.catalog.insertOne({_id: 101, type: 'book'})",
-                "db.catalog.insertOne({$set: {_id: 101, type: 'book'}})",
-                "db.catalog.insert_one({_id: 101, type: 'book'})",
-                "db.catalog.insertOne({_id: 101, type: 'book'}, {upsert: true})"
-            ]
-            correct_answer = "db.catalog.insertOne({_id: 101, type: 'book'})"
-            explanation = "insertOne accepts strictly the document body. No update operators like $set or upsert parameters are allowed."
-            trap_analysis = "Option B mixes update operators with inserts. Option C is the PyMongo snake_case name."
-            citation_source = "CRUD_Create_L1_01.md"
-            
-            class ResilientMockMCQ:
-                def __init__(self, q, o, c, e, t, s):
-                    self.question = q
-                    self.options = o
-                    self.correct_answer = c
-                    self.explanation = e
-                    self.trap_analysis = t
-                    self.citation_source = s
-            mcq = ResilientMockMCQ(question, options, correct_answer, explanation, trap_analysis, citation_source)
 
-        console.print("[green]  ✔ Phase 1/6 (Generate) Completed.[/green]")
-        time.sleep(0.5)
-        
-        # 3. Validate
-        with console.status("[dim]🧠 Phase 2/6 (Validate): Verifying structured constraints and casing rules...[/dim]"):
-            is_valid = len(mcq.options) == 4 and mcq.correct_answer in mcq.options and mcq.question
-            if is_valid:
-                syntax_ok, syntax_err = validate_lexical_syntax_guard(bank_key, mcq.question, mcq.options)
-            else:
-                syntax_ok = True
-                syntax_err = ""
-                
-        if is_valid and not syntax_ok:
-            console.print(f"[bold red]  ❌ Phase 2/6 (Validate) Failed Casing Guard: {syntax_err}[/bold red]")
-            time.sleep(4)
-            return
-        elif is_valid:
-            console.print("[green]  ✔ Phase 2/6 (Validate) Passed. All constraints and casing rules matched.[/green]")
-        else:
-            console.print("[red]  ❌ Phase 2/6 (Validate) Failed. Incomplete fields generated.[/red]")
-            time.sleep(2)
-            return
-        time.sleep(0.5)
-        
-        # 4. Duplicate Check
-        with console.status("[dim]🧠 Phase 3/6 (Duplicate Check): Scanning production database bank...[/dim]"):
-            existing = database.questions_col.find_one({"question_text": mcq.question})
-            is_duplicate = existing is not None
-        if not is_duplicate:
-            console.print("[green]  ✔ Phase 3/6 (Duplicate Check) Passed. Question is unique.[/green]")
-        else:
-            console.print("[red]  ❌ Phase 3/6 (Duplicate Check) Failed. Question already exists in bank.[/red]")
-            time.sleep(2)
-            return
-        time.sleep(0.5)
-        
-        # 5. Save Draft
-        with console.status("[dim]🧠 Phase 4/6 (Save Draft): Writing to draft collection...[/dim]"):
-            draft_data = {
-                "topic": bank_key,
-                "difficulty": "Medium",
-                "scenario": scenario if 'scenario' in locals() else "Retail log storage pattern.",
-                "question": mcq.question,
-                "options": mcq.options,
-                "correct_answer": mcq.correct_answer,
-                "trap_analysis": mcq.trap_analysis,
-                "explanation": mcq.explanation,
-                "citation_source": mcq.citation_source
-            }
-            draft_id = database.save_draft_question(draft_data)
-        console.print("[green]  ✔ Phase 4/6 (Save Draft) Completed. Draft ID generated.[/green]")
-        time.sleep(0.5)
-        
-        # 6. Interactive Approval
-        clear()
-        console.print(Rule("[bold yellow]🧠 Phase 5/6: Draft Approval Wizard[/bold yellow]"))
-        console.print()
-        console.print(Panel(mcq.question, title="📋 Draft Question Text", border_style="cyan"))
-        for idx, opt in enumerate(mcq.options):
-            lbl = ['A', 'B', 'C', 'D'][idx]
-            correct_badge = " [bold green](Correct)[/bold green]" if opt == mcq.correct_answer else ""
-            console.print(f"    [bold yellow]{lbl})[/bold yellow]  {opt}{correct_badge}")
-        console.print()
-        console.print(f"  [bold cyan]Trap Analysis[/bold cyan]: {mcq.trap_analysis}")
-        console.print(f"  [bold cyan]Explanation[/bold cyan]: {mcq.explanation}")
-        console.print(f"  [bold cyan]Citation[/bold cyan]: {mcq.citation_source}")
-        console.print()
-        
-        approved = Confirm.ask("  [bold green]Approve draft and push to Production Bank?[/bold green]")
-        if approved:
-            # 7. Add to Bank
-            with console.status("[dim]🧠 Phase 6/6 (Add to Bank): Committing draft to production bank...[/dim]"):
-                success = database.approve_draft_question(draft_id)
-            if success:
-                console.print("\n  [bold green]🎉 Success! Question committed to production bank.[/bold green]")
-            else:
-                console.print("\n  [bold red]❌ Failed: Duplicate discovered during final commit.[/bold red]")
-        else:
-            database.draft_questions_col.delete_one({"_id": draft_id})
-            console.print("\n  [yellow]Draft rejected and deleted.[/yellow]")
-        time.sleep(2)
-        
-    elif choice == "2":
+    console.print("  [bold cyan]1.[/bold cyan] View Question Quality Analytics & Difficulty Flags")
+    console.print("  [bold cyan]2.[/bold cyan] Audit Seven-Part Explanation Coverage")
+    console.print("  [bold cyan]3.[/bold cyan] Return to Settings Submenu")
+    console.print()
+
+    choice = ask("  [bold]Select Option[/bold]", choices=["1", "2", "3"])
+    if choice in ("3", "__back__"):
+        return
+
+    if choice == "1":
         # Question Quality Analytics report
         clear()
         console.print(Rule("[bold cyan]📊 Question Quality Analytics & Difficulty Flags[/bold cyan]"))
@@ -2849,7 +3003,7 @@ def run_ai_question_wizard():
         except (KeyboardInterrupt, EOFError):
             pass
 
-    elif choice == "3":
+    elif choice == "2":
         clear()
         console.print(Rule("[bold cyan]📋 Seven-Part Explanation Coverage Audit[/bold cyan]"))
         console.print()
@@ -2897,8 +3051,9 @@ def run_model_manager():
     import json
     
     clear()
-    console.print(Rule("[bold cyan]🧠 Local AI Model & Memory Manager[/bold cyan]"))
-    console.print("[dim]  View loaded models in VRAM/RAM and clear system memory to optimize speed.\n[/dim]")
+    console.print(Rule("[bold cyan]🧠 Local AI Model & Memory Status[/bold cyan]"))
+    console.print("[dim]  View loaded models in VRAM/RAM and clear system memory to optimize speed. "
+                  "(Inspect/reload only -- changing which model is configured is done via the .env file.)\n[/dim]")
     
     # 1. Fetch loaded models
     loaded_models = []
@@ -2966,10 +3121,7 @@ def run_model_manager():
     console.print("    [bold cyan]3.[/bold cyan] ⬅️  Return to Settings")
     console.print()
     
-    try:
-        act = Prompt.ask("  [bold blue]Memory Manager ❯[/bold blue]", choices=["1", "2", "3"]).strip()
-    except (KeyboardInterrupt, EOFError):
-        return
+    act = ask("  Memory Manager", choices=["1", "2", "3"])
 
     if act == "1":
         if not loaded_models:
@@ -3033,17 +3185,17 @@ def run_account_submenu():
         console.print("    [bold cyan]4.[/bold cyan] Back to Settings")
         console.print()
 
-        try:
-            choice = Prompt.ask("  [bold blue]Account ❯[/bold blue]", choices=["1", "2", "3", "4"]).strip()
-        except (KeyboardInterrupt, EOFError):
-            return
+        choice = ask("  Account", choices=["1", "2", "3", "4"])
 
-        if choice == "4":
+        if choice in ("4", "__back__"):
             return
 
         if choice == "1":
-            email = Prompt.ask("  Email").strip()
-            password = Prompt.ask("  Password", password=True).strip()
+            try:
+                email = Prompt.ask("  Email").strip()
+                password = Prompt.ask("  Password", password=True).strip()
+            except (KeyboardInterrupt, EOFError):
+                continue
             ok, msg, user = auth.login(email, password)
             if ok and user:
                 USER_ID = user["_id"]
@@ -3054,9 +3206,12 @@ def run_account_submenu():
             time.sleep(1.5)
 
         elif choice == "2":
-            email = Prompt.ask("  Email").strip()
-            display_name = Prompt.ask("  Display name", default=email.split("@")[0] if "@" in email else "").strip()
-            password = Prompt.ask("  Password (8+ chars)", password=True).strip()
+            try:
+                email = Prompt.ask("  Email").strip()
+                display_name = Prompt.ask("  Display name", default=email.split("@")[0] if "@" in email else "").strip()
+                password = Prompt.ask("  Password (8+ chars)", password=True).strip()
+            except (KeyboardInterrupt, EOFError):
+                continue
             ok, msg, user = auth.create_account(email, password, display_name)
             if ok and user:
                 USER_ID = user["_id"]
@@ -3086,11 +3241,11 @@ def run_settings_submenu(profile, status):
             console.print("    [bold cyan]c.[/bold cyan] 🏆 Full Mock Exam (53 Questions)")
             console.print("    [bold cyan]d.[/bold cyan] ⏱️  Timed Mock Exam (20 Questions)")
         else:
-            console.print("    [dim]c. 🔒 Full Mock Exam (Locked — need 70% mastery)[/dim]")
-            console.print("    [dim]d. 🔒 Timed Mock Exam (Locked — need 70% mastery)[/dim]")
+            console.print(f"    [dim]c. 🔒 Full Mock Exam (Locked — need {status['unlock_threshold_percent']}% mastery)[/dim]")
+            console.print(f"    [dim]d. 🔒 Timed Mock Exam (Locked — need {status['unlock_threshold_percent']}% mastery)[/dim]")
             
         console.print("    [bold cyan]e.[/bold cyan] 💻 Scenario Simulator (Apply Mode)")
-        console.print("    [bold cyan]f.[/bold cyan] 🤖 AI Question Bank Management Wizard")
+        console.print("    [bold cyan]f.[/bold cyan] 📊 Question Bank Reports (Quality Analytics / Explanation Coverage)")
         console.print("    [bold cyan]g.[/bold cyan] 🧠 Show Loaded AI Models & Free Memory (VRAM)")
         console.print("    [bold cyan]h.[/bold cyan] ❌ Quit CertCoach")
         console.print("    [bold cyan]i.[/bold cyan] ⬅️  Back to Main Menu")
@@ -3116,21 +3271,24 @@ def run_settings_submenu(profile, status):
             if status["mock_exam_unlocked"]:
                 run_full_mock()
             else:
-                console.print("[red]  Locked! Complete 70% of the syllabus first.[/red]")
+                console.print(f"[red]  Locked! Complete {status['unlock_threshold_percent']}% of the syllabus first.[/red]")
         elif ans == "d":
             if status["mock_exam_unlocked"]:
                 run_timed_mock()
             else:
-                console.print("[red]  Locked! Complete 70% of the syllabus first.[/red]")
+                console.print(f"[red]  Locked! Complete {status['unlock_threshold_percent']}% of the syllabus first.[/red]")
         elif ans == "e":
             run_scenario_simulator()
         elif ans == "f":
-            run_ai_question_wizard()
+            run_question_bank_reports()
         elif ans == "g":
             run_model_manager()
-        elif ans in ("h", "quit", "q"):
+        elif ans in EXIT_COMMANDS or ans == "h":
             raise SystemExit
-        elif ans in ("i", "back", "b"):
+        elif ans in BACK_COMMANDS or ans == "i":
+            # NOTE: "b" is technically a member of BACK_COMMANDS but is
+            # already bound to Recalibrate above and never reaches this
+            # branch -- see the "b" elif earlier in this chain.
             break
         elif ans == "j":
             new_uri = Prompt.ask("\n  Enter your new MongoDB Connection URI").strip()
@@ -3179,7 +3337,7 @@ def clear_ollama_memory_on_startup():
                 border_style="yellow", box=box.ROUNDED
             ))
             
-            if Confirm.ask("  [bold cyan]Would you like to clear VRAM memory now?[/bold cyan]", default=True):
+            if confirm("  [bold cyan]Would you like to clear VRAM memory now?[/bold cyan]", default=True):
                 with console.status("[dim]🧠 Unloading active models and freeing VRAM...[/dim]", spinner="dots"):
                     for m in loaded:
                         m_name = m.get("name")
@@ -3301,263 +3459,292 @@ def check_system_specs_and_model_recommendations():
 # ---------------------------------------------------------------------------
 
 def main_menu():
-    database.check_connection()
-    clear_ollama_memory_on_startup()
-    check_system_specs_and_model_recommendations()
-    run_onboarding()
+    try:
+        database.check_connection()
+        clear_ollama_memory_on_startup()
+        check_system_specs_and_model_recommendations()
+        run_onboarding()
 
-    database.update_streak(USER_ID)
+        database.update_streak(USER_ID)
 
-    while True:
-        profile = database.get_user_profile(USER_ID)
-        days_left = planner.calculate_days_left(profile.get("exam_date"))
-        status = planner.get_syllabus_status(USER_ID)
-        agenda = planner.generate_daily_agenda(USER_ID)
-        streak = profile.get("streak_days", 1)
-        streak_freezes = profile.get("progress", {}).get("streak_freezes", 0)
+        while True:
+            profile = database.get_user_profile(USER_ID)
+            days_left = planner.calculate_days_left(profile.get("exam_date"))
+            status = planner.get_syllabus_status(USER_ID)
+            agenda = planner.generate_daily_agenda(USER_ID)
+            streak = profile.get("streak_days", 1)
+            streak_freezes = profile.get("progress", {}).get("streak_freezes", 0)
 
-        agenda_desc = "None"
-        if agenda:
-            first_item = agenda[0]
-            agenda_desc = f"{first_item['topic']} ({first_item['desc']})"
-            
-        # Spaced-repetition due reviews are locked until the user masters at least 1 topic
-        if status.get("mastered_count", 0) >= 1:
-            due_reviews = planner.get_due_review_topics(USER_ID)
-        else:
-            due_reviews = []
-        badge = " [bold red](🚨 Spaced-Repetition Quiz Due!)[/bold red]" if due_reviews else ""
-        
-        skipped_topics = status.get("skipped_unmapped_topics", [])
-        insufficient_concepts = status.get("insufficient_concepts", [])
-        if not isinstance(skipped_topics, list):
-            skipped_topics = []
-        if not isinstance(insufficient_concepts, list):
-            insufficient_concepts = []
-        skipped_badge = ""
-        if skipped_topics:
-            skipped_badge = f" [bold yellow](⚠️ {len(skipped_topics)} topics skipped due to missing docs)[/bold yellow]"
-        if insufficient_concepts:
-            skipped_badge += f" [bold yellow](⚠️ {len(insufficient_concepts)} concepts blocked by question readiness)[/bold yellow]"
-            
-        lock_str = (
-            "[bold green]🔓 Unlocked[/bold green]"
-            if status["mock_exam_unlocked"]
-            else (
-                f"[yellow]🔒 Locked — need {status['unlock_threshold_percent']}% mastery[/yellow]"
-            )
-        )
-        
-        # Calculate readiness metrics for consolidated status bar
-        readiness_data = planner.calculate_readiness_metrics(USER_ID)
-        current_readiness = readiness_data.get("current_readiness", 0.0) if hasattr(readiness_data, "get") else 0.0
-        expected_readiness = readiness_data.get("expected_readiness", 0.0) if hasattr(readiness_data, "get") else 0.0
-        pass_probability = readiness_data.get("pass_probability", 0.0) if hasattr(readiness_data, "get") else 0.0
-        
-        # Fallback if metrics are MagicMocks during test patching
-        if not isinstance(current_readiness, (int, float)):
-            current_readiness = 0.0
-        if not isinstance(expected_readiness, (int, float)):
-            expected_readiness = 0.0
-        if not isinstance(pass_probability, (int, float)):
-            pass_probability = 0.0
-            
-        exam_day_mode = current_readiness >= 85.0
-        exam_day_badge = " [bold gold]🏆 EXAM DAY MODE ACTIVE[/bold gold] |" if exam_day_mode else ""
-        current_user_label = get_current_user_label()
-        
-        # Sleek horizontally consolidated Status Bar
-        console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] (❄️ Freezes: [bold blue]{streak_freezes}[/bold blue]) | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
-        console.print(f"📈 [bold cyan]Readiness[/bold cyan]: [bold green]{current_readiness:.1f}%[/bold green] (Expected: {expected_readiness:.1f}%) | 🎲 [bold yellow]Pass Probability[/bold yellow]: {pass_probability:.1f}% |{exam_day_badge}")
-        if current_user_label:
-            console.print(f"👤 [bold cyan]Signed in as[/bold cyan]: [bold]{current_user_label}[/bold]")
-        console.print("━"*80)
-        console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}{skipped_badge}")
-        console.print(f"  [bold cyan]2.[/bold cyan] 📖 Reference Library (Journal, Cheat Sheet, Syllabus, Analytics)")
-        console.print(f"  [bold cyan]3.[/bold cyan] 🛠️ Study Settings & Extras (Mock Exams, Pacing, Recalibrate, Quit)")
-        console.print()
-        console.print("[dim]Type 1-3 to navigate, or start typing to chat directly with your Coach![/dim]")
-        
-        try:
-            choice_raw = Prompt.ask("\n[bold blue]Coach ❯[/bold blue]").strip()
-        except (KeyboardInterrupt, EOFError):
-            break
- 
-        if not choice_raw:
-            continue
- 
-        if choice_raw.lower() in EXIT_COMMANDS:
-            break
- 
-        if choice_raw == "1":
-            session_start = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-            readiness_before_session = current_readiness
-            
-            # Show skipped topics notice if any
-            if skipped_topics:
-                console.print()
-                alert_lines = [
-                    "[bold yellow]⚠️  The following syllabus topics were bypassed because their official reference documentation does not exist:[/bold yellow]\n"
-                ]
-                for item in skipped_topics:
-                    alert_lines.append(f"  • [cyan]Topic #{item['id']}[/cyan] ({item['topic']})")
-                alert_lines.append(
-                    "\n[bold]Action Required:[/bold] Please provide which topics to include in the docs (add their respective markdown files under [bold cyan]data/raw_markdowns/[/bold cyan]) so that CertCoach can help in learning those topics."
-                )
-                console.print(Panel(
-                    "\n".join(alert_lines),
-                    title="[bold yellow]📂 Bypassed Topics Notice[/bold yellow]",
-                    border_style="yellow", box=box.ROUNDED
-                ))
-                console.print()
-
-            if insufficient_concepts:
-                blocked_lines = [
-                    "[bold yellow]The following concepts are not scheduled because they do not have the required 3 Easy + 2 Medium active-question mix:[/bold yellow]\n"
-                ]
-                for item in insufficient_concepts[:10]:
-                    blocked_lines.append(
-                        f"  • [cyan]{item['topic']}[/cyan] → {item['concept']}: "
-                        f"Easy [bold]{item['easy_questions']}/{item['required_easy']}[/bold], "
-                        f"Medium [bold]{item['medium_questions']}/{item['required_medium']}[/bold]"
-                    )
-                if len(insufficient_concepts) > 10:
-                    blocked_lines.append(f"\n  ...and {len(insufficient_concepts) - 10} more concepts.")
-                blocked_lines.append(
-                    "\nThese concepts remain open and will become schedulable after the controlled Phase 4 bank work."
-                )
-                console.print(Panel(
-                    "\n".join(blocked_lines),
-                    title="[bold yellow]Concept Readiness Blockers[/bold yellow]",
-                    border_style="yellow",
-                    box=box.ROUNDED,
-                ))
-                console.print()
-                
-            # 1. Run due reviews first if any
-            if due_reviews:
-                console.print(Rule("[bold yellow]🚨 Pop Quiz Time! 🚨[/bold yellow]"))
-                console.print(Panel(
-                    "It's time for a quick Spaced-Repetition review of past topics before we start the daily agenda.",
-                    border_style="yellow", box=box.ROUNDED
-                ))
-                if Confirm.ask("  Start 5-question Pop Quiz now?"):
-                    run_practice_questions("Spaced Repetition", due_reviews, num=5, is_mock=True)
-                    console.print("\n  [bold green]Great job! Let's get to today's agenda.[/bold green]")
-                    time.sleep(2)
-            
-            # 2. Run the main daily agenda items
+            agenda_desc = "None"
             if agenda:
-                for item in agenda:
-                    if item.get("type") in ("Review", "Learn"):
-                        cont = run_teach_session(item)
-                        if not cont:
-                            break
-                    elif item.get("type") == "BossFight":
-                        console.print(Panel(item["desc"], title="👾 Boss Fight!", border_style="red"))
-                        try:
-                            Prompt.ask("\n  Press Enter when ready to start the boss fight...")
-                        except (KeyboardInterrupt, EOFError):
-                            break
-                        all_keys = []
-                        for s_item in planner.load_syllabus():
-                            all_keys.extend(s_item.get("bank_topic_keys", []))
-                        score = run_practice_questions(item["topic"], list(set(all_keys)), num=10, is_mock=True)
-                        if score is not None and score >= 7:
-                            planner.mark_boss_complete(USER_ID, item["boss_level"])
-                            console.print(f"\n  [bold green]🏆 Boss Defeated! You may now proceed to the next topics.[/bold green]")
-                        else:
-                            console.print(f"\n  [bold red]❌ Boss Defeated You! You need 7/10 to pass. Try again tomorrow.[/bold red]")
-                        try:
-                            ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
-                        except (KeyboardInterrupt, EOFError):
-                            break
+                first_item = agenda[0]
+                agenda_desc = f"{first_item['topic']} ({first_item['desc']})"
+
+            # Spaced-repetition due reviews are locked until the user masters at least 1 topic
+            if status.get("mastered_count", 0) >= 1:
+                due_reviews = planner.get_due_review_topics(USER_ID)
             else:
-                if insufficient_concepts:
-                    console.print("[yellow]  No study concept is currently ready to schedule. Review the readiness blockers above.[/yellow]")
-                else:
-                    console.print("[green]  You have completed all agenda items for today! Great job.[/green]")
+                due_reviews = []
+            badge = " [bold red](🚨 Spaced-Repetition Quiz Due!)[/bold red]" if due_reviews else ""
 
-            # --- END STUDY SESSION TRACKING ---
-            session_end = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
-            duration_minutes = (session_end - session_start).total_seconds() / 60.0
-            
-            # Fetch all user attempts since session_start
-            all_attempts = database.get_user_attempts(USER_ID)
-            session_attempts = []
-            for att in all_attempts:
-                try:
-                    att_dt = datetime.datetime.fromisoformat(att.get("timestamp"))
-                except Exception:
-                    continue
-                if att_dt >= session_start:
-                    session_attempts.append(att)
-                    
-            if session_attempts or duration_minutes >= 0.5:
-                session_correct = sum(1 for a in session_attempts if a.get("is_correct"))
-                num_questions = len(session_attempts)
-                session_accuracy = (session_correct / max(1, num_questions)) * 100
-                
-                # Gather topics covered
-                covered_topics = list(set(a.get("topic") for a in session_attempts))
-                if not covered_topics and agenda:
-                    covered_topics = [agenda[0]["topic"]]
-                    
-                # Save session log in MongoDB
-                database.save_study_session(USER_ID, session_start, session_end, duration_minutes, covered_topics, num_questions, session_accuracy)
-                
-                # Update progress history in user profile
-                readiness_data_new = planner.calculate_readiness_metrics(USER_ID)
-                profile = database.get_user_profile(USER_ID)
-                history = profile.get("readiness_history", [])
-                
-                today_str = datetime.date.today().isoformat()
-                history = [h for h in history if h.get("date") != today_str]
-                history.append({
-                    "date": today_str,
-                    "readiness": readiness_data_new["current_readiness"]
-                })
-                database.update_user_profile(USER_ID, {"readiness_history": history})
-                next_agenda_after = planner.generate_daily_agenda(USER_ID)
-                closeout_title, closeout_body, closeout_style = build_session_closeout_text(
-                    covered_topics,
-                    session_accuracy,
-                    readiness_before_session,
-                    readiness_data_new["current_readiness"],
-                    next_agenda_after[0] if next_agenda_after else None,
+            skipped_topics = status.get("skipped_unmapped_topics", [])
+            insufficient_concepts = status.get("insufficient_concepts", [])
+            if not isinstance(skipped_topics, list):
+                skipped_topics = []
+            if not isinstance(insufficient_concepts, list):
+                insufficient_concepts = []
+            skipped_badge = ""
+            if skipped_topics:
+                skipped_badge = f" [bold yellow](⚠️ {len(skipped_topics)} topics skipped due to missing docs)[/bold yellow]"
+            if insufficient_concepts:
+                skipped_badge += f" [bold yellow](⚠️ {len(insufficient_concepts)} concepts blocked by question readiness)[/bold yellow]"
+
+            lock_str = (
+                "[bold green]🔓 Unlocked[/bold green]"
+                if status["mock_exam_unlocked"]
+                else (
+                    f"[yellow]🔒 Locked — need {status['unlock_threshold_percent']}% mastery[/yellow]"
                 )
-                
-                # Render high-visibility session stats panel
-                console.print()
-                console.print(Panel(
-                    f"⏱️  [bold cyan]Duration[/bold cyan]: {duration_minutes:.1f} Minutes\n"
-                    f"❓  [bold]Questions[/bold]: {num_questions} (Correct: {session_correct})\n"
-                    f"🎯  [bold green]Accuracy[/bold green]: {session_accuracy:.1f}%\n"
-                    f"📚  [bold]Topics Covered[/bold]: {', '.join(covered_topics)}",
-                    title="📝 CertCoach: Study Session Logged", border_style="green", box=box.ROUNDED
-                ))
-                console.print()
-                console.print(Panel(
-                    closeout_body,
-                    title=closeout_title,
-                    border_style=closeout_style,
-                    box=box.ROUNDED,
-                ))
-                time.sleep(2)
-                
-        elif choice_raw == "2":
-            run_library_submenu()
-            
-        elif choice_raw == "3":
-            try:
-                run_settings_submenu(profile, status)
-            except SystemExit:
-                break
-                
-        else: # Hybrid intercept (Direct Q&A chat)
-            run_free_chat_session(choice_raw)
+            )
 
-    exit_message()
+            # Calculate readiness metrics for consolidated status bar
+            readiness_data = planner.calculate_readiness_metrics(USER_ID)
+            current_readiness = readiness_data.get("current_readiness", 0.0) if hasattr(readiness_data, "get") else 0.0
+            expected_readiness = readiness_data.get("expected_readiness", 0.0) if hasattr(readiness_data, "get") else 0.0
+            pass_probability = readiness_data.get("pass_probability", 0.0) if hasattr(readiness_data, "get") else 0.0
+            low_data = readiness_data.get("low_data", False) if hasattr(readiness_data, "get") else False
+
+            # Fallback if metrics are MagicMocks during test patching
+            if not isinstance(current_readiness, (int, float)):
+                current_readiness = 0.0
+            if not isinstance(expected_readiness, (int, float)):
+                expected_readiness = 0.0
+            if not isinstance(pass_probability, (int, float)):
+                pass_probability = 0.0
+            if not isinstance(low_data, bool):
+                low_data = False
+
+            exam_day_mode = current_readiness >= 85.0
+            exam_day_badge = " [bold gold]🏆 EXAM DAY MODE ACTIVE[/bold gold] |" if exam_day_mode else ""
+            current_user_label = get_current_user_label()
+            # Below ~30 real attempts the pass-probability estimate is still
+            # mostly noise -- say so, rather than showing a bare number that
+            # reads as a confident (and often bleak) prediction this early.
+            pass_probability_str = (
+                f"{pass_probability:.1f}% [dim](early estimate -- firms up with more study sessions)[/dim]"
+                if low_data
+                else f"{pass_probability:.1f}%"
+            )
+
+            # Sleek horizontally consolidated Status Bar
+            console.print(f"\n[bold blue]🧑‍🏫 CertCoach[/bold blue] | 📅 [bold]{days_left} days left[/bold] | 🔥 Streak: [bold yellow]{streak} days[/bold yellow] (❄️ Freezes: [bold blue]{streak_freezes}[/bold blue]) | 🏅 Mastery: [bold green]{status['mastery_percent']}%[/bold green] | Mock: {lock_str}")
+            console.print(f"📈 [bold cyan]Readiness[/bold cyan]: [bold green]{current_readiness:.1f}%[/bold green] (Expected: {expected_readiness:.1f}%) | 🎲 [bold yellow]Pass Probability[/bold yellow]: {pass_probability_str} |{exam_day_badge}")
+            if current_user_label:
+                console.print(f"👤 [bold cyan]Signed in as[/bold cyan]: [bold]{current_user_label}[/bold]")
+            console.print("━"*80)
+            console.print(f"  [bold cyan]1.[/bold cyan] 🚀 Start Today's Study Agenda: [bold]{agenda_desc}[/bold]{badge}{skipped_badge}")
+            console.print(f"  [bold cyan]2.[/bold cyan] 📖 Reference Library (Journal, Cheat Sheet, Syllabus, Analytics)")
+            console.print(f"  [bold cyan]3.[/bold cyan] 🛠️ Study Settings & Extras (Mock Exams, Pacing, Recalibrate, Quit)")
+            console.print()
+            console.print("[dim]Type 1-3 to navigate, or start typing to chat directly with your Coach![/dim]")
+
+            try:
+                choice_raw = Prompt.ask("\n[bold blue]Coach ❯[/bold blue]").strip()
+            except (KeyboardInterrupt, EOFError):
+                break
+
+            if not choice_raw:
+                continue
+
+            if choice_raw.lower() in EXIT_COMMANDS:
+                break
+
+            if choice_raw.lower() == "blocked":
+                if insufficient_concepts:
+                    blocked_lines = [
+                        "[bold yellow]The following concepts are not scheduled because they do not have the required 3 Easy + 2 Medium active-question mix:[/bold yellow]\n"
+                    ]
+                    for item in insufficient_concepts[:10]:
+                        blocked_lines.append(
+                            f"  • [cyan]{item['topic']}[/cyan] → {item['concept']}: "
+                            f"Easy [bold]{item['easy_questions']}/{item['required_easy']}[/bold], "
+                            f"Medium [bold]{item['medium_questions']}/{item['required_medium']}[/bold]"
+                        )
+                    if len(insufficient_concepts) > 10:
+                        blocked_lines.append(f"\n  ...and {len(insufficient_concepts) - 10} more concepts.")
+                    blocked_lines.append(
+                        "\nThese concepts remain open and will become schedulable after the controlled Phase 4 bank work."
+                    )
+                    console.print(Panel(
+                        "\n".join(blocked_lines),
+                        title="[bold yellow]Concept Readiness Blockers[/bold yellow]",
+                        border_style="yellow",
+                        box=box.ROUNDED,
+                    ))
+                else:
+                    console.print("[green]  All concepts currently have enough confirmed questions to practice.[/green]")
+                try:
+                    Prompt.ask("\n  [dim]Press Enter to return[/dim]")
+                except (KeyboardInterrupt, EOFError):
+                    pass
+                continue
+
+            if choice_raw == "1":
+                session_start = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                readiness_before_session = current_readiness
+
+                # Show skipped topics notice if any
+                if skipped_topics:
+                    console.print()
+                    alert_lines = [
+                        "[bold yellow]⚠️  The following syllabus topics were bypassed because their official reference documentation does not exist:[/bold yellow]\n"
+                    ]
+                    for item in skipped_topics:
+                        alert_lines.append(f"  • [cyan]Topic #{item['id']}[/cyan] ({item['topic']})")
+                    alert_lines.append(
+                        "\n[bold]Action Required:[/bold] Please provide which topics to include in the docs (add their respective markdown files under [bold cyan]data/raw_markdowns/[/bold cyan]) so that CertCoach can help in learning those topics."
+                    )
+                    console.print(Panel(
+                        "\n".join(alert_lines),
+                        title="[bold yellow]📂 Bypassed Topics Notice[/bold yellow]",
+                        border_style="yellow", box=box.ROUNDED
+                    ))
+                    console.print()
+
+                if insufficient_concepts:
+                    console.print(
+                        f"[dim]{len(insufficient_concepts)} concept(s) still building content -- "
+                        f"today's is ready. Type [bold]blocked[/bold] at the main menu to see the full list.[/dim]"
+                    )
+                    console.print()
+
+                # 1. Run due reviews first if any
+                if due_reviews:
+                    console.print(Rule("[bold yellow]🚨 Pop Quiz Time! 🚨[/bold yellow]"))
+                    console.print(Panel(
+                        "It's time for a quick Spaced-Repetition review of past topics before we start the daily agenda.",
+                        border_style="yellow", box=box.ROUNDED
+                    ))
+                    if confirm("  Start 5-question Pop Quiz now?"):
+                        run_practice_questions("Spaced Repetition", due_reviews, num=5, is_mock=True)
+                        console.print("\n  [bold green]Great job! Let's get to today's agenda.[/bold green]")
+                        time.sleep(2)
+
+                # 2. Run the main daily agenda items
+                if agenda:
+                    for item in agenda:
+                        if item.get("type") in ("Review", "Learn"):
+                            cont = run_teach_session(item)
+                            if not cont:
+                                break
+                        elif item.get("type") == "BossFight":
+                            console.print(Panel(item["desc"], title="👾 Boss Fight!", border_style="red"))
+                            try:
+                                Prompt.ask("\n  Press Enter when ready to start the boss fight...")
+                            except (KeyboardInterrupt, EOFError):
+                                break
+                            all_keys = []
+                            for s_item in planner.load_syllabus():
+                                all_keys.extend(s_item.get("bank_topic_keys", []))
+                            score = run_practice_questions(item["topic"], list(set(all_keys)), num=10, is_mock=True)
+                            if score is None:
+                                console.print("\n  [yellow]Not enough questions are available for the Boss Fight yet -- try again once more of the bank is confirmed.[/yellow]")
+                            elif score >= 7:
+                                planner.mark_boss_complete(USER_ID, item["boss_level"])
+                                console.print(f"\n  [bold green]🏆 Boss Defeated! You may now proceed to the next topics.[/bold green]")
+                            else:
+                                console.print(f"\n  [bold red]❌ Boss Defeated You! You need 7/10 to pass. Try again tomorrow.[/bold red]")
+                            try:
+                                ans = Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+                            except (KeyboardInterrupt, EOFError):
+                                break
+                else:
+                    if insufficient_concepts:
+                        console.print("[yellow]  No study concept is currently ready to schedule. Review the readiness blockers above.[/yellow]")
+                    else:
+                        console.print("[green]  You have completed all agenda items for today! Great job.[/green]")
+
+                # --- END STUDY SESSION TRACKING ---
+                session_end = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+                duration_minutes = (session_end - session_start).total_seconds() / 60.0
+
+                # Fetch all user attempts since session_start
+                all_attempts = database.get_user_attempts(USER_ID)
+                session_attempts = []
+                for att in all_attempts:
+                    try:
+                        att_dt = datetime.datetime.fromisoformat(att.get("timestamp"))
+                    except Exception:
+                        continue
+                    if att_dt >= session_start:
+                        session_attempts.append(att)
+
+                if session_attempts or duration_minutes >= 0.5:
+                    session_correct = sum(1 for a in session_attempts if a.get("is_correct"))
+                    num_questions = len(session_attempts)
+                    session_accuracy = (session_correct / max(1, num_questions)) * 100
+
+                    # Gather topics covered
+                    covered_topics = list(set(a.get("topic") for a in session_attempts))
+                    if not covered_topics and agenda:
+                        covered_topics = [agenda[0]["topic"]]
+
+                    # Save session log in MongoDB
+                    database.save_study_session(USER_ID, session_start, session_end, duration_minutes, covered_topics, num_questions, session_accuracy)
+
+                    # Update progress history in user profile
+                    readiness_data_new = planner.calculate_readiness_metrics(USER_ID)
+                    profile = database.get_user_profile(USER_ID)
+                    history = profile.get("readiness_history", [])
+
+                    today_str = datetime.date.today().isoformat()
+                    history = [h for h in history if h.get("date") != today_str]
+                    history.append({
+                        "date": today_str,
+                        "readiness": readiness_data_new["current_readiness"]
+                    })
+                    database.update_user_profile(USER_ID, {"readiness_history": history})
+                    next_agenda_after = planner.generate_daily_agenda(USER_ID)
+                    closeout_title, closeout_body, closeout_style = build_session_closeout_text(
+                        covered_topics,
+                        session_accuracy,
+                        readiness_before_session,
+                        readiness_data_new["current_readiness"],
+                        next_agenda_after[0] if next_agenda_after else None,
+                    )
+
+                    # Render high-visibility session stats panel
+                    console.print()
+                    console.print(Panel(
+                        f"⏱️  [bold cyan]Duration[/bold cyan]: {duration_minutes:.1f} Minutes\n"
+                        f"❓  [bold]Questions[/bold]: {num_questions} (Correct: {session_correct})\n"
+                        f"🎯  [bold green]Accuracy[/bold green]: {session_accuracy:.1f}%\n"
+                        f"📚  [bold]Topics Covered[/bold]: {', '.join(covered_topics)}",
+                        title="📝 CertCoach: Study Session Logged", border_style="green", box=box.ROUNDED
+                    ))
+                    console.print()
+                    console.print(Panel(
+                        closeout_body,
+                        title=closeout_title,
+                        border_style=closeout_style,
+                        box=box.ROUNDED,
+                    ))
+                    time.sleep(2)
+
+            elif choice_raw == "2":
+                run_library_submenu()
+
+            elif choice_raw == "3":
+                run_settings_submenu(profile, status)
+
+            else: # Hybrid intercept (Direct Q&A chat)
+                run_free_chat_session(choice_raw)
+    except (SystemExit, KeyboardInterrupt, EOFError):
+        pass
+    except Exception as e:
+        console.print(f"\n[red]Unexpected error: {e}[/red]")
+    finally:
+        exit_message()
 
 
 # ---------------------------------------------------------------------------

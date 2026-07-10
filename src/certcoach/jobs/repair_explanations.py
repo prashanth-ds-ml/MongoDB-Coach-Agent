@@ -4,7 +4,6 @@ import sys
 import time
 from datetime import datetime, timezone
 
-from bson import ObjectId
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 from rich.console import Console
@@ -67,16 +66,6 @@ class RepairedExplanation(BaseModel):
     explanation: str = Field(description="Detailed seven-part explanation markdown.")
     feedbacks: list[str] = Field(description="Exactly four detailed feedback strings, one per option.")
     trap_analysis: str = Field(description="Detailed exam trap explanation.")
-
-
-def _find_question(question_id: str) -> dict | None:
-    q = database.questions_col.find_one({"_id": question_id})
-    if q:
-        return q
-    try:
-        return database.questions_col.find_one({"_id": ObjectId(question_id)})
-    except Exception:
-        return None
 
 
 def _topic_matches(q: dict, topic_filter: str | None) -> bool:

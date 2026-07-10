@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 from certcoach.jobs import map_questions_to_docs as mod
 
 
@@ -100,3 +102,61 @@ def test_current_citation_doc_falls_back_to_legacy_citation_source():
     question = {"metadata": {"citation_source": "Some Human Title"}}
 
     assert mod.current_citation_doc(question) == "Some Human Title"
+
+
+def _orphan_docs():
+    resolvable = {
+        "_id": "q1",
+        "metadata": {"topic_id": None, "topic": "BSON Data Types"},
+        "question_text": "Which BSON data type represents a document field?",
+        "options": [],
+    }
+    unresolvable = {"_id": "q2", "metadata": {"topic_id": None, "topic": "Some Unrelated Legacy Label"}}
+    return resolvable, unresolvable
+
+
+def test_backfill_missing_topics_dry_run_does_not_write():
+    topics_by_id = _topics_by_id()
+    resolvable, unresolvable = _orphan_docs()
+
+    with patch.object(mod, "build_syllabus_index", return_value=(topics_by_id, _topics_by_bank_key(topics_by_id))), \
+         patch.object(mod, "database") as mock_database:
+        mock_database.questions_col.find.return_value = [resolvable, unresolvable]
+
+        result = mod.backfill_missing_topics(write=False)
+
+    assert len(result["backfilled"]) == 1
+    assert result["backfilled"][0]["_id"] == "q1"
+    assert result["backfilled"][0]["topic_id"] == 1
+    assert result["unresolved"] == ["q2"]
+    assert result["write"] is False
+    mock_database.questions_col.update_one.assert_not_called()
+
+
+def test_backfill_missing_topics_write_updates_only_resolved_orphans():
+    topics_by_id = _topics_by_id()
+    resolvable, unresolvable = _orphan_docs()
+
+    with patch.object(mod, "build_syllabus_index", return_value=(topics_by_id, _topics_by_bank_key(topics_by_id))), \
+         patch.object(mod, "database") as mock_database:
+        mock_database.questions_col.find.return_value = [resolvable, unresolvable]
+
+        result = mod.backfill_missing_topics(write=True)
+
+    mock_database.questions_col.update_one.assert_called_once()
+    call_args = mock_database.questions_col.update_one.call_args
+    assert call_args.args[0] == {"_id": "q1"}
+    assert call_args.args[1]["$set"]["metadata.topic_id"] == 1
+    assert result["write"] is True
+
+
+def test_backfill_missing_topics_queries_only_documents_missing_topic_id():
+    with patch.object(mod, "build_syllabus_index", return_value=({}, {})), \
+         patch.object(mod, "database") as mock_database:
+        mock_database.questions_col.find.return_value = []
+
+        mod.backfill_missing_topics(write=False)
+
+    mock_database.questions_col.find.assert_called_once_with(
+        {"$or": [{"metadata.topic_id": {"$exists": False}}, {"metadata.topic_id": None}]}
+    )

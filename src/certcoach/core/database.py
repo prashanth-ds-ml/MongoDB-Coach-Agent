@@ -49,7 +49,6 @@ questions_col = None
 profiles_col = None
 attempts_col = None
 study_sessions_col = None
-draft_questions_col = None
 users_col = None
 error_book_col = None
 lessons_col = None
@@ -62,7 +61,6 @@ try:
     profiles_col = db["user_profiles"]
     attempts_col = db["user_attempts"]
     study_sessions_col = db["user_study_sessions"]
-    draft_questions_col = db["draft_questions"]
     users_col = db["users"]
     error_book_col = db["user_error_book"]
     lessons_col = db["lesson_artifacts"]
@@ -323,13 +321,6 @@ def get_weighted_mock_questions(num: int) -> dict:
     }
 
 
-def get_all_topics():
-    """Returns a list of all distinct topics available in the question bank."""
-    return sorted(questions_col.distinct("metadata.topic"))
-
-def get_questions_count():
-    return questions_col.count_documents({})
-
 def save_generated_question(mcq_data: dict):
     """Saves a newly LLM-generated question into the standard Ultimate Schema."""
     q_id = str(uuid.uuid4())
@@ -391,12 +382,14 @@ def save_generated_question(mcq_data: dict):
 
 # --- PROVENANCE REVIEW QUEUE ---
 
-def get_questions_for_review(limit: int = 50, topic_id: int | None = None) -> list:
+def get_questions_for_review(limit: int = 50, topic_id: int | None = None, concept: str | None = None) -> list:
     """Questions awaiting a human decision -- draft or sourced, not yet confirmed/suspect.
     Ordered by topic/concept so a review session can move through one concept at a time."""
     query = {"provenance.state": {"$in": ["draft", "sourced"]}}
     if topic_id is not None:
         query["metadata.topic_id"] = int(topic_id)
+    if concept is not None:
+        query["metadata.concept"] = concept
     return list(
         questions_col.find(query)
         .sort([("metadata.topic_id", 1), ("metadata.concept", 1)])
@@ -404,11 +397,47 @@ def get_questions_for_review(limit: int = 50, topic_id: int | None = None) -> li
     )
 
 
-def count_questions_for_review(topic_id: int | None = None) -> int:
+def count_questions_for_review(topic_id: int | None = None, concept: str | None = None) -> int:
     query = {"provenance.state": {"$in": ["draft", "sourced"]}}
     if topic_id is not None:
         query["metadata.topic_id"] = int(topic_id)
+    if concept is not None:
+        query["metadata.concept"] = concept
     return questions_col.count_documents(query)
+
+
+def get_provenance_counts(topic_id: int | None = None, concept: str | None = None) -> dict[str, int]:
+    """Count questions per provenance.state, optionally scoped to a topic/concept --
+    the raw numbers behind the Docket rail's stat pills and per-concept progress."""
+    base_query: dict = {}
+    if topic_id is not None:
+        base_query["metadata.topic_id"] = int(topic_id)
+    if concept is not None:
+        base_query["metadata.concept"] = concept
+    counts = {"draft": 0, "sourced": 0, "confirmed": 0, "suspect": 0}
+    for state in counts:
+        state_query = dict(base_query)
+        state_query["provenance.state"] = state
+        counts[state] = questions_col.count_documents(state_query)
+    return counts
+
+
+def get_legacy_reference_questions(topic_id: int | None, concept: str | None, limit: int = 10) -> list:
+    """Old-bank `suspect` questions already mapped to this same topic/concept
+    (see jobs/map_questions_to_docs.py), surfaced as read-only context while
+    reviewing freshly generated questions for the concept -- so a reviewer
+    can see what already exists and avoid duplicating it. `suspect` stays
+    inert here: this never feeds an actionable confirm/suspect decision,
+    only display. Returns [] when either scope is missing, to avoid ever
+    returning an unscoped dump of the whole legacy backlog."""
+    if topic_id is None or concept is None:
+        return []
+    query = {
+        "provenance.state": "suspect",
+        "metadata.topic_id": int(topic_id),
+        "metadata.concept": concept,
+    }
+    return list(questions_col.find(query).limit(limit))
 
 
 def confirm_question(question_id: str, user_id: str) -> bool:
@@ -480,6 +509,64 @@ def verify_citation(question: dict) -> tuple[bool, str]:
     if quote_norm and quote_norm in doc_norm:
         return True, "citation verified"
     return False, "quote does not appear verbatim in the cited source file"
+
+
+def get_citation_excerpt(question: dict) -> dict:
+    """Locate the cited quote inside its own source paragraph so a reviewer
+    can see it in original context (markdown formatting, surrounding
+    sentences) instead of just the bare quote string. Reuses verify_citation
+    for the verified/message fields -- this never re-judges truth, only
+    finds *where* an already-checked quote sits for display."""
+    verified, message = verify_citation(question)
+    citation = (question.get("provenance") or {}).get("citation") or {}
+    doc_file = citation.get("doc_file", "")
+    quote = citation.get("quote", "")
+    result = {
+        "doc_file": doc_file,
+        "quote": quote,
+        "verified": verified,
+        "message": message,
+        "excerpt_before": "",
+        "excerpt_match": quote,
+        "excerpt_after": "",
+    }
+    if not doc_file or not quote:
+        return result
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    doc_path = None
+    for source_dir in CITABLE_SOURCE_DIRS:
+        candidate = os.path.join(here, "..", "data", source_dir, doc_file)
+        if os.path.exists(candidate):
+            doc_path = candidate
+            break
+    if doc_path is None:
+        return result
+
+    with open(doc_path, encoding="utf-8") as f:
+        doc_text = f.read()
+
+    words = _strip_markdown_emphasis(quote).split()
+    if not words:
+        return result
+
+    # Tolerate markdown emphasis punctuation and any amount of whitespace
+    # between words, so a quote that matches only after stripping `**`/`_`
+    # (see verify_citation) still locates its exact span in the raw,
+    # unstripped source text for display.
+    pattern = re.compile(
+        r"[`*_]*\s+[`*_]*".join(re.escape(w) for w in words)
+    )
+
+    for para in re.split(r"\n\s*\n", doc_text):
+        match = pattern.search(para)
+        if match:
+            result["excerpt_before"] = para[: match.start()].strip()
+            result["excerpt_match"] = para[match.start(): match.end()]
+            result["excerpt_after"] = para[match.end():].strip()
+            return result
+
+    return result
 
 
 # --- USER PROGRESS & ANALYTICS ---
@@ -859,105 +946,6 @@ def get_study_sessions(user_id: str) -> list:
     return list(study_sessions_col.find({"user_id": user_id}))
 
 
-# --- AI QUESTION GENERATION BANK MANAGEMENT ---
-
-def save_draft_question(mcq_data: dict) -> str:
-    """Saves a draft AI-generated question awaiting user validation."""
-    q_id = str(uuid.uuid4())
-    draft = {
-        "_id": q_id,
-        "topic": mcq_data.get("topic", "General"),
-        "difficulty": mcq_data.get("difficulty", "Medium"),
-        "scenario": mcq_data.get("scenario", ""),
-        "question": mcq_data.get("question", ""),
-        "options": mcq_data.get("options", []),
-        "correct_answer": mcq_data.get("correct_answer", ""),
-        "trap_analysis": mcq_data.get("trap_analysis", "No specific trap."),
-        "explanation": mcq_data.get("explanation", ""),
-        "citation_source": mcq_data.get("citation_source", ""),
-        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat()
-    }
-    draft_questions_col.insert_one(draft)
-    return q_id
-
-
-def get_draft_questions() -> list:
-    """Retrieve all pending draft questions."""
-    return list(draft_questions_col.find({}))
-
-
-def approve_draft_question(draft_id: str) -> bool:
-    """Moves a draft question to the production bank after running duplicate check."""
-    draft = draft_questions_col.find_one({"_id": draft_id})
-    if not draft:
-        return False
-
-    # Duplicate check based on question text
-    existing = questions_col.find_one({"question_text": draft["question"]})
-    if existing:
-        draft_questions_col.delete_one({"_id": draft_id})
-        return False
-
-    # Convert draft to standard Ultimate Schema
-    correct_answers = draft.get("correct_answers") or [draft.get("correct_answer", "")]
-    correct_answers_normalized = {str(a).strip() for a in correct_answers if str(a).strip()}
-    response_type = "multi" if len(correct_answers_normalized) > 1 else "single"
-    rich_question = {
-        "_id": draft["_id"],
-        "metadata": {
-            "topic": draft["topic"],
-            "difficulty": draft["difficulty"],
-            "citation_source": draft["citation_source"],
-            "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
-            "response_type": response_type,
-            "num_correct": len(correct_answers_normalized),
-        },
-        "context": {
-            "scenario_description": draft["scenario"],
-            "database_info": ""
-        },
-        "question_text": draft["question"],
-        "options": [],
-        "global_metrics": {
-            "total_attempts": 0,
-            "correct_attempts": 0,
-            "times_seen": 0,
-            "times_correct": 0,
-            "times_incorrect": 0,
-            "average_time_seconds": 0.0
-        },
-        "provenance": provenance_metadata(
-            state=DEFAULT_PROVENANCE_STATE,
-            citation_doc_file=draft.get("citation_source", ""),
-            citation_quote=draft.get("citation_quote", ""),
-            model=draft.get("generation_model"),
-        ),
-    }
-
-    letters = ['A', 'B', 'C', 'D']
-    for idx, opt_text in enumerate(draft["options"]):
-        is_correct = (opt_text.strip() in correct_answers_normalized)
-        is_trap = False
-        trap_analysis = draft.get("trap_analysis", "")
-        feedback = draft.get("explanation", "")
-
-        if not is_correct and trap_analysis and letters[idx] in trap_analysis:
-            is_trap = True
-            feedback = trap_analysis
-
-        rich_question["options"].append({
-            "option_letter": letters[idx],
-            "code_snippet": opt_text,
-            "is_correct": is_correct,
-            "is_trap": is_trap,
-            "feedback": feedback
-        })
-
-    questions_col.insert_one(rich_question)
-    draft_questions_col.delete_one({"_id": draft_id})
-    return True
-
-
 # --- QUESTION EXPOSURE & QUALITY TRACKING ---
 
 def update_question_exposure(question_id: str, is_correct: bool, elapsed_seconds: float):
@@ -1155,7 +1143,7 @@ def award_streak_freeze(user_id: str) -> bool:
 
 def update_database_connection(new_uri: str) -> bool:
     """Rewrites the .env files, closes the active client, and re-establishes the connection."""
-    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, draft_questions_col, users_col, error_book_col, MONGO_URI, connection_error
+    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, users_col, error_book_col, MONGO_URI, connection_error
     
     os.environ["MONGO_URI"] = new_uri
     MONGO_URI = new_uri
@@ -1201,7 +1189,6 @@ def update_database_connection(new_uri: str) -> bool:
         profiles_col = db["user_profiles"]
         attempts_col = db["user_attempts"]
         study_sessions_col = db["user_study_sessions"]
-        draft_questions_col = db["draft_questions"]
         users_col = db["users"]
         error_book_col = db["user_error_book"]
         connection_error = None

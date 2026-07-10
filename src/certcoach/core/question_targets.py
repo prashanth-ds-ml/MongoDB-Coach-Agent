@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from certcoach.core.config import get_population_easy_target, get_population_medium_target
+
 
 # Absolute floor per concept. This mirrors the fixed five-question practice-session
 # composition in cli.py (exactly 3 Easy + 2 Medium, hardcoded there as a live product/UX
@@ -9,9 +11,6 @@ from dataclasses import dataclass
 # before practice unlocks at all, regardless of exam weight. Weight only changes how far
 # *above* this floor a concept's deeper population target reaches (see build_weighted_targets).
 MIN_CONCEPT_TARGETS = {"Easy": 3, "Medium": 2}
-
-# Backward-compatible alias for the former name.
-STUDY_READY_TARGETS = MIN_CONCEPT_TARGETS
 
 # The official MongoDB Associate Python Developer exam blueprint (percentages, sum to
 # 100), cross-checked against the real exam guide PDF -- see memory/MongoDB_Exam_Blueprint.md.
@@ -161,6 +160,38 @@ def topic_exam_weight_map(syllabus: list[dict]) -> dict[int, float]:
         for item in items:
             weights[item["id"]] = (domain_pct / 100.0) * (multipliers[item["id"]] / multiplier_total)
     return weights
+
+
+def default_total_bank_target(syllabus: list[dict]) -> int:
+    """The pool size build_weighted_targets redistributes by exam weight when the
+    caller hasn't set an explicit --target-easy/--target-medium. Preserves the
+    previous flat per-concept average (get_population_easy_target() +
+    get_population_medium_target(), still respecting any user config override)
+    as the overall bank scale -- only the *distribution* across concepts changes,
+    from identical-for-everyone to proportional-to-real-exam-weight."""
+    num_concepts = sum(len(item.get("subtopics") or [item["topic"]]) for item in syllabus) or 1
+    return (get_population_easy_target() + get_population_medium_target()) * num_concepts
+
+
+def weighted_target_for_concept(
+    syllabus: list[dict],
+    topic_id: int,
+    concept: str,
+    total_bank_target: int | None = None,
+) -> dict[str, int]:
+    """Convenience lookup for one concept's Easy/Medium target_count, e.g. for
+    a dry-run preview comparing a doc's yield against what the concept
+    actually needs -- avoids every caller re-filtering build_weighted_targets'
+    full 58-concept x 2-difficulty list by hand."""
+    targets = build_weighted_targets(
+        syllabus,
+        total_bank_target=total_bank_target if total_bank_target is not None else default_total_bank_target(syllabus),
+    )
+    return {
+        target.difficulty: target.target_count
+        for target in targets
+        if target.topic_id == topic_id and target.concept == concept
+    }
 
 
 def build_weighted_targets(

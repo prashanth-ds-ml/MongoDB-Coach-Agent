@@ -69,12 +69,7 @@ def resolve_lesson_target(topic_id: int | None = None, concept: str | None = Non
 
 
 def build_lesson_source_bundle(target: LessonTarget) -> dict:
-    prioritized_files = planner.prioritize_md_files(target.md_files, target.concept)
-    source_files = [
-        filename for filename in prioritized_files
-        if planner.score_md_file_for_concept(filename, target.concept) > 0
-    ]
-    source_files = (source_files or prioritized_files[:2])[:3]
+    source_files = planner.resolve_concept_docs(target.md_files, target.concept)
 
     md_context = planner.load_md_context(target.md_files, prioritize_concept=target.concept)
     weak_focus_context = planner.load_topic_benchmark_focus(target.topic_id, target.concept)

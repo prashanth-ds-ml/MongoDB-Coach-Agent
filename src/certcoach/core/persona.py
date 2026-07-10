@@ -313,11 +313,15 @@ def build_lesson_prompt(topic: str, subtopic: str, md_context: str = "") -> str:
     )
 
 
-def build_followup_prompt(topic: str, subtopic: str, user_question: str, chat_history: list) -> str:
+def build_followup_prompt(topic: str, subtopic: str, user_question: str, chat_history: list, md_context: str = "") -> str:
     history_str = "\n".join(
         f"{'Student' if m['role'] == 'user' else 'CertCoach'}: {m['content']}"
         for m in chat_history[-6:]
     )
+
+    if not md_context.strip():
+        md_context = "CRITICAL: No official reference material is loaded for this concept."
+    context_section = f"\n\nReference material (use for accuracy):\n```\n{md_context[:25000]}\n```"
 
     is_pymongo_topic = "pymongo" in topic.lower() or "driver" in topic.lower()
     if is_pymongo_topic:
@@ -330,11 +334,15 @@ def build_followup_prompt(topic: str, subtopic: str, user_question: str, chat_hi
         f"{OUTCOME_GUARDRAILS}\n\n"
         f"MODE: CHECK / CLARIFY\n"
         f"Topic: **{topic}**\n\n"
-        f"Current concept: **{subtopic}**\n\n"
+        f"Current concept: **{subtopic}**\n"
+        f"{context_section}\n\n"
         f"{FOLLOWUP_SCOPE_RULES}\n"
         f"Conversation so far:\n{history_str}\n\n"
         f"Student's input: {user_question}\n\n"
         f"CRITICAL MONGODB RULES:\n"
+        f"- You MUST answer STRICTLY based on the Reference material provided above. Do NOT use external web search.\n"
+        f"- If the Reference material is missing or does not cover what the student is asking, state: 'This is not covered in my official docs.' and do not make up any content.\n"
+        f"- Do NOT invent invalid-syntax traps; only call something invalid when the reference material supports that exact claim.\n"
         f"- Answer strictly according to official MongoDB behavior. If you are unsure, say so plainly.\n"
         f"- If a field is an array, querying `{{field: 'value'}}` DOES match documents whose array contains 'value'. Do NOT claim they must use `{{field: ['value']}}` unless they want an exact array match.\n"
         f"{language_rule}\n\n"
@@ -457,6 +465,53 @@ def build_free_chat_prompt(user_input: str, chat_history: list, student_context:
     )
 
 
+def build_scenario_prompt(topic: str, md_context: str = "") -> str:
+    if not md_context.strip():
+        md_context = "CRITICAL: No official reference material is loaded for this topic."
+    context_section = (
+        f"\n\nReference material (ground the scenario in this -- do not invent unsupported "
+        f"MongoDB behavior):\n```\n{md_context[:25000]}\n```"
+    )
+    return (
+        f"You are CertCoach — an expert MongoDB Certification Instructor.\n"
+        f"The student is practicing the topic: **{topic}**.\n"
+        f"{context_section}\n\n"
+        f"Generate a brief, real-world product requirement scenario that requires applying this topic.\n"
+        f"For example, 'You are building a real-time leaderboard...'\n"
+        f"Ask them how they would model it or what query they would write.\n"
+        f"CRITICAL RULES:\n"
+        f"- Ground the scenario in the reference material above. Do NOT invent MongoDB behavior, "
+        f"methods, or constraints that aren't supported by it or well-established official behavior.\n"
+        f"- If the reference material doesn't cover enough to build a concrete scenario, keep the "
+        f"scenario general rather than asserting specific behavior you're unsure of.\n"
+        f"End with: 'Type your approach or query below.'"
+    )
+
+
+def build_scenario_evaluation_prompt(topic: str, scenario: str, user_answer: str, md_context: str = "") -> str:
+    if not md_context.strip():
+        md_context = "CRITICAL: No official reference material is loaded for this topic."
+    context_section = f"\n\nReference material (use for accuracy):\n```\n{md_context[:25000]}\n```"
+    return (
+        f"You are CertCoach — an expert MongoDB Certification Instructor.\n"
+        f"Topic: **{topic}**\n"
+        f"{context_section}\n\n"
+        f"Scenario presented to student:\n{scenario}\n\n"
+        f"Student's approach:\n{user_answer}\n\n"
+        f"Evaluate their approach. Point out edge cases, performance impacts, or syntax errors.\n"
+        f"Provide the ideal, most efficient solution if theirs was flawed.\n"
+        f"Be constructive and encouraging.\n\n"
+        f"CRITICAL RULES:\n"
+        f"- You MUST evaluate strictly based on the Reference material provided above and "
+        f"well-established official MongoDB behavior. Do NOT invent constraints, errors, or "
+        f"behavior not supported by it.\n"
+        f"- If you are unsure whether something is correct, say so plainly rather than asserting "
+        f"it confidently.\n"
+        f"- Do NOT invent invalid-syntax traps; only call something invalid when the reference "
+        f"material or well-known official behavior supports that exact claim."
+    )
+
+
 class CoachPersona:
     """Strict-but-friendly local AI coach."""
 
@@ -539,8 +594,8 @@ class CoachPersona:
         )
 
 
-    def handle_followup(self, topic: str, subtopic: str, user_question: str, chat_history: list) -> str:
-        return self._call(build_followup_prompt(topic, subtopic, user_question, chat_history), temperature=0.5)
+    def handle_followup(self, topic: str, subtopic: str, user_question: str, chat_history: list, md_context: str = "") -> str:
+        return self._call(build_followup_prompt(topic, subtopic, user_question, chat_history, md_context), temperature=0.5)
 
 
     def handle_free_chat(self, user_input: str, chat_history: list, student_context: str = "") -> str:
@@ -569,25 +624,8 @@ class CoachPersona:
     # SCENARIOS
     # ------------------------------------------------------------------
 
-    def generate_scenario(self, topic: str) -> str:
-        return self._call(
-            f"You are CertCoach — an expert MongoDB Certification Instructor.\n"
-            f"The student is practicing the topic: **{topic}**.\n\n"
-            f"Generate a brief, real-world product requirement scenario that requires applying this topic.\n"
-            f"For example, 'You are building a real-time leaderboard...'\n"
-            f"Ask them how they would model it or what query they would write.\n"
-            f"End with: 'Type your approach or query below.'",
-            temperature=0.7
-        )
+    def generate_scenario(self, topic: str, md_context: str = "") -> str:
+        return self._call(build_scenario_prompt(topic, md_context), temperature=0.7)
 
-    def evaluate_scenario(self, topic: str, scenario: str, user_answer: str) -> str:
-        return self._call(
-            f"You are CertCoach — an expert MongoDB Certification Instructor.\n"
-            f"Topic: **{topic}**\n"
-            f"Scenario presented to student:\n{scenario}\n\n"
-            f"Student's approach:\n{user_answer}\n\n"
-            f"Evaluate their approach. Point out edge cases, performance impacts, or syntax errors.\n"
-            f"Provide the ideal, most efficient solution if theirs was flawed.\n"
-            f"Be constructive and encouraging.",
-            temperature=0.5
-        )
+    def evaluate_scenario(self, topic: str, scenario: str, user_answer: str, md_context: str = "") -> str:
+        return self._call(build_scenario_evaluation_prompt(topic, scenario, user_answer, md_context), temperature=0.5)

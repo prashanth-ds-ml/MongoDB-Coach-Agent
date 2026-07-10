@@ -98,6 +98,92 @@ def test_main_menu_option_routing(mock_settings, mock_library, mock_prompt_ask, 
 @patch("certcoach.cli.console")
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.run_onboarding")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_library_submenu")
+@patch("certcoach.cli.run_settings_submenu")
+def test_main_menu_blocked_command_shows_full_list_on_demand(mock_settings, mock_library, mock_prompt_ask, mock_onboarding, mock_coach, mock_planner, mock_database, mock_console):
+    from certcoach.cli import main_menu
+
+    mock_planner.get_due_review_topics.return_value = []
+    mock_coach.get_daily_greeting.return_value = "Hello Student!"
+    mock_planner.get_syllabus_status.return_value = {
+        "mastery_percent": 0.0,
+        "mastered_count": 0,
+        "total_topics": 12,
+        "mock_exam_unlocked": False,
+        "unlock_threshold_percent": 70,
+        "insufficient_concepts": [
+            {"topic": "Topic A", "concept": "Concept X", "easy_questions": 0, "required_easy": 3, "medium_questions": 0, "required_medium": 2},
+        ],
+    }
+    mock_planner.generate_daily_agenda.return_value = []
+
+    # "blocked" must show the full breakdown and return to the menu loop
+    # (not consume the "1" agenda-start path), then a second loop exits.
+    mock_prompt_ask.side_effect = ["blocked", "", KeyboardInterrupt()]
+
+    try:
+        main_menu()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+
+    panel_titles = [
+        str(call.args[0].title) for call in mock_console.print.call_args_list
+        if call.args and hasattr(call.args[0], "title")
+    ]
+    assert any("Concept Readiness Blockers" in title for title in panel_titles)
+    mock_library.assert_not_called()
+    mock_settings.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.run_onboarding")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_library_submenu")
+@patch("certcoach.cli.run_settings_submenu")
+def test_main_menu_softens_pass_probability_when_data_is_early(mock_settings, mock_library, mock_prompt_ask, mock_onboarding, mock_coach, mock_planner, mock_database, mock_console):
+    from certcoach.cli import main_menu
+
+    mock_planner.get_due_review_topics.return_value = []
+    mock_coach.get_daily_greeting.return_value = "Hello Student!"
+    mock_planner.get_syllabus_status.return_value = {
+        "mastery_percent": 0.0,
+        "mastered_count": 0,
+        "total_topics": 12,
+        "mock_exam_unlocked": False,
+        "unlock_threshold_percent": 70,
+        "insufficient_concepts": [],
+    }
+    mock_planner.generate_daily_agenda.return_value = []
+    mock_planner.calculate_readiness_metrics.return_value = {
+        "current_readiness": 0.0,
+        "expected_readiness": 20.0,
+        "pass_probability": 0.6,
+        "low_data": True,
+    }
+
+    mock_prompt_ask.side_effect = [KeyboardInterrupt()]
+
+    try:
+        main_menu()
+    except (KeyboardInterrupt, SystemExit):
+        pass
+
+    printed_text = [
+        str(call.args[0]) for call in mock_console.print.call_args_list
+        if call.args and isinstance(call.args[0], str)
+    ]
+    assert any("early estimate" in t for t in printed_text)
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
 @patch("certcoach.cli.Confirm.ask")
 @patch("certcoach.cli.ask")
 def test_recalibrate_study_plan(mock_ask, mock_confirm, mock_planner, mock_database, mock_console):
@@ -292,6 +378,27 @@ def test_build_agenda_mission_text_for_learn_agenda():
     assert "10 days left" in text
 
 
+def test_build_agenda_mission_text_when_practice_not_ready():
+    from certcoach.cli import build_agenda_mission_text
+
+    text = build_agenda_mission_text(
+        {
+            "type": "Learn",
+            "topic": "CRUD Operations - Read",
+            "active_subtopic": "findOne()",
+            "subtopics": ["findOne()"],
+        },
+        days_left=10,
+        mastery_percent=25.0,
+        practice_ready=False,
+    )
+
+    # Must not promise a scored-practice step it can't deliver yet.
+    assert "4/5" not in text
+    assert "findOne()" in text
+    assert "isn't unlocked" in text or "not unlocked" in text
+
+
 def test_build_practice_debrief_for_pass_and_retry():
     from certcoach.cli import build_practice_debrief
 
@@ -432,12 +539,11 @@ def test_generate_daily_agenda_skipping_reviews(mock_load_syllabus, mock_difficu
 def test_run_teach_session_skipping_and_practice_jump(mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console, mock_database):
     from certcoach.cli import run_teach_session
     
-    mock_planner.load_md_context.return_value = "dummy context"
     mock_confirm_ask.return_value = False
     mock_practice.return_value = 5
     mock_database.get_user_profile.return_value = {"exam_date": None, "streak_freeze_tokens": 0}
     mock_database.get_lesson_artifact.return_value = None
-    
+
     agenda_item = {
         "topic": "Topic A",
         "subtopics": ["Subtopic A", "Subtopic B", "Subtopic C"],
@@ -445,24 +551,25 @@ def test_run_teach_session_skipping_and_practice_jump(mock_practice, mock_prompt
         "bank_keys": ["Topic A"],
         "question_keywords": []
     }
-    
-    def mock_explain(topic, subtopic, context):
-        if subtopic == "Subtopic A":
-            return "This is not covered in my official docs."
-        return f"Explanation for {subtopic}\n**Micro-Challenge**:\nWhat is 1+1?\nType your answer or ask any questions."
-        
-    mock_coach.explain_topic.side_effect = mock_explain
+
+    def mock_resolve_concept_docs(md_files, concept):
+        if concept == "Subtopic A":
+            return []
+        return [f"{concept.lower().replace(' ', '_')}.md"]
+
+    mock_planner.resolve_concept_docs.side_effect = mock_resolve_concept_docs
+    mock_planner.load_md_context.side_effect = lambda md_files, prioritize_concept=None: f"Official doc content for {md_files[0]}"
     mock_prompt_ask.side_effect = ["practice", "n"]
-    
+
     with patch("time.sleep"):
         run_teach_session(agenda_item)
-        
-    mock_coach.explain_topic.assert_any_call("Topic A", "Subtopic A", "dummy context")
-    mock_coach.explain_topic.assert_any_call("Topic A", "Subtopic B", "dummy context")
-    
-    called_subtopics = [call[0][1] for call in mock_coach.explain_topic.call_args_list]
+
+    mock_planner.resolve_concept_docs.assert_any_call([], "Subtopic A")
+    mock_planner.resolve_concept_docs.assert_any_call([], "Subtopic B")
+
+    called_subtopics = [call.args[1] for call in mock_planner.resolve_concept_docs.call_args_list]
     assert "Subtopic C" not in called_subtopics
-    
+
     mock_practice.assert_called_with("Topic: Topic A", ["Topic A"], question_keywords=["subtopic"], num=5, is_mock=False, concepts=["Subtopic B"])
 
 
@@ -492,6 +599,20 @@ def test_run_practice_questions_clean_exit(mock_prompt_ask, mock_database, mock_
     assert score is None
 
 
+def _filler_question(qid, correct_letter="A"):
+    """A minimal, always-correct-when-answered-A filler question, used to pad
+    a non-mock practice fixture up to the real fixed 3 Easy + 2 Medium
+    composition without changing what the test under study actually
+    exercises."""
+    return {
+        "_id": qid,
+        "question_text": f"Filler question {qid}?",
+        "options": [{"option_letter": correct_letter, "code_snippet": "Yes", "is_correct": True, "feedback": "Correct."}],
+        "metadata": {"topic": "Topic A"},
+        "context": {},
+    }
+
+
 @patch("certcoach.cli.console")
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.Prompt.ask")
@@ -499,27 +620,117 @@ def test_run_practice_questions_clean_exit(mock_prompt_ask, mock_database, mock_
 def test_run_practice_questions_allows_option_b_answer(mock_coach, mock_prompt_ask, mock_database, mock_console):
     from certcoach.cli import run_practice_questions
 
-    mock_database.get_random_questions.return_value = [
-        {
-            "_id": "q1",
-            "question_text": "Which option is correct?",
-            "options": [
-                {"option_letter": "A", "code_snippet": "No", "is_correct": False, "feedback": "No."},
-                {"option_letter": "B", "code_snippet": "Yes", "is_correct": True, "feedback": "Correct."},
-                {"option_letter": "C", "code_snippet": "No", "is_correct": False, "feedback": "No."},
-                {"option_letter": "D", "code_snippet": "No", "is_correct": False, "feedback": "No."},
-            ],
-            "metadata": {"topic": "Topic A"},
-            "context": {}
-        }
+    real_question = {
+        "_id": "q1",
+        "question_text": "Which option is correct?",
+        "options": [
+            {"option_letter": "A", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+            {"option_letter": "B", "code_snippet": "Yes", "is_correct": True, "feedback": "Correct."},
+            {"option_letter": "C", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+            {"option_letter": "D", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+        ],
+        "metadata": {"topic": "Topic A"},
+        "context": {},
+    }
+    # Real concept practice always requires 3 Easy + 2 Medium -- pad with
+    # trivial filler questions (answered "A", always correct) so the fixed
+    # composition gate passes; the question under test stays first in the
+    # Easy list, so its own answer/feedback path is still exactly what's
+    # verified below.
+    mock_database.get_random_questions.side_effect = [
+        [real_question, _filler_question("q_easy2"), _filler_question("q_easy3")],
+        [_filler_question("q_med1"), _filler_question("q_med2")],
     ]
-    mock_prompt_ask.side_effect = ["B", "H"]
+    # Per question: Answer, Confidence, and (for all but the last) a "next" prompt.
+    mock_prompt_ask.side_effect = ["B", "H", "", "A", "H", "", "A", "H", "", "A", "H", "", "A", "H"]
     mock_coach.get_answer_feedback.return_value = "Good."
 
-    score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
 
-    assert score == 1
-    mock_database.save_attempt.assert_called_once()
+    assert score == 5
+    assert mock_database.save_attempt.call_count == 5
+    first_call = mock_database.save_attempt.call_args_list[0]
+    assert first_call.args[3] == "B"
+    assert first_call.args[4] is True
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.coach")
+def test_run_practice_questions_skips_coach_panel_on_high_confidence_correct(mock_coach, mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    mock_database.get_random_questions.side_effect = [
+        [_filler_question("q_easy1"), _filler_question("q_easy2"), _filler_question("q_easy3")],
+        [_filler_question("q_med1"), _filler_question("q_med2")],
+    ]
+    # Correct answer + High confidence, all 5 questions.
+    mock_prompt_ask.side_effect = ["A", "H", "", "A", "H", "", "A", "H", "", "A", "H", "", "A", "H"]
+
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
+
+    assert score == 5
+    mock_coach.get_answer_feedback.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.coach")
+def test_run_practice_questions_shows_coach_panel_on_low_confidence_correct(mock_coach, mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    mock_database.get_random_questions.side_effect = [
+        [_filler_question("q_easy1"), _filler_question("q_easy2"), _filler_question("q_easy3")],
+        [_filler_question("q_med1"), _filler_question("q_med2")],
+    ]
+    mock_coach.get_answer_feedback.return_value = "Good."
+    # Correct answer + Medium confidence, all 5 questions -- a second framing
+    # can still add something when the learner wasn't sure.
+    mock_prompt_ask.side_effect = ["A", "M", "", "A", "M", "", "A", "M", "", "A", "M", "", "A", "M"]
+
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
+
+    assert score == 5
+    assert mock_coach.get_answer_feedback.call_count == 5
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.coach")
+def test_run_practice_questions_shows_coach_panel_on_wrong_answer_regardless_of_confidence(mock_coach, mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_practice_questions
+
+    wrong_question = {
+        "_id": "q1",
+        "question_text": "Which is correct?",
+        "options": [
+            {"option_letter": "A", "code_snippet": "No", "is_correct": False, "feedback": "No."},
+            {"option_letter": "B", "code_snippet": "Yes", "is_correct": True, "feedback": "Correct."},
+        ],
+        "metadata": {"topic": "Topic A"},
+        "context": {},
+    }
+    mock_database.get_random_questions.side_effect = [
+        [wrong_question, _filler_question("q_easy2"), _filler_question("q_easy3")],
+        [_filler_question("q_med1"), _filler_question("q_med2")],
+    ]
+    mock_database.get_remediation_for_wrong_attempt.return_value = {}
+    mock_coach.get_answer_feedback.return_value = "Try again."
+    # First question answered wrong ("A") with High confidence -- a wrong
+    # answer must always show the coach panel, confidence notwithstanding.
+    mock_prompt_ask.side_effect = ["A", "H", "", "A", "H", "", "A", "H", "", "A", "H", "", "A", "H"]
+
+    with patch("time.sleep"):
+        score = run_practice_questions("Topic A", ["Topic A"], num=1, is_mock=False)
+
+    assert score == 4
+    assert mock_coach.get_answer_feedback.call_count == 1
 
 
 def test_format_explanation_template_strips_labels_and_sanitizes_feedback():
@@ -562,27 +773,34 @@ def test_format_explanation_template_strips_labels_and_sanitizes_feedback():
 def test_run_practice_questions_next_prompt_q_exits(mock_coach, mock_prompt_ask, mock_database, mock_console):
     from certcoach.cli import run_practice_questions
 
-    mock_database.get_random_questions.return_value = [
-        {
-            "_id": "q1",
-            "question_text": "Question 1",
-            "options": [
-                {"option_letter": "A", "code_snippet": "A) Yes", "is_correct": True, "feedback": "Correct."},
-                {"option_letter": "B", "code_snippet": "B) No", "is_correct": False, "feedback": "Incorrect."},
-            ],
-            "metadata": {"topic": "Topic A"},
-            "context": {},
-        },
-        {
-            "_id": "q2",
-            "question_text": "Question 2",
-            "options": [
-                {"option_letter": "A", "code_snippet": "A) Yes", "is_correct": True, "feedback": "Correct."},
-                {"option_letter": "B", "code_snippet": "B) No", "is_correct": False, "feedback": "Incorrect."},
-            ],
-            "metadata": {"topic": "Topic A"},
-            "context": {},
-        },
+    question_1 = {
+        "_id": "q1",
+        "question_text": "Question 1",
+        "options": [
+            {"option_letter": "A", "code_snippet": "A) Yes", "is_correct": True, "feedback": "Correct."},
+            {"option_letter": "B", "code_snippet": "B) No", "is_correct": False, "feedback": "Incorrect."},
+        ],
+        "metadata": {"topic": "Topic A"},
+        "context": {},
+    }
+    question_2 = {
+        "_id": "q2",
+        "question_text": "Question 2",
+        "options": [
+            {"option_letter": "A", "code_snippet": "A) Yes", "is_correct": True, "feedback": "Correct."},
+            {"option_letter": "B", "code_snippet": "B) No", "is_correct": False, "feedback": "Incorrect."},
+        ],
+        "metadata": {"topic": "Topic A"},
+        "context": {},
+    }
+    # Real concept practice always requires 3 Easy + 2 Medium -- pad with
+    # filler questions so the fixed composition gate passes. question_1/
+    # question_2 stay first in the Easy list, so they're still exactly the
+    # two questions reached before "q" quits at question_2's answer prompt;
+    # the fillers are never rendered.
+    mock_database.get_random_questions.side_effect = [
+        [question_1, question_2, _filler_question("q_easy3")],
+        [_filler_question("q_med1"), _filler_question("q_med2")],
     ]
     mock_prompt_ask.side_effect = ["A", "H", "q"]
     mock_coach.get_answer_feedback.return_value = "Good."
@@ -592,6 +810,326 @@ def test_run_practice_questions_next_prompt_q_exits(mock_coach, mock_prompt_ask,
 
     assert score is None
     assert mock_database.save_attempt.call_count == 1
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.Prompt.ask")
+def test_present_and_capture_answer_single_select(mock_prompt_ask, mock_console):
+    from certcoach.cli import present_and_capture_answer
+
+    q = {
+        "question_text": "Which is correct?",
+        "options": [
+            {"option_letter": "A", "code_snippet": "No"},
+            {"option_letter": "B", "code_snippet": "Yes"},
+        ],
+        "metadata": {"response_type": "single"},
+        "context": {},
+    }
+    mock_prompt_ask.return_value = "B"
+
+    ans, is_multi, elapsed = present_and_capture_answer(q)
+
+    assert ans == "B"
+    assert is_multi is False
+    assert elapsed >= 0
+    _, kwargs = mock_prompt_ask.call_args
+    assert kwargs["choices"] == ["A", "B", "Q", "BACK"]
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.Prompt.ask")
+def test_present_and_capture_answer_multi_select(mock_prompt_ask, mock_console):
+    from certcoach.cli import present_and_capture_answer
+
+    q = {
+        "question_text": "Select all that apply",
+        "options": [
+            {"option_letter": "A", "code_snippet": "Yes"},
+            {"option_letter": "B", "code_snippet": "No"},
+            {"option_letter": "C", "code_snippet": "Yes"},
+        ],
+        "metadata": {"response_type": "multi"},
+        "context": {},
+    }
+    mock_prompt_ask.return_value = "ac"
+
+    ans, is_multi, elapsed = present_and_capture_answer(q)
+
+    assert ans == "AC"
+    assert is_multi is True
+
+
+def test_evaluate_answer_correct_and_incorrect():
+    from certcoach.cli import evaluate_answer
+
+    q = {
+        "options": [
+            {"option_letter": "A", "code_snippet": "No", "is_correct": False, "feedback": "Nope."},
+            {"option_letter": "B", "code_snippet": "Yes", "is_correct": True, "feedback": "Correct!"},
+        ]
+    }
+
+    correct = evaluate_answer(q, "B")
+    assert correct["is_correct"] is True
+    assert correct["correct_letters"] == {"B"}
+    assert correct["correct_option"]["option_letter"] == "B"
+    assert correct["user_feedback"] == "Correct!"
+
+    wrong = evaluate_answer(q, "A")
+    assert wrong["is_correct"] is False
+    assert wrong["correct_letters"] == {"B"}
+    assert wrong["user_feedback"] == "Nope."
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+def test_run_review_quiz_empty_queue(mock_database, mock_console):
+    from certcoach.cli import run_review_quiz
+
+    mock_database.get_questions_for_review.return_value = []
+
+    stats = run_review_quiz(1, "BSON Data Types")
+
+    assert stats == {"correct": 0, "total": 0, "confirmed": 0, "suspect": 0, "skipped": 0}
+    mock_database.confirm_question.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.render_citation_panel")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_review_quiz_confirm_flow_never_touches_attempts(mock_prompt_ask, mock_database, mock_render_citation, mock_console):
+    from certcoach.cli import run_review_quiz, USER_ID
+
+    question = {
+        "_id": "q1",
+        "question_text": "Which BSON type is a 128-bit decimal?",
+        "options": [
+            {"option_letter": "A", "code_snippet": "Double", "is_correct": False, "feedback": "No."},
+            {"option_letter": "B", "code_snippet": "Decimal128", "is_correct": True, "feedback": "Correct."},
+        ],
+        "metadata": {"response_type": "single"},
+        "context": {},
+        "explanation": "Decimal128 stores exact decimal values.",
+    }
+    mock_database.get_questions_for_review.return_value = [question]
+    mock_database.verify_citation.return_value = (True, "citation verified")
+    mock_render_citation.return_value = MagicMock()
+
+    # Q1: blind answer ("B"); Q2: confirm/suspect decision ("c").
+    mock_prompt_ask.side_effect = ["B", "c"]
+
+    stats = run_review_quiz(1, "BSON Data Types")
+
+    assert stats == {"correct": 1, "total": 1, "confirmed": 1, "suspect": 0, "skipped": 0}
+    mock_database.confirm_question.assert_called_once_with("q1", USER_ID)
+    mock_database.save_attempt.assert_not_called()
+    mock_database.update_question_exposure.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.render_citation_panel")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_review_quiz_blocks_confirm_when_citation_fails(mock_prompt_ask, mock_database, mock_render_citation, mock_console):
+    from certcoach.cli import run_review_quiz
+
+    question = {
+        "_id": "q1",
+        "question_text": "Q",
+        "options": [{"option_letter": "A", "code_snippet": "X", "is_correct": True, "feedback": ""}],
+        "metadata": {"response_type": "single"},
+        "context": {},
+        "explanation": "Some explanation.",
+    }
+    mock_database.get_questions_for_review.return_value = [question]
+    mock_database.verify_citation.return_value = (False, "quote does not appear verbatim")
+    mock_render_citation.return_value = MagicMock()
+
+    # Q1: blind answer ("A"); Q2: suspect decision ("s"); Q3: reason text.
+    mock_prompt_ask.side_effect = ["A", "s", "bad citation"]
+
+    stats = run_review_quiz(1, "Concept")
+
+    assert stats["suspect"] == 1
+    mock_database.confirm_question.assert_not_called()
+    mock_database.mark_question_suspect.assert_called_once_with("q1", "bad citation")
+
+    decision_call = mock_prompt_ask.call_args_list[1]
+    assert "c" not in decision_call.kwargs["choices"]
+    assert "s" in decision_call.kwargs["choices"]
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_review_quiz_quit_at_answer_prompt(mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import run_review_quiz
+
+    question = {
+        "_id": "q1",
+        "question_text": "Q",
+        "options": [{"option_letter": "A", "code_snippet": "X", "is_correct": True}],
+        "metadata": {"response_type": "single"},
+        "context": {},
+    }
+    mock_database.get_questions_for_review.return_value = [question]
+    mock_prompt_ask.return_value = "Q"
+
+    stats = run_review_quiz(1, "Concept")
+
+    assert stats == {"correct": 0, "total": 0, "confirmed": 0, "suspect": 0, "skipped": 0}
+    mock_database.confirm_question.assert_not_called()
+    mock_database.mark_question_suspect.assert_not_called()
+
+
+def test_command_sets_recognize_slash_prefixed_aliases():
+    from certcoach.cli import EXIT_COMMANDS, BACK_COMMANDS, PRACTICE_COMMANDS, CONTINUE_COMMANDS
+
+    assert {"/q", "/quit", "/exit"} <= EXIT_COMMANDS
+    assert {"/back", "/b", "/menu"} <= BACK_COMMANDS
+    assert {"/practice", "/p"} <= PRACTICE_COMMANDS
+    assert {"/done", "/next"} <= CONTINUE_COMMANDS
+
+
+@patch("certcoach.cli.Prompt.ask")
+def test_ask_wrapper_recognizes_full_word_quit(mock_prompt_ask):
+    from certcoach.cli import ask, EXIT_COMMANDS, BACK_COMMANDS
+
+    # Previously the ask() wrapper only added the literal ["q", "back", "b",
+    # "menu"] to Rich's choices= validation, so Rich rejected "quit"/"exit"
+    # before the wrapper's own EXIT_COMMANDS check ever ran. It must now
+    # offer the real, current EXIT_COMMANDS/BACK_COMMANDS sets and be
+    # case-insensitive.
+    mock_prompt_ask.return_value = "quit"
+
+    with pytest.raises(SystemExit):
+        ask("Pick one", choices=["1", "2"])
+
+    _, kwargs = mock_prompt_ask.call_args
+    assert kwargs["case_sensitive"] is False
+    assert EXIT_COMMANDS <= set(kwargs["choices"])
+    assert BACK_COMMANDS <= set(kwargs["choices"])
+
+
+@patch("certcoach.cli.Prompt.ask")
+def test_ask_wrapper_returns_back_sentinel(mock_prompt_ask):
+    from certcoach.cli import ask
+
+    mock_prompt_ask.return_value = "back"
+
+    assert ask("Pick one", choices=["1", "2"]) == "__back__"
+
+
+@patch("certcoach.cli.Confirm.ask")
+def test_confirm_wrapper_is_case_insensitive(mock_confirm_ask):
+    from certcoach.cli import confirm
+
+    mock_confirm_ask.return_value = True
+
+    assert confirm("Are you sure?") is True
+    _, kwargs = mock_confirm_ask.call_args
+    assert kwargs["case_sensitive"] is False
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.Prompt.ask")
+def test_library_submenu_q_fully_exits(mock_prompt_ask, mock_console):
+    from certcoach.cli import run_library_submenu
+
+    # "q" used to just break back to the main menu here (no dedicated Quit
+    # option existed in this submenu) -- it must now match the documented
+    # global "q / quit / exit -> save and quit immediately" contract.
+    mock_prompt_ask.return_value = "q"
+
+    with pytest.raises(SystemExit):
+        run_library_submenu()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.Prompt.ask")
+def test_library_submenu_back_returns_without_exit(mock_prompt_ask, mock_console):
+    from certcoach.cli import run_library_submenu
+
+    mock_prompt_ask.return_value = "back"
+
+    run_library_submenu()  # must return normally, not raise
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.Prompt.ask")
+def test_settings_submenu_recognizes_exit_word(mock_prompt_ask, mock_console):
+    from certcoach.cli import run_settings_submenu
+
+    # Previously only "quit"/"q"/"h" exited; "exit" itself was missing.
+    mock_prompt_ask.return_value = "exit"
+
+    with pytest.raises(SystemExit):
+        run_settings_submenu({}, {"mock_exam_unlocked": False, "unlock_threshold_percent": 70})
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_qa_loop_recognizes_slash_exit(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    # A user typing the slash-prefixed form of "exit" mid-Q&A must be recognized
+    # as an exit command, not sent to the coach as a real follow-up question.
+    mock_prompt_ask.side_effect = ["/exit"]
+
+    with patch("time.sleep"), pytest.raises(SystemExit):
+        run_teach_session(agenda_item)
+
+    mock_coach.handle_followup.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.Confirm.ask")
+def test_exam_simulator_recognizes_full_word_quit(mock_confirm_ask, mock_prompt_ask, mock_planner, mock_database, mock_console):
+    from certcoach.cli import run_exam_simulator
+
+    mock_questions = [
+        {
+            "_id": "q1",
+            "question_text": "Question 1",
+            "options": [
+                {"option_letter": "A", "code_snippet": "opt A1", "is_correct": True},
+            ],
+            "metadata": {"topic": "Topic A"}
+        }
+    ]
+    # Previously, cmd was uppercased before comparing against the lowercase
+    # EXIT_COMMANDS/BACK_COMMANDS sets, so only the bare letter "q" actually
+    # matched -- typing the full word "quit" mid-exam silently fell through
+    # to "Invalid command" instead of quitting.
+    mock_prompt_ask.side_effect = ["quit"]
+    mock_confirm_ask.return_value = True
+
+    with patch("time.sleep"):
+        score = run_exam_simulator("Test Mock", mock_questions, time_limit=300)
+
+    assert score is None
+    mock_database.clear_active_exam.assert_called_once()
+    mock_database.save_study_session.assert_not_called()
 
 
 @patch("certcoach.core.planner.get_syllabus_status")
@@ -608,11 +1146,32 @@ def test_calculate_readiness_metrics(mock_get_profile, mock_get_analytics, mock_
     }
     
     metrics = planner.calculate_readiness_metrics("user1")
-    
+
     # 50.0 * 0.6 + 80.0 * 0.4 = 30.0 + 32.0 = 62.0%
     assert metrics["current_readiness"] == 62.0
     assert metrics["target_readiness"] == 80.0
     assert metrics["pass_probability"] >= 0.0
+    # 30 attempts is exactly the dampener's own saturation point -- no
+    # longer "low data" at that threshold.
+    assert metrics["low_data"] is False
+
+
+@patch("certcoach.core.planner.get_syllabus_status")
+@patch("certcoach.core.database.get_analytics")
+@patch("certcoach.core.database.get_user_profile")
+def test_calculate_readiness_metrics_flags_low_data_early_on(mock_get_profile, mock_get_analytics, mock_get_status):
+    from certcoach.core import planner
+
+    mock_get_status.return_value = {"mastery_percent": 0.0}
+    mock_get_analytics.return_value = {"total_attempts": 5, "correct_attempts": 5}
+    mock_get_profile.return_value = {
+        "study_calendar": [{"day_num": i} for i in range(10)],
+        "exam_date": None
+    }
+
+    metrics = planner.calculate_readiness_metrics("user1")
+
+    assert metrics["low_data"] is True
 
 
 @patch("certcoach.core.planner.calculate_readiness_metrics")
@@ -643,17 +1202,17 @@ def test_get_study_plan_recommendation(mock_sessions, mock_get_profile, mock_met
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.Prompt.ask")
 @patch("certcoach.cli.Confirm.ask")
-def test_run_ai_question_wizard(mock_confirm, mock_prompt, mock_database):
-    from certcoach.cli import run_ai_question_wizard
-    
+def test_run_question_bank_reports_quality_analytics(mock_confirm, mock_prompt, mock_database):
+    from certcoach.cli import run_question_bank_reports
+
     # Test quality analytics report viewing
-    mock_prompt.side_effect = ["2", ""] # Select View Quality report, then Press Enter
+    mock_prompt.side_effect = ["1", ""]  # Select View Quality report, then Press Enter
     mock_database.get_questions_quality_analytics.return_value = [
         {"question_text": "Q1", "topic": "CRUD", "attempts": 5, "success_rate": 20.0, "average_time": 10.0, "difficulty": "Hard", "flag": "Needs Review"}
     ]
-    
+
     with patch("certcoach.cli.print_paginated") as mock_print:
-        run_ai_question_wizard()
+        run_question_bank_reports()
         mock_print.assert_called_once()
 
 
@@ -1077,6 +1636,164 @@ def test_run_teach_session_unlocked_mini_mock_choice(mock_database, mock_practic
 
 
 @patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.run_review_quiz")
+@patch("certcoach.cli.database")
+def test_run_teach_session_offers_review_quiz_when_pending(mock_database, mock_review_quiz, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.load_syllabus.return_value = [{"id": 1, "topic": "Topic A"}]
+    mock_practice.return_value = 5
+    mock_review_quiz.return_value = {"correct": 1, "total": 1, "confirmed": 1, "suspect": 0, "skipped": 0}
+    mock_coach.explain_topic.return_value = "### 1. Core Concept\nExplanation\nType your answer or ask any questions."
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+    mock_database.count_questions_for_review.return_value = 3
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    # "next" advances the Q&A loop normally; "y" accepts the review-quiz offer;
+    # "n" declines the trailing "ready for the next agenda item?" prompt.
+    mock_prompt_ask.side_effect = ["next", "y", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    mock_database.count_questions_for_review.assert_called_once_with(topic_id=1, concept="Concept X")
+    mock_review_quiz.assert_called_once_with(1, "Concept X")
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.run_review_quiz")
+@patch("certcoach.cli.database")
+def test_run_teach_session_skips_review_quiz_when_declined(mock_database, mock_review_quiz, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.load_syllabus.return_value = [{"id": 1, "topic": "Topic A"}]
+    mock_practice.return_value = 5
+    mock_coach.explain_topic.return_value = "### 1. Core Concept\nExplanation\nType your answer or ask any questions."
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+    mock_database.count_questions_for_review.return_value = 3
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    # "next" advances the Q&A loop normally; "n" declines the review-quiz offer;
+    # "n" declines the trailing "ready for the next agenda item?" prompt.
+    mock_prompt_ask.side_effect = ["next", "n", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    mock_review_quiz.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_shows_qa_instructions_once_per_session(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_practice.return_value = 5
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept A", "Concept B"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    # "next" advances each concept's Q&A loop; "n" declines the trailing
+    # "ready for the next agenda item?" prompt.
+    mock_prompt_ask.side_effect = ["next", "next", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    printed_text = [
+        call.args[0] for call in mock_console.print.call_args_list
+        if call.args and isinstance(call.args[0], str)
+    ]
+    full_instruction_count = sum(1 for t in printed_text if "Answer the challenge using only this concept" in t)
+    short_reminder_count = sum(1 for t in printed_text if "or ask a question)" in t)
+
+    assert full_instruction_count == 1
+    assert short_reminder_count == 1
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_mission_brief_reflects_blocked_practice(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_planner.get_syllabus_status.return_value = {
+        "mastered_count": 0,
+        "mastery_percent": 0.0,
+        "insufficient_concepts": [
+            {"topic": "Topic A", "concept": "Concept X", "easy_questions": 0, "required_easy": 3, "medium_questions": 0, "required_medium": 2},
+        ],
+    }
+    mock_practice.return_value = None
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    mock_prompt_ask.side_effect = ["next", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    panel = next(
+        call.args[0] for call in mock_console.print.call_args_list
+        if call.args and hasattr(call.args[0], "title") and call.args[0].title == "🎯 Daily Mission Brief"
+    )
+    rendered = str(panel.renderable)
+    assert "4/5" not in rendered
+    assert "isn't unlocked" in rendered
+
+
+@patch("certcoach.cli.console")
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.planner")
 @patch("certcoach.cli.Prompt.ask")
@@ -1181,7 +1898,7 @@ def test_exam_simulator_timer_expiration(mock_confirm_ask, mock_prompt_ask, mock
 
 
 def test_validate_lexical_syntax_guard():
-    from certcoach.cli import validate_lexical_syntax_guard
+    from certcoach.core.planner import validate_lexical_syntax_guard
     
     # 1. Standard topic - mongosh syntax - should pass
     ok, err = validate_lexical_syntax_guard(
@@ -1471,7 +2188,7 @@ def test_run_practice_questions_blocks_missing_difficulty_mix(mock_database, moc
 @patch("certcoach.core.database.get_user_profile")
 @patch("certcoach.core.database.get_active_question_counts_by_difficulty")
 @patch("certcoach.core.planner.load_syllabus")
-def test_get_syllabus_status_blocks_concept_without_required_difficulty_mix(
+def test_get_syllabus_status_reports_shortfall_but_still_schedules_lesson(
     mock_load_syllabus,
     mock_difficulty_counts,
     mock_get_profile,
@@ -1500,7 +2217,11 @@ def test_get_syllabus_status_blocks_concept_without_required_difficulty_mix(
 
         status = planner.get_syllabus_status("test_user")
 
-        assert status["next_topic"] is None
+        # Doc coverage exists, so the lesson is still schedulable even though the
+        # concept falls short of the 3E+2M practice-readiness floor -- only the
+        # practice step (not the lesson/Q&A) should be gated by question counts.
+        assert status["next_topic"] is not None
+        assert status["next_topic"]["next_ready_subtopic"] == "Concept A"
         assert status["insufficient_concepts"] == [{
             "topic_id": 1,
             "topic": "Topic 1",

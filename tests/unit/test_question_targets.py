@@ -3,8 +3,10 @@ import pytest
 from certcoach.core.question_targets import (
     MIN_CONCEPT_TARGETS,
     build_weighted_targets,
+    default_total_bank_target,
     parse_exam_weight,
     topic_exam_weight_map,
+    weighted_target_for_concept,
 )
 
 
@@ -83,3 +85,40 @@ def test_build_weighted_targets_adds_only_explicit_extras():
     targets = build_weighted_targets(syllabus, extra_easy=5, extra_medium=4)
 
     assert {(t.difficulty, t.target_count) for t in targets} == {("Easy", 8), ("Medium", 6)}
+
+
+def test_weighted_target_for_concept_looks_up_single_concept():
+    syllabus = [
+        {"id": 1, "topic": "Low Topic", "subtopics": ["A", "B"], "bank_topic_keys": ["Low Bank"]},
+        {"id": 11, "topic": "High Topic", "subtopics": ["C"], "bank_topic_keys": ["High Bank"]},
+    ]
+
+    result = weighted_target_for_concept(syllabus, topic_id=11, concept="C", total_bank_target=200)
+
+    full_targets = {
+        t.difficulty: t.target_count
+        for t in build_weighted_targets(syllabus, total_bank_target=200)
+        if t.topic_id == 11 and t.concept == "C"
+    }
+    assert result == full_targets
+    assert set(result) == {"Easy", "Medium"}
+
+
+def test_weighted_target_for_concept_empty_for_unknown_concept():
+    syllabus = [{"id": 1, "topic": "Topic", "subtopics": ["A"], "bank_topic_keys": ["Bank"]}]
+
+    result = weighted_target_for_concept(syllabus, topic_id=1, concept="Nonexistent Concept")
+
+    assert result == {}
+
+
+def test_default_total_bank_target_scales_with_concept_count():
+    syllabus = [
+        {"id": 1, "topic": "Topic 1", "subtopics": ["A", "B"]},
+        {"id": 2, "topic": "Topic 2", "subtopics": ["C"]},
+    ]
+
+    from certcoach.core.config import get_population_easy_target, get_population_medium_target
+
+    expected = (get_population_easy_target() + get_population_medium_target()) * 3
+    assert default_total_bank_target(syllabus) == expected

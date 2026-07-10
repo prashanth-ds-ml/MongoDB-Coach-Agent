@@ -47,6 +47,80 @@ def test_build_followup_prompt_requires_gap_correction():
     assert "type `practice` when ready" in prompt
 
 
+def test_build_followup_prompt_grounds_in_reference_material_when_given():
+    from certcoach.core.persona import build_followup_prompt
+
+    prompt = build_followup_prompt(
+        "BSON Data Types",
+        "ObjectId",
+        "What does the timestamp portion of an ObjectId represent?",
+        [],
+        md_context="ObjectId is a 12-byte value: a 4-byte timestamp, ...",
+    )
+
+    assert "ObjectId is a 12-byte value" in prompt
+    assert "You MUST answer STRICTLY based on the Reference material provided above" in prompt
+    assert "do not make up any content" in prompt
+    assert "Do NOT invent invalid-syntax traps" in prompt
+
+
+def test_build_followup_prompt_flags_missing_reference_material():
+    from certcoach.core.persona import build_followup_prompt
+
+    prompt = build_followup_prompt(
+        "BSON Data Types", "ObjectId", "What does the timestamp portion represent?", [],
+    )
+
+    assert "No official reference material is loaded for this concept" in prompt
+
+
+def test_build_scenario_prompt_grounds_and_guards_against_invention():
+    from certcoach.core.persona import build_scenario_prompt
+
+    prompt = build_scenario_prompt(
+        "CRUD Operations - Read",
+        md_context="find() returns a cursor over matching documents.",
+    )
+
+    assert "find() returns a cursor over matching documents" in prompt
+    assert "Do NOT invent MongoDB behavior" in prompt
+    assert "Type your approach or query below" in prompt
+
+
+def test_build_scenario_prompt_flags_missing_reference_material():
+    from certcoach.core.persona import build_scenario_prompt
+
+    prompt = build_scenario_prompt("CRUD Operations - Read")
+
+    assert "No official reference material is loaded for this topic" in prompt
+
+
+def test_build_scenario_evaluation_prompt_grounds_and_guards_against_invention():
+    from certcoach.core.persona import build_scenario_evaluation_prompt
+
+    prompt = build_scenario_evaluation_prompt(
+        "CRUD Operations - Read",
+        scenario="Model a real-time leaderboard.",
+        user_answer="db.scores.find({user_id: 1})",
+        md_context="find() returns a cursor over matching documents.",
+    )
+
+    assert "find() returns a cursor over matching documents" in prompt
+    assert "db.scores.find({user_id: 1})" in prompt
+    assert "You MUST evaluate strictly based on the Reference material" in prompt
+    assert "say so plainly rather than asserting it confidently" in prompt
+
+
+def test_build_scenario_evaluation_prompt_flags_missing_reference_material():
+    from certcoach.core.persona import build_scenario_evaluation_prompt
+
+    prompt = build_scenario_evaluation_prompt(
+        "CRUD Operations - Read", scenario="Model a leaderboard.", user_answer="db.scores.find()",
+    )
+
+    assert "No official reference material is loaded for this topic" in prompt
+
+
 def test_clean_lesson_explanation_normalizes_common_subsections():
     from certcoach.core.persona import clean_lesson_explanation
 

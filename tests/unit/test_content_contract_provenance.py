@@ -176,6 +176,70 @@ def test_verify_citation_checks_pics_qa_transcripts_as_a_fallback_source(tmp_pat
     assert "verified" in message
 
 
+def test_get_citation_excerpt_locates_quote_in_its_source_paragraph():
+    from certcoach.core import database
+
+    question = {
+        "provenance": {
+            "citation": {
+                "doc_file": "topic_01_docs_manual_reference_bson_types__cf63661090.md",
+                "quote": "$type also supports the number alias, which matches the integer, decimal, double, and long BSON types.",
+            }
+        }
+    }
+
+    excerpt = database.get_citation_excerpt(question)
+
+    assert excerpt["verified"] is True
+    # The doc wraps `number` in backticks -- the excerpt must preserve that
+    # original markdown formatting rather than silently normalizing it away,
+    # since the frontend renders it as inline code.
+    assert "`number` alias" in excerpt["excerpt_match"]
+    # The source paragraph (one bulleted list item) also contains the
+    # sentence before the quote, which must land in excerpt_before rather
+    # than being swallowed by the match. The quote is the last sentence in
+    # its bullet, so excerpt_after is empty -- the next bullet is a separate
+    # paragraph and must not bleed in.
+    assert "supports using these values to query fields" in excerpt["excerpt_before"]
+    assert excerpt["excerpt_after"] == ""
+
+
+def test_get_citation_excerpt_falls_back_when_quote_not_found():
+    from certcoach.core import database
+
+    question = {
+        "provenance": {
+            "citation": {
+                "doc_file": REAL_SOURCE_FILE,
+                "quote": "this exact sentence does not appear anywhere in the source",
+            }
+        }
+    }
+
+    excerpt = database.get_citation_excerpt(question)
+
+    assert excerpt["verified"] is False
+    assert excerpt["excerpt_match"] == question["provenance"]["citation"]["quote"]
+    assert excerpt["excerpt_before"] == ""
+    assert excerpt["excerpt_after"] == ""
+
+
+def test_get_citation_excerpt_handles_missing_citation():
+    from certcoach.core import database
+
+    excerpt = database.get_citation_excerpt({})
+
+    assert excerpt == {
+        "doc_file": "",
+        "quote": "",
+        "verified": False,
+        "message": "missing citation doc_file or quote",
+        "excerpt_before": "",
+        "excerpt_match": "",
+        "excerpt_after": "",
+    }
+
+
 def test_confirm_question_sets_state_and_confirmed_by():
     from certcoach.core import database
 
@@ -221,3 +285,83 @@ def test_get_questions_for_review_only_includes_draft_and_sourced():
 
     query = questions_col.find.call_args[0][0]
     assert query["provenance.state"] == {"$in": ["draft", "sourced"]}
+
+
+def test_get_questions_for_review_can_scope_to_a_single_concept():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    cursor = MagicMock()
+    cursor.sort.return_value = cursor
+    cursor.limit.return_value = []
+    questions_col.find.return_value = cursor
+
+    with patch.object(database, "questions_col", questions_col):
+        database.get_questions_for_review(limit=10, topic_id=1, concept="BSON Data Types")
+
+    query = questions_col.find.call_args[0][0]
+    assert query["metadata.topic_id"] == 1
+    assert query["metadata.concept"] == "BSON Data Types"
+
+
+def test_count_questions_for_review_can_scope_to_a_single_concept():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.count_documents.return_value = 2
+
+    with patch.object(database, "questions_col", questions_col):
+        result = database.count_questions_for_review(topic_id=1, concept="BSON Data Types")
+
+    query = questions_col.count_documents.call_args[0][0]
+    assert query["metadata.concept"] == "BSON Data Types"
+    assert result == 2
+
+
+def test_get_provenance_counts_tallies_each_state_scoped_to_concept():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    # One count_documents call per state (draft/sourced/confirmed/suspect), in that order.
+    questions_col.count_documents.side_effect = [2, 1, 0, 29]
+
+    with patch.object(database, "questions_col", questions_col):
+        counts = database.get_provenance_counts(topic_id=1, concept="BSON Data Types")
+
+    assert counts == {"draft": 2, "sourced": 1, "confirmed": 0, "suspect": 29}
+    # Every call must be scoped to the requested topic/concept, not the whole bank.
+    for call in questions_col.count_documents.call_args_list:
+        query = call[0][0]
+        assert query["metadata.topic_id"] == 1
+        assert query["metadata.concept"] == "BSON Data Types"
+
+
+def test_get_legacy_reference_questions_scopes_to_suspect_state_and_concept():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    cursor = MagicMock()
+    cursor.limit.return_value = ["placeholder"]
+    questions_col.find.return_value = cursor
+
+    with patch.object(database, "questions_col", questions_col):
+        result = database.get_legacy_reference_questions(topic_id=1, concept="BSON Data Types", limit=10)
+
+    query = questions_col.find.call_args[0][0]
+    assert query["provenance.state"] == "suspect"
+    assert query["metadata.topic_id"] == 1
+    assert query["metadata.concept"] == "BSON Data Types"
+    cursor.limit.assert_called_once_with(10)
+    assert result == ["placeholder"]
+
+
+def test_get_legacy_reference_questions_returns_empty_without_full_scope():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+
+    with patch.object(database, "questions_col", questions_col):
+        assert database.get_legacy_reference_questions(topic_id=None, concept="BSON Data Types") == []
+        assert database.get_legacy_reference_questions(topic_id=1, concept=None) == []
+
+    questions_col.find.assert_not_called()

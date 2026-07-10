@@ -10,7 +10,6 @@ GLOBAL_ENV_PATH = os.path.join(GLOBAL_CONFIG_DIR, ".env")
 
 DEFAULT_STUDY_MODEL = "qwen3.5:4b"
 DEFAULT_POPULATION_MODEL = "gemma4:12b"
-DEFAULT_REPAIR_MODEL = "gemma4:12b"
 DEFAULT_SELF_CONSISTENCY_MODEL = "qwen2.5-coder:7b"
 DEFAULT_LOCAL_LLM_URL = "http://localhost:11434"
 
@@ -85,8 +84,16 @@ def get_population_num_ctx() -> int:
 
 
 def get_population_source_chars() -> int:
+    """Caps how much of a resolved doc's text reaches the population prompt
+    (both real generation in nightly_seed_questions.py and the inspect_doc.py
+    dry-run). 8000 chars leaves headroom within the primary model's 4096-token
+    context budget (get_population_num_ctx) even with a full avoid_block (up
+    to 12 existing questions) and variation guidance included -- the prior
+    1600-char default meant even a median-sized doc (~5,700 chars) was only
+    ~28% visible to generation, and long docs (some exceed 100K chars) were
+    under 2% visible."""
     load_environment()
-    return _int_setting("POPULATION_SOURCE_CHARS", 1600)
+    return _int_setting("POPULATION_SOURCE_CHARS", 8000)
 
 
 def get_population_easy_target() -> int:

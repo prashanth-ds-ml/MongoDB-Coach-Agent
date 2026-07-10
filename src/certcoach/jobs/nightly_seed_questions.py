@@ -27,8 +27,6 @@ from certcoach.core.config import (
     get_population_model,
     get_population_model_chain,
     get_population_num_ctx,
-    get_population_easy_target,
-    get_population_medium_target,
     get_population_source_chars,
     get_self_consistency_model,
 )
@@ -38,7 +36,12 @@ from certcoach.core.content_contract import (
     is_topic1_concept_only,
     provenance_metadata,
 )
-from certcoach.core.question_targets import MIN_CONCEPT_TARGETS, QuestionTarget, build_weighted_targets
+from certcoach.core.question_targets import (
+    MIN_CONCEPT_TARGETS,
+    QuestionTarget,
+    build_weighted_targets,
+    default_total_bank_target,
+)
 from certcoach.core.model_runner import get_model_runner
 from certcoach.core.judge_questions import judge_question
 
@@ -121,6 +124,20 @@ EASY_EXPLANATION_SECTION_MIN_BULLETS = {
 }
 
 SYNTAX_HEAVY_TOPIC_IDS = {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}
+
+
+def style_weights_for_topic(topic_id: int) -> dict[str, float]:
+    """Exam-style taxonomy weights for a syllabus topic. Syntax-heavy topics
+    (CRUD, indexes, drivers, etc.) get the full Type A-D spread; concept-only
+    topics (Overview, Data Modeling) have no real syntax or query-output
+    angle, so only Type B/D apply. Single canonical source -- both the
+    weighted-random fallback in generate_weighted_question() below and
+    generate_from_doc.py's content-aware assignment use this."""
+    if topic_id in SYNTAX_HEAVY_TOPIC_IDS:
+        return {"Type A": 0.35, "Type B": 0.25, "Type C": 0.20, "Type D": 0.20}
+    return {"Type B": 0.70, "Type D": 0.30}
+
+
 SYNTAX_EXAMPLE_HINTS = (
     "insertone", "insertmany", "find(", "findone", "updateone", "updatemany", "deleteone", "deletemany",
     "projection", "cursor", "sort", "limit", "skip", "aggregate", "lookup", "unwind", "group", "match",
@@ -164,60 +181,6 @@ def _ollama_json_request(local_llm_url: str, path: str, payload: dict | None = N
     with urllib.request.urlopen(request, timeout=timeout) as response:
         body = response.read().decode("utf-8")
     return json.loads(body) if body else {}
-
-
-def clear_ollama_memory(local_llm_url: str, model: str | None = None) -> None:
-    """Unload active Ollama models so long runs start with a clean VRAM/RAM state."""
-    console.print("[cyan]Memory:[/cyan] checking loaded Ollama models")
-    try:
-        loaded = _ollama_json_request(local_llm_url, "/api/ps", timeout=4.0).get("models", [])
-    except Exception as exc:
-        console.print(f"[yellow]Memory:[/yellow] could not inspect Ollama models ({exc})")
-        return
-
-    names = [item.get("name") or item.get("model") for item in loaded]
-    names = [name for name in names if name and (model is None or name == model)]
-    if not names:
-        console.print("[green]Memory:[/green] no matching loaded models found")
-        return
-
-    for name in names:
-        try:
-            _ollama_json_request(local_llm_url, "/api/generate", {"model": name, "prompt": "", "keep_alive": 0}, timeout=8.0)
-            console.print(f"[green]Memory:[/green] unloaded {name}")
-        except Exception as exc:
-            console.print(f"[yellow]Memory:[/yellow] could not unload {name} ({exc})")
-
-
-def preload_ollama_model(model: str, local_llm_url: str) -> None:
-    """Load the configured model before the progress loop so first-item latency is explicit."""
-    console.print(f"[cyan]Model:[/cyan] preloading {model}")
-    try:
-        _ollama_json_request(
-            local_llm_url,
-            "/api/generate",
-            {"model": model, "prompt": "", "stream": False, "keep_alive": "30m", "options": {"num_ctx": 4096}},
-            timeout=180.0,
-        )
-        console.print(f"[green]Model:[/green] {model} loaded")
-    except Exception as exc:
-        console.print(f"[yellow]Model:[/yellow] preload failed; generation will try to load on demand ({exc})")
-
-
-def unload_ollama_model(model: str, local_llm_url: str) -> None:
-    try:
-        _ollama_json_request(local_llm_url, "/api/generate", {"model": model, "prompt": "", "keep_alive": 0}, timeout=8.0)
-        console.print(f"[green]Memory:[/green] unloaded {model}")
-    except Exception as exc:
-        console.print(f"[yellow]Memory:[/yellow] could not unload {model} ({exc})")
-
-
-def _question_count(target: StyleTarget | QuestionTarget) -> int:
-    return database.questions_col.count_documents({
-        "metadata.topic": target.bank_topic,
-        "metadata.concept": target.concept,
-        "metadata.difficulty": target.difficulty,
-    })
 
 
 def _topic_matches(target: StyleTarget | QuestionTarget, topic_filter: str | None) -> bool:
@@ -278,17 +241,6 @@ def _get_db_style_counts(topic_id: int, concept: str, difficulty: str) -> dict[s
     return counts
 
 
-def _default_total_bank_target(syllabus: list[dict]) -> int:
-    """The pool size build_weighted_targets redistributes by exam weight when the
-    caller hasn't set an explicit --target-easy/--target-medium. Preserves the
-    previous flat per-concept average (get_population_easy_target() +
-    get_population_medium_target(), still respecting any user config override)
-    as the overall bank scale -- only the *distribution* across concepts changes,
-    from identical-for-everyone to proportional-to-real-exam-weight."""
-    num_concepts = sum(len(item.get("subtopics") or [item["topic"]]) for item in syllabus) or 1
-    return (get_population_easy_target() + get_population_medium_target()) * num_concepts
-
-
 def audit_weighted_deficits(
     total_bank_target: int | None = None,
     topic_filter: str | None = None,
@@ -301,7 +253,7 @@ def audit_weighted_deficits(
     syllabus = planner.load_syllabus()
     targets = build_weighted_targets(
         syllabus,
-        total_bank_target=total_bank_target if total_bank_target is not None else _default_total_bank_target(syllabus),
+        total_bank_target=total_bank_target if total_bank_target is not None else default_total_bank_target(syllabus),
     )
     deficits = []
     # An explicit --target-easy/--target-medium always wins outright, applied flat
@@ -330,11 +282,7 @@ def audit_weighted_deficits(
         requested_count = max(base_target, current_total) + requested_extra
 
         # Distribute the requested count into style guidance.
-        if target.topic_id in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}:
-            weights = {"Type A": 0.35, "Type B": 0.25, "Type C": 0.20, "Type D": 0.20}
-        else:
-            weights = {"Type B": 0.70, "Type D": 0.30}
-            
+        weights = style_weights_for_topic(target.topic_id)
         style_targets = _allocate_style_counts(requested_count, weights)
 
         remaining_missing = max(0, requested_count - current_total)
@@ -896,6 +844,7 @@ def generate_weighted_question(
     context_text: str,
     avoid_questions: list[str] | None = None,
     citation_source: str = "",
+    generation_source: str = "nightly_weighted_seed",
 ) -> dict | None:
     import random
     is_pymongo = "pymongo" in target.topic.lower() or "driver" in target.topic.lower()
@@ -908,14 +857,8 @@ def generate_weighted_question(
     # Retrieve style choice directly from the target
     style_choice = getattr(target, "style_type", None)
     if not style_choice:
-        if target.topic_id in {2, 3, 4, 5, 6, 7, 8, 9, 11, 12}:
-            style_choice = random.choices(
-                ["Type A", "Type B", "Type C", "Type D"],
-                weights=[0.35, 0.25, 0.20, 0.20],
-                k=1
-            )[0]
-        else:
-            style_choice = "Type B"
+        weights = style_weights_for_topic(target.topic_id)
+        style_choice = random.choices(list(weights.keys()), weights=list(weights.values()), k=1)[0]
 
     if style_choice == "Type A":
         style_name = "Syntax Selection & Trap Spotting"
@@ -1083,7 +1026,7 @@ Rules:
             "question_fingerprint": fingerprint,
             "exam_weight": target.exam_weight,
             "concept_weight": target.concept_weight,
-            "generation_source": "nightly_weighted_seed",
+            "generation_source": generation_source,
             "citation_source": chosen_citation_source,
             "response_type": response_type,
             "num_correct": len(correct_indices),
@@ -1310,7 +1253,7 @@ def run_weighted_seed(
                     progress.console.print(f"  [yellow][skip][/yellow] No docs for Topic {target.topic_id}: {target.topic}")
                     continue
 
-                prioritized = planner.prioritize_md_files(md_files, target.concept)
+                prioritized = planner.resolve_concept_docs(md_files, target.concept)
                 progress.console.print(f"\n[cyan][Target Info][/cyan] Topic {target.topic_id} ({target.topic}) | Concept: [bold]{target.concept}[/bold] | Difficulty: {target.difficulty} | Style: [bold]{target.style_type}[/bold]")
                 progress.console.print(f"  - Mapped md files: {md_files}")
                 progress.console.print(f"  - Prioritized context file: [bold green]{prioritized[0] if prioritized else 'None'}[/bold green]")

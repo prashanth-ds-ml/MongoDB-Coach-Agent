@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -13,14 +12,6 @@ from certcoach.core import database
 from certcoach.jobs.nightly_seed_questions import question_fingerprint
 
 console = Console()
-
-
-def normalize_question_text(text: str) -> str:
-    """Normalize text enough to catch repeated generated questions."""
-    text = (text or "").lower()
-    text = re.sub(r"\(select (one|all that apply)\)", " ", text)
-    text = re.sub(r"[^a-z0-9_$]+", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
 
 
 def _dedupe_key(question: dict[str, Any]) -> str:
