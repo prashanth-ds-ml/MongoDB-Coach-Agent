@@ -7,7 +7,6 @@ name = "certcoach"
 version = "0.1.0"
 description = "CertCoach CLI: AI Tutor for MongoDB Certification"
 dependencies = [
-    "pyyaml>=6.0",
     "pymongo>=4.0.0",
     "rich>=13.0.0",
     "langchain-ollama>=0.1.0",
@@ -17,7 +16,6 @@ dependencies = [
 
 [project.scripts]
 certcoach = "certcoach.cli:main_menu"
-ag = "antigravity_cli.cli:main"
 certcoach-extract = "certcoach.core.image_extractor:process_pics_qa"
 certcoach-seed-nightly = "certcoach.jobs.nightly_seed_questions:main"
 certcoach-repair-explanations = "certcoach.jobs.repair_explanations:main"
@@ -31,6 +29,10 @@ certcoach-reocr-pics-qa = "certcoach.jobs.reocr_pics_qa:main"
 certcoach-recover-screenshot-citations = "certcoach.jobs.recover_screenshot_citations:main"
 certcoach-purge-screenshot-backlog = "certcoach.jobs.purge_screenshot_backlog:main"
 certcoach-map-questions-to-docs = "certcoach.jobs.map_questions_to_docs:main"
+certcoach-preview-concept = "certcoach.jobs.inspect_doc:main"
+certcoach-generate-from-doc = "certcoach.jobs.generate_from_doc:main"
+certcoach-flashcard-tools = "certcoach.jobs.flashcard_tools:main"
+certcoach-ingest-authored = "certcoach.jobs.ingest_authored_content:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
