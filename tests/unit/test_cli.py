@@ -984,6 +984,86 @@ def test_run_review_quiz_quit_at_answer_prompt(mock_prompt_ask, mock_database, m
     mock_database.mark_question_suspect.assert_not_called()
 
 
+def _checkin_question(letter_correct="A"):
+    return {
+        "question_text": "What does this section say?",
+        "options": [
+            {"option_letter": "A", "code_snippet": "Right", "is_correct": letter_correct == "A"},
+            {"option_letter": "B", "code_snippet": "Wrong", "is_correct": letter_correct == "B"},
+        ],
+        "metadata": {"response_type": "single"},
+        "context": {},
+    }
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_section_checkin_success_marks_completion(mock_prompt_ask, mock_coach, mock_planner, mock_console):
+    from certcoach.cli import run_section_checkin, USER_ID
+
+    mock_coach.generate_section_check.return_value = [_checkin_question("A"), _checkin_question("B")]
+    mock_planner.mark_lesson_chunk_complete.return_value = 4
+    mock_prompt_ask.side_effect = ["A", "B"]
+
+    run_section_checkin("Topic A", "Document structure", {"label": "Documents", "text": "MongoDB stores records as BSON documents."})
+
+    mock_coach.generate_section_check.assert_called_once_with("Document structure", "MongoDB stores records as BSON documents.")
+    mock_planner.mark_lesson_chunk_complete.assert_called_once_with(USER_ID, "Topic A", "Document structure")
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.database")
+def test_run_section_checkin_skips_gracefully_when_generation_fails(mock_database, mock_coach, mock_planner, mock_console):
+    from certcoach.cli import run_section_checkin
+
+    mock_coach.generate_section_check.return_value = []
+
+    run_section_checkin("Topic A", "Document structure", {"label": "Documents", "text": "some section text"})
+
+    mock_planner.mark_lesson_chunk_complete.assert_not_called()
+    mock_database.save_attempt.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_section_checkin_never_touches_attempts_or_streaks(mock_prompt_ask, mock_coach, mock_planner, mock_console):
+    from certcoach.cli import run_section_checkin
+
+    mock_coach.generate_section_check.return_value = [_checkin_question("A")]
+    mock_planner.mark_lesson_chunk_complete.return_value = 1
+    mock_prompt_ask.return_value = "A"
+
+    with patch("certcoach.cli.database") as mock_database:
+        run_section_checkin("Topic A", "Document structure", {"label": "Documents", "text": "some section text"})
+        mock_database.save_attempt.assert_not_called()
+        mock_database.update_question_exposure.assert_not_called()
+        mock_database.award_streak_freeze.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.Prompt.ask")
+def test_run_section_checkin_quit_mid_checkin_still_marks_completion(mock_prompt_ask, mock_coach, mock_planner, mock_console):
+    from certcoach.cli import run_section_checkin, USER_ID
+
+    mock_coach.generate_section_check.return_value = [_checkin_question("A"), _checkin_question("A")]
+    mock_planner.mark_lesson_chunk_complete.return_value = 2
+    # "Q" at the first question bails out of the remaining check-in
+    # questions -- non-punitive, doesn't block the lesson.
+    mock_prompt_ask.return_value = "Q"
+
+    run_section_checkin("Topic A", "Document structure", {"label": "Documents", "text": "some section text"})
+
+    mock_planner.mark_lesson_chunk_complete.assert_called_once_with(USER_ID, "Topic A", "Document structure")
+
+
 def test_command_sets_recognize_slash_prefixed_aliases():
     from certcoach.cli import EXIT_COMMANDS, BACK_COMMANDS, PRACTICE_COMMANDS, CONTINUE_COMMANDS
 
@@ -1458,6 +1538,33 @@ def test_mark_subtopic_complete(mock_load_syllabus, mock_database):
     progress = profile_updates["progress"]
     assert "Concept B" in progress["completed_subtopics"]["Topic 1"]
     assert "Topic 1" in progress["completed_topics"]
+
+
+@patch("certcoach.core.planner.database")
+def test_mark_lesson_chunk_complete_increments_per_topic_and_concept(mock_database):
+    from certcoach.core.planner import mark_lesson_chunk_complete
+
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_lesson_chunks": {"Topic 1": {"Document structure": 2}}}
+    }
+
+    total = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure")
+
+    assert total == 3
+    args, kwargs = mock_database.update_user_profile.call_args
+    progress = args[1]["progress"]
+    assert progress["completed_lesson_chunks"]["Topic 1"]["Document structure"] == 3
+
+
+@patch("certcoach.core.planner.database")
+def test_mark_lesson_chunk_complete_starts_at_one_for_new_concept(mock_database):
+    from certcoach.core.planner import mark_lesson_chunk_complete
+
+    mock_database.get_user_profile.return_value = {"progress": {}}
+
+    total = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure")
+
+    assert total == 1
 
 
 @patch("certcoach.core.planner.database")
@@ -1939,6 +2046,70 @@ def test_run_teach_session_mission_brief_reflects_blocked_practice(mock_database
     rendered = str(panel.renderable)
     assert "4/5" not in rendered
     assert "isn't unlocked" in rendered
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.run_section_checkin")
+@patch("certcoach.cli.database")
+def test_run_teach_session_offers_checkin_for_piloted_concept(mock_database, mock_checkin, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_practice.return_value = 5
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Document structure"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    mock_prompt_ask.side_effect = ["next", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    mock_checkin.assert_called_once_with("Topic A", "Document structure", {"label": "Document structure", "text": "dummy context"})
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.run_section_checkin")
+@patch("certcoach.cli.database")
+def test_run_teach_session_skips_checkin_for_non_piloted_concept(mock_database, mock_checkin, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = "dummy context"
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_practice.return_value = 5
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept X"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    mock_prompt_ask.side_effect = ["next", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    mock_checkin.assert_not_called()
 
 
 @patch("certcoach.cli.console")

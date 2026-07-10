@@ -1,4 +1,5 @@
 """Interactive CertCoach teaching, feedback, and Q&A persona."""
+import json
 import os
 import sys
 import re
@@ -512,6 +513,96 @@ def build_scenario_evaluation_prompt(topic: str, scenario: str, user_answer: str
     )
 
 
+def build_section_check_prompt(concept: str, section_text: str, num_questions: int) -> str:
+    return (
+        f"You are creating a quick, ungraded comprehension check for a learner who just read "
+        f"the following section of official MongoDB documentation, for the concept \"{concept}\".\n\n"
+        f"Write exactly {num_questions} short multiple-choice questions that test whether the "
+        f"learner understood what THIS section says -- nothing from outside it. Every question "
+        f"must be answerable using only the text below; never invent a fact that isn't stated here.\n\n"
+        f"Section text:\n\"\"\"\n{section_text[:6000]}\n\"\"\"\n\n"
+        f"Respond with a JSON object exactly formatted as:\n"
+        f'{{"questions": [{{"question_text": "...", "options": ['
+        f'{{"option_letter": "A", "code_snippet": "...", "is_correct": true}}, '
+        f'{{"option_letter": "B", "code_snippet": "...", "is_correct": false}}, '
+        f'{{"option_letter": "C", "code_snippet": "...", "is_correct": false}}, '
+        f'{{"option_letter": "D", "code_snippet": "...", "is_correct": false}}]}}]}}\n\n'
+        f"Each question must have exactly 4 options (A-D), exactly one marked \"is_correct\": true. "
+        f"Keep each option to one short line. No markdown, no commentary outside the JSON object."
+    )
+
+
+def _close_unbalanced_json(text: str) -> str:
+    """Append whatever closing braces/brackets are still open, in the
+    correct order, so a response truncated mid-object can still parse.
+    Bracket-tracking ignores anything inside a string literal (including
+    escaped quotes) so a stray '{' in question text can't throw it off."""
+    stack = []
+    in_string = False
+    escaped = False
+    for ch in text:
+        if in_string:
+            if escaped:
+                escaped = False
+            elif ch == "\\":
+                escaped = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+        elif ch in "{[":
+            stack.append(ch)
+        elif ch in "}]":
+            if stack:
+                stack.pop()
+    closers = {"{": "}", "[": "]"}
+    return text + "".join(closers[c] for c in reversed(stack))
+
+
+def _parse_section_check_response(response: str) -> list[dict]:
+    """Extract and validate the section-check JSON from a raw model
+    response. Returns [] on any syntactic failure (unbalanced braces,
+    invalid JSON) or semantic failure (a question missing question_text,
+    fewer than 2 options, no option marked correct, or an option missing
+    its display text) -- the small local study model observed live
+    producing both failure classes, and a half-formed question is worse
+    than no question."""
+    match = re.search(r"\{.*\}", response, re.DOTALL)
+    if not match:
+        return []
+    candidate = match.group(0)
+    try:
+        parsed = json.loads(candidate)
+    except Exception:
+        # Observed live: the local study model reliably stops generating one
+        # closing brace short of a complete object (a formatting habit, not
+        # random flakiness -- retrying alone doesn't fix it). Close out
+        # whatever brackets/braces are still open and try once more before
+        # giving up.
+        try:
+            parsed = json.loads(_close_unbalanced_json(candidate))
+        except Exception:
+            return []
+    questions = parsed.get("questions") if isinstance(parsed, dict) else None
+    if not isinstance(questions, list):
+        return []
+
+    valid_questions = []
+    for q in questions:
+        if not isinstance(q, dict) or not q.get("question_text"):
+            continue
+        options = q.get("options")
+        if not isinstance(options, list) or len(options) < 2:
+            continue
+        if not all(isinstance(opt, dict) and opt.get("option_letter") and opt.get("code_snippet") for opt in options):
+            continue
+        if sum(1 for opt in options if opt.get("is_correct")) != 1:
+            continue
+        valid_questions.append(q)
+    return valid_questions
+
+
 class CoachPersona:
     """Strict-but-friendly local AI coach."""
 
@@ -629,3 +720,31 @@ class CoachPersona:
 
     def evaluate_scenario(self, topic: str, scenario: str, user_answer: str, md_context: str = "") -> str:
         return self._call(build_scenario_evaluation_prompt(topic, scenario, user_answer, md_context), temperature=0.5)
+
+    # ------------------------------------------------------------------
+    # PER-SECTION LESSON CHECK-IN (ephemeral -- never stored, never reused)
+    # ------------------------------------------------------------------
+
+    def generate_section_check(self, concept: str, section_text: str, num_questions: int = 2, max_attempts: int = 3) -> list[dict]:
+        """Ephemeral, ungraded comprehension check for one lesson section --
+        generated fresh each time and never stored or reused, unlike the
+        real MCQ bank (which requires citation-verify/self-consistency/human
+        confirm before a learner ever sees a question). Returns [] on any
+        generation or parse failure so a flaky local-model call can never
+        block the lesson flow.
+
+        Retries up to max_attempts times -- the small local study model
+        (qwen3.5:4b) reliably produces syntactically and semantically valid
+        JSON on roughly 1 of 3 tries for this task (observed live: dropped
+        "code_snippet" keys, truncated closing braces), so a single attempt
+        would degrade to the empty-check fallback far more often than
+        necessary."""
+        if not section_text.strip():
+            return []
+        prompt = build_section_check_prompt(concept, section_text, num_questions)
+        for _ in range(max_attempts):
+            response = self._call(prompt, temperature=0.3)
+            questions = _parse_section_check_response(response)
+            if questions:
+                return questions
+        return []

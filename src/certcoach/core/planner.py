@@ -674,6 +674,23 @@ def mark_boss_complete(user_id: str, boss_level: int):
         database.update_user_profile(user_id, {"progress": progress})
 
 
+def mark_lesson_chunk_complete(user_id: str, topic_name: str, concept: str) -> int:
+    """Increments the per-topic/concept bite-sized lesson check-in counter
+    and returns the new count. Counts check-ins completed, not unique
+    sections -- re-reading a concept increments further rather than
+    staying capped at its section count (accepted simplification while
+    the check-in feature is still pilot-scoped to one concept)."""
+    profile = database.get_user_profile(user_id)
+    progress = profile.get("progress", {})
+    completed_lesson_chunks = progress.get("completed_lesson_chunks", {})
+    topic_counts = completed_lesson_chunks.get(topic_name, {})
+    topic_counts[concept] = topic_counts.get(concept, 0) + 1
+    completed_lesson_chunks[topic_name] = topic_counts
+    progress["completed_lesson_chunks"] = completed_lesson_chunks
+    database.update_user_profile(user_id, {"progress": progress})
+    return topic_counts[concept]
+
+
 def audit_documentation_files() -> dict:
     """
     Cross-checks the syllabus.json against raw_markdowns/ files.

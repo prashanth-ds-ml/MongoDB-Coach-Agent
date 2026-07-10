@@ -1,5 +1,6 @@
 import os
 import sys
+from unittest.mock import patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../src")))
 
@@ -119,6 +120,138 @@ def test_build_scenario_evaluation_prompt_flags_missing_reference_material():
     )
 
     assert "No official reference material is loaded for this topic" in prompt
+
+
+def test_build_section_check_prompt_grounds_in_section_text_only():
+    from certcoach.core.persona import build_section_check_prompt
+
+    prompt = build_section_check_prompt("BSON Data Types", "ObjectId is a 12-byte value.", num_questions=2)
+
+    assert "ObjectId is a 12-byte value." in prompt
+    assert "exactly 2 short multiple-choice questions" in prompt
+    assert "never invent a fact that isn't stated here" in prompt
+    assert '"questions"' in prompt
+
+
+def test_generate_section_check_parses_valid_json_response():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    fake_response = (
+        '{"questions": [{"question_text": "What is BSON?", "options": ['
+        '{"option_letter": "A", "code_snippet": "Binary JSON", "is_correct": true}, '
+        '{"option_letter": "B", "code_snippet": "Basic JSON", "is_correct": false}]}]}'
+    )
+    with patch.object(coach, "_call", return_value=fake_response) as mock_call:
+        questions = coach.generate_section_check("BSON Data Types", "BSON is a binary representation of JSON.")
+
+    assert len(questions) == 1
+    assert questions[0]["question_text"] == "What is BSON?"
+    mock_call.assert_called_once()
+
+
+def test_generate_section_check_returns_empty_on_malformed_response():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    with patch.object(coach, "_call", return_value="not json at all, and the model is confused"):
+        questions = coach.generate_section_check("BSON Data Types", "some section text")
+
+    assert questions == []
+
+
+def test_generate_section_check_skips_the_model_call_for_blank_section_text():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    with patch.object(coach, "_call") as mock_call:
+        questions = coach.generate_section_check("BSON Data Types", "   ")
+
+    assert questions == []
+    mock_call.assert_not_called()
+
+
+_VALID_SECTION_CHECK_JSON = (
+    '{"questions": [{"question_text": "What is BSON?", "options": ['
+    '{"option_letter": "A", "code_snippet": "Binary JSON", "is_correct": true}, '
+    '{"option_letter": "B", "code_snippet": "Basic JSON", "is_correct": false}]}]}'
+)
+
+
+def test_close_unbalanced_json_repairs_a_response_missing_its_final_brace():
+    """This is the dominant real-world failure mode, confirmed live: the
+    local study model reliably stops generating exactly one closing brace
+    short of a complete object -- a formatting habit, not random flakiness,
+    so it recurs on retries too unless repaired directly."""
+    from certcoach.core.persona import _close_unbalanced_json, _parse_section_check_response
+
+    truncated = (
+        '{"questions":[{"question_text":"What is BSON?", "options":['
+        '{"option_letter":"A","code_snippet":"Binary JSON","is_correct":true},'
+        '{"option_letter":"B","code_snippet":"Basic JSON","is_correct":false}]}]'
+    )
+    repaired = _close_unbalanced_json(truncated)
+
+    import json
+    parsed = json.loads(repaired)  # must not raise
+    assert parsed["questions"][0]["question_text"] == "What is BSON?"
+
+    questions = _parse_section_check_response(truncated)
+    assert len(questions) == 1
+
+
+def test_close_unbalanced_json_ignores_braces_inside_string_literals():
+    from certcoach.core.persona import _close_unbalanced_json
+
+    text = '{"question_text": "What does { mean in a filter like {a: 1}?"'
+    repaired = _close_unbalanced_json(text)
+
+    import json
+    parsed = json.loads(repaired)  # must not raise
+    assert parsed["question_text"] == "What does { mean in a filter like {a: 1}?"
+
+
+def test_generate_section_check_retries_after_a_malformed_attempt():
+    """Observed live: the small local study model drops the "code_snippet"
+    key or truncates the closing brace on roughly 2 of 3 tries -- a single
+    attempt would degrade to the empty-check fallback far more often than
+    necessary, so a bad first attempt must not be the final answer."""
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    malformed = '{"questions": [{"question_text": "What is BSON?", "options": [{"option_letter": "A", "is_correct": true}]}]}'
+    with patch.object(coach, "_call", side_effect=[malformed, _VALID_SECTION_CHECK_JSON]) as mock_call:
+        questions = coach.generate_section_check("BSON Data Types", "some section text")
+
+    assert len(questions) == 1
+    assert questions[0]["question_text"] == "What is BSON?"
+    assert mock_call.call_count == 2
+
+
+def test_generate_section_check_gives_up_after_max_attempts():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    with patch.object(coach, "_call", return_value="not json at all") as mock_call:
+        questions = coach.generate_section_check("BSON Data Types", "some section text", max_attempts=3)
+
+    assert questions == []
+    assert mock_call.call_count == 3
+
+
+def test_generate_section_check_rejects_a_question_with_no_correct_option_marked():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    no_correct_marked = (
+        '{"questions": [{"question_text": "What is BSON?", "options": ['
+        '{"option_letter": "A", "code_snippet": "Binary JSON", "is_correct": false}, '
+        '{"option_letter": "B", "code_snippet": "Basic JSON", "is_correct": false}]}]}'
+    )
+    with patch.object(coach, "_call", return_value=no_correct_marked):
+        questions = coach.generate_section_check("BSON Data Types", "some section text", max_attempts=1)
+
+    assert questions == []
 
 
 def test_clean_lesson_explanation_normalizes_common_subsections():

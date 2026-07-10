@@ -50,6 +50,10 @@ MOCK_SECONDS_PER_QUESTION = 90
 # split signal; header boundaries are.
 LESSON_SECTION_HEADERS = [("#", "H1"), ("##", "H2")]
 LESSON_SECTION_MAX_CHARS = 3000
+# Pilot scope for the per-section comprehension check-in -- expand (or drop
+# this gate entirely) once validated live. Empty/absent concept names never
+# trigger it.
+LESSON_CHECKIN_PILOT_CONCEPTS = {"Document structure"}
 ACK_CONTINUE_COMMANDS = {
     "y",
     "yes",
@@ -620,6 +624,9 @@ def run_teach_session(agenda_item: dict):
                     padding=(1, 2),
                 )
                 print_paginated(panel, title=f"Lesson: {subtopic}")
+
+                if subtopic in LESSON_CHECKIN_PILOT_CONCEPTS:
+                    run_section_checkin(topic, subtopic, section)
 
                 is_last_section = sec_idx == len(sections) - 1
                 is_last_doc = doc_idx == len(resolved_files) - 1
@@ -2051,6 +2058,42 @@ def run_review_quiz(topic_id: int, concept: str) -> dict:
         f"Skipped: [dim]{stats['skipped']}[/dim]\n"
     )
     return stats
+
+
+def run_section_checkin(topic: str, concept: str, section: dict) -> None:
+    """Ephemeral, ungraded comprehension check for the lesson section just
+    shown. Reuses the same blind-answer interaction as practice/review-quiz
+    (present_and_capture_answer/evaluate_answer) -- zero new answer-capture
+    UI. Never calls save_attempt, update_question_exposure, or any streak
+    function: this is an engagement checkpoint, not graded practice, so it
+    can never move official mastery/readiness/streak state."""
+    questions = coach.generate_section_check(concept, section["text"])
+    if not questions:
+        console.print("[dim]  Comprehension check unavailable -- continuing.[/dim]")
+        return
+
+    console.print()
+    for idx, q in enumerate(questions):
+        console.print(f"  [dim]Quick check {idx + 1}/{len(questions)}[/dim]")
+        ans, _is_multi, _elapsed_sec = present_and_capture_answer(q)
+        if ans in ("Q", "BACK"):
+            break
+
+        evaluation = evaluate_answer(q, ans)
+        if evaluation["is_correct"]:
+            console.print("  [bold green]✅ Correct.[/bold green]")
+        else:
+            correct_letters = evaluation["correct_letters"]
+            correct_option = evaluation["correct_option"]
+            correct_text = correct_option.get("code_snippet", "") if correct_option else ""
+            console.print(
+                f"  [bold red]❌ Not quite.[/bold red] Correct answer: "
+                f"[bold]{', '.join(sorted(correct_letters))}[/bold] -- {correct_text}"
+            )
+        console.print()
+
+    total = planner.mark_lesson_chunk_complete(USER_ID, topic, concept)
+    console.print(f"[dim]  ✅ {total} bite-sized check-in(s) completed for {concept} so far.[/dim]")
 
 
 # ---------------------------------------------------------------------------
