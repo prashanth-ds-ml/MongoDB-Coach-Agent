@@ -1804,6 +1804,61 @@ def test_run_teach_session_splits_lesson_doc_into_sections(mock_database, mock_p
     assert len(section_prompts) == 1
 
 
+_STUB_LEADING_LESSON_DOC = (
+    "> Source: https://example.com/docs/widgets\n"
+    "> Fetch method: direct_markdown\n\n"
+    "# Widgets\n\n"
+    "Widgets are the core building block of the system and every widget has a "
+    "unique identifier assigned at creation time.\n\n"
+    "## Advanced Widgets\n\n"
+    "Advanced widgets support extra configuration options that are not "
+    "available on basic widgets, including custom validators.\n"
+)
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_folds_leading_source_stub_into_first_section(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = _STUB_LEADING_LESSON_DOC
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_practice.return_value = 5
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept A"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    mock_prompt_ask.side_effect = ["", "next", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    panels = [call.args[0] for call in mock_console.print.call_args_list if call.args and hasattr(call.args[0], "title")]
+    titles = [str(p.title) for p in panels]
+
+    # The leading "> Source: ..." stub must never become its own numbered
+    # section (previously showed as a near-empty "1/7" screen) -- exactly
+    # 2 real sections, same as the equivalent doc without a leading stub.
+    assert any("Widgets (1/2)" in t for t in titles)
+    assert any("Widgets > Advanced Widgets (2/2)" in t for t in titles)
+    assert not any("(1/3)" in t for t in titles)
+
+    first_panel = next(p for p in panels if "Widgets (1/2)" in str(p.title))
+    assert "Source: https://example.com/docs/widgets" in first_panel.renderable.markup
+    assert "core building block" in first_panel.renderable.markup
+
+
 @patch("certcoach.cli.console")
 @patch("certcoach.cli.coach")
 @patch("certcoach.cli.planner")

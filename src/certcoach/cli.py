@@ -594,13 +594,18 @@ def run_teach_session(agenda_item: dict):
             doc_texts.append(doc_text)
 
             sections = chunk_doc_text(doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS)
-            # A leading metadata-only stub (e.g. "> Source: ...") before the
-            # first real heading gets folded into a plain label rather than
-            # dropped -- never silently discard doc content, even a few
-            # bytes of it (see the raw/cleaned corpus audit that found a
-            # real content-loss bug this same session).
             if not sections:
                 sections = [{"label": subtopic, "text": doc_text}]
+            elif len(sections) > 1 and sections[0]["label"] == "(untitled section)":
+                # A leading metadata-only stub (e.g. "> Source: ...") isn't
+                # real lesson content on its own -- fold it into the first
+                # real section instead of showing it as a near-empty
+                # standalone screen. Content is still fully preserved, just
+                # never silently dropped (see the raw/cleaned corpus audit
+                # that found a real content-loss bug this same session).
+                stub_text = sections[0]["text"]
+                sections = sections[1:]
+                sections[0] = {**sections[0], "text": stub_text + "\n\n" + sections[0]["text"]}
             for section in sections:
                 if section["label"] == "(untitled section)":
                     section["label"] = subtopic
