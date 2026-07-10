@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import datetime
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -29,6 +30,13 @@ def load_syllabus() -> list:
 def score_md_file_for_concept(filename: str, concept: str) -> int:
     if not concept:
         return 0
+    # Split camelCase word boundaries (e.g. "insertOne" -> "insert One")
+    # before tokenizing -- official doc filenames are snake_case, so a
+    # CamelCase concept name like "insertOne()"/"findOne()"/"updateMany()"
+    # previously fused into one token ("insertone") that could never
+    # substring-match a real filename, silently forcing every such concept
+    # into the arbitrary first-2-files fallback in resolve_concept_docs.
+    camel_split_concept = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", concept)
     # Strip "$" so a bare operator concept like "$set" tokenizes to "set" --
     # official doc filenames never include the literal dollar sign (e.g.
     # ..._operator_update_set__....md), so leaving it in the token silently
@@ -36,7 +44,7 @@ def score_md_file_for_concept(filename: str, concept: str) -> int:
     # dedicated reference doc.
     tokens = [
         t.lower()
-        for t in concept.replace("()", " ").replace("/", " ").replace("-", " ").replace("$", " ").split()
+        for t in camel_split_concept.replace("()", " ").replace("/", " ").replace("-", " ").replace("$", " ").split()
         if len(t) > 2
     ]
     filename_lower = filename.lower()
