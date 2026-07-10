@@ -1750,6 +1750,99 @@ def test_run_teach_session_shows_qa_instructions_once_per_session(mock_database,
     assert short_reminder_count == 1
 
 
+_MULTI_SECTION_LESSON_DOC = (
+    "# Widgets\n\n"
+    "Widgets are the core building block of the system and every widget has a "
+    "unique identifier assigned at creation time.\n\n"
+    "## Advanced Widgets\n\n"
+    "Advanced widgets support extra configuration options that are not "
+    "available on basic widgets, including custom validators.\n"
+)
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_splits_lesson_doc_into_sections(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = _MULTI_SECTION_LESSON_DOC
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_practice.return_value = 5
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept A"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    # "" accepts the default at the "next section" prompt (section 1 -> 2);
+    # "next" advances the Q&A loop; "n" declines the trailing agenda prompt.
+    mock_prompt_ask.side_effect = ["", "next", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    panel_titles = [
+        str(call.args[0].title) for call in mock_console.print.call_args_list
+        if call.args and hasattr(call.args[0], "title")
+    ]
+    assert any("Widgets (1/2)" in t for t in panel_titles)
+    assert any("Widgets > Advanced Widgets (2/2)" in t for t in panel_titles)
+
+    section_prompts = [
+        call for call in mock_prompt_ask.call_args_list
+        if call.args and "next section" in call.args[0]
+    ]
+    assert len(section_prompts) == 1
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.coach")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.Confirm.ask")
+@patch("certcoach.cli.Prompt.ask")
+@patch("certcoach.cli.run_practice_questions")
+@patch("certcoach.cli.database")
+def test_run_teach_session_jump_to_practice_from_section_prompt(mock_database, mock_practice, mock_prompt_ask, mock_confirm_ask, mock_planner, mock_coach, mock_console):
+    from certcoach.cli import run_teach_session
+
+    mock_planner.load_md_context.return_value = _MULTI_SECTION_LESSON_DOC
+    mock_planner.get_syllabus_status.return_value = {"mastered_count": 0}
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_practice.return_value = 5
+    mock_database.get_user_profile.return_value = {"progress": {"completed_topics": []}}
+
+    agenda_item = {
+        "topic": "Topic A",
+        "subtopics": ["Concept A"],
+        "md_files": [],
+        "bank_keys": ["Topic A"],
+        "question_keywords": []
+    }
+    # "practice" at the first "next section" prompt jumps straight to MCQs,
+    # skipping section 2 and the Q&A loop entirely.
+    mock_prompt_ask.side_effect = ["practice", "n"]
+
+    with patch("time.sleep"):
+        run_teach_session(agenda_item)
+
+    panel_titles = [
+        str(call.args[0].title) for call in mock_console.print.call_args_list
+        if call.args and hasattr(call.args[0], "title")
+    ]
+    assert any("Widgets (1/2)" in t for t in panel_titles)
+    assert not any("Advanced Widgets (2/2)" in t for t in panel_titles)
+    mock_coach.handle_followup.assert_not_called()
+
+
 @patch("certcoach.cli.console")
 @patch("certcoach.cli.coach")
 @patch("certcoach.cli.planner")

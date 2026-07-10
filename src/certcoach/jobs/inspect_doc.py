@@ -21,7 +21,6 @@ import json
 import re
 import sys
 
-from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharacterTextSplitter
 from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
@@ -29,12 +28,10 @@ from rich.table import Table
 
 from certcoach.core import database, planner
 from certcoach.core.config import get_population_model, get_population_source_chars
+from certcoach.core.doc_chunking import CHUNK_HEADERS, MIN_CHUNK_CHARS, chunk_doc_text
 from certcoach.core.model_runner import get_model_runner
 from certcoach.core.question_targets import MIN_CONCEPT_TARGETS, weighted_target_for_concept
 from certcoach.jobs.nightly_seed_questions import style_weights_for_topic
-
-CHUNK_HEADERS = [("#", "H1"), ("##", "H2"), ("###", "H3"), ("####", "H4")]
-MIN_CHUNK_CHARS = 40
 
 console = Console()
 
@@ -96,38 +93,6 @@ def extract_candidate_facts(context_text: str, concept: str, max_chars: int) -> 
         return []
     facts = parsed.get("facts") if isinstance(parsed, dict) else None
     return facts if isinstance(facts, list) else []
-
-
-def chunk_doc_text(text: str, max_chunk_chars: int) -> list[dict]:
-    """Splits one doc's text into header-delimited sections (tagged with their
-    header path, e.g. "BSON Types > ObjectId") instead of one flat blob. Any
-    section still too large for one model call falls back to a secondary
-    recursive character split. Sections under MIN_CHUNK_CHARS (nav cruft,
-    a bare "> Source: ..." metadata line before the first header) are dropped
-    -- they're not worth a model call."""
-    header_splitter = MarkdownHeaderTextSplitter(headers_to_split_on=CHUNK_HEADERS, strip_headers=False)
-    header_chunks = header_splitter.split_text(text)
-
-    chunks: list[dict] = []
-    for doc in header_chunks:
-        content = doc.page_content.strip()
-        if len(content) < MIN_CHUNK_CHARS:
-            continue
-        label = " > ".join(
-            doc.metadata[key] for key in ("H1", "H2", "H3", "H4") if key in doc.metadata
-        ) or "(untitled section)"
-
-        if len(content) <= max_chunk_chars:
-            chunks.append({"label": label, "text": content})
-            continue
-
-        sub_splitter = RecursiveCharacterTextSplitter(chunk_size=max_chunk_chars, chunk_overlap=200)
-        for i, sub_text in enumerate(sub_splitter.split_text(content), start=1):
-            if len(sub_text.strip()) < MIN_CHUNK_CHARS:
-                continue
-            chunks.append({"label": f"{label} (part {i})", "text": sub_text})
-
-    return chunks
 
 
 def verify_candidate(resolved_files: list[str], quote: str) -> tuple[bool, str]:

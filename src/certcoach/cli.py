@@ -28,6 +28,7 @@ from rich.text import Text
 from rich import box
 
 from certcoach.core import auth, database, planner
+from certcoach.core.doc_chunking import chunk_doc_text
 from certcoach.core.persona import CoachPersona
 from certcoach.jobs.review_questions import render_citation_panel
 import certcoach.core.memory_manager as memory_manager
@@ -42,6 +43,13 @@ BACK_COMMANDS = {"back", "b", "menu", "/back", "/b", "/menu"}
 PRACTICE_COMMANDS = {"practice", "p", "/practice", "/p"}
 CONTINUE_COMMANDS = {"done", "next", "/done", "/next"}
 MOCK_SECONDS_PER_QUESTION = 90
+# Lesson display splits on H1+H2 only (coarser than the H1-H4 split used for
+# fact-extraction yield) -- one natural topic per screen (e.g. "ObjectId",
+# "Date") without fragmenting a section's own sub-examples into separate
+# clicks. The cap is a safety net for an oversized section, not the primary
+# split signal; header boundaries are.
+LESSON_SECTION_HEADERS = [("#", "H1"), ("##", "H2")]
+LESSON_SECTION_MAX_CHARS = 3000
 ACK_CONTINUE_COMMANDS = {
     "y",
     "yes",
@@ -584,28 +592,51 @@ def run_teach_session(agenda_item: dict):
         for doc_idx, filename in enumerate(resolved_files):
             doc_text = planner.load_md_context([filename])
             doc_texts.append(doc_text)
-            panel = Panel(
-                Markdown(doc_text, code_theme="monokai"),
-                title=f"📄  Study Material: {subtopic} ({doc_idx + 1}/{len(resolved_files)})",
-                border_style="cyan", box=box.ROUNDED,
-                padding=(1, 2),
-            )
-            print_paginated(panel, title=f"Lesson: {subtopic}")
 
-            if doc_idx < len(resolved_files) - 1:
+            sections = chunk_doc_text(doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS)
+            # A leading metadata-only stub (e.g. "> Source: ...") before the
+            # first real heading gets folded into a plain label rather than
+            # dropped -- never silently discard doc content, even a few
+            # bytes of it (see the raw/cleaned corpus audit that found a
+            # real content-loss bug this same session).
+            if not sections:
+                sections = [{"label": subtopic, "text": doc_text}]
+            for section in sections:
+                if section["label"] == "(untitled section)":
+                    section["label"] = subtopic
+
+            doc_prefix = f"Doc {doc_idx + 1}/{len(resolved_files)} — " if len(resolved_files) > 1 else ""
+
+            for sec_idx, section in enumerate(sections):
+                panel = Panel(
+                    Markdown(section["text"], code_theme="monokai"),
+                    title=f"📄  {doc_prefix}{subtopic} — {section['label']} ({sec_idx + 1}/{len(sections)})",
+                    border_style="cyan", box=box.ROUNDED,
+                    padding=(1, 2),
+                )
+                print_paginated(panel, title=f"Lesson: {subtopic}")
+
+                is_last_section = sec_idx == len(sections) - 1
+                is_last_doc = doc_idx == len(resolved_files) - 1
+                if is_last_section and is_last_doc:
+                    continue
+
                 console.print()
                 try:
-                    next_doc_input = Prompt.ask(
-                        "  [dim]Press Enter to read the next official doc on this concept, or type [bold]practice[/bold] to jump to MCQs[/dim]",
+                    next_section_input = Prompt.ask(
+                        "  [dim]Press Enter for the next section, or type [bold]practice[/bold] to jump to MCQs[/dim]",
                         default=""
                     ).strip().lower()
                 except (KeyboardInterrupt, EOFError):
                     raise SystemExit
-                if next_doc_input in EXIT_COMMANDS:
+                if next_section_input in EXIT_COMMANDS:
                     raise SystemExit
-                if next_doc_input in PRACTICE_COMMANDS:
+                if next_section_input in PRACTICE_COMMANDS:
                     jump_to_practice = True
                     break
+
+            if jump_to_practice:
+                break
 
         explanation = "\n\n---\n\n".join(doc_texts)
         memory_manager.log_interaction("assistant", explanation)
