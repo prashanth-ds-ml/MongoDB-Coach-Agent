@@ -9,6 +9,21 @@ from langchain_text_splitters import MarkdownHeaderTextSplitter, RecursiveCharac
 CHUNK_HEADERS = [("#", "H1"), ("##", "H2"), ("###", "H3"), ("####", "H4")]
 MIN_CHUNK_CHARS = 40
 
+# Coarser split for the CLI's per-section lesson display and its coverage
+# reporting (one natural topic per screen, e.g. "ObjectId", "Date", without
+# fragmenting a section's own sub-examples into separate clicks). The cap is
+# a safety net for an oversized section, not the primary split signal --
+# confirmed against the real corpus (64 unique resolved docs): median
+# section length barely moves between cap=1500/1800/2200 (~1000-1060 chars
+# either way, since headers already govern most splits), but cap=1200
+# over-fragments (+76% total sections vs the old cap=3000 baseline) while
+# 1800 caps the handful of genuinely large sections (ObjectId, decimal128,
+# aggregation references) without inflating section count nearly as much
+# (+32%). Shared here (not just in cli.py) so the syllabus-status coverage
+# line computes the same section count the learner actually sees.
+LESSON_SECTION_HEADERS = [("#", "H1"), ("##", "H2")]
+LESSON_SECTION_MAX_CHARS = 1800
+
 
 def chunk_doc_text(text: str, max_chunk_chars: int, headers: list[tuple[str, str]] | None = None) -> list[dict]:
     """Splits one doc's text into header-delimited sections (tagged with their

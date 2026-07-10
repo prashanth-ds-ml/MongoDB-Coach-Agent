@@ -128,7 +128,10 @@ def test_build_section_check_prompt_grounds_in_section_text_only():
     prompt = build_section_check_prompt("BSON Data Types", "ObjectId is a 12-byte value.", num_questions=2)
 
     assert "ObjectId is a 12-byte value." in prompt
-    assert "exactly 2 short multiple-choice questions" in prompt
+    assert "exactly 2 short questions" in prompt
+    assert "mostly True/False" in prompt
+    assert "3 or more comparable, clearly distinct items" in prompt
+    assert "not that they've deeply understood it" in prompt
     assert "never invent a fact that isn't stated here" in prompt
     assert '"questions"' in prompt
 

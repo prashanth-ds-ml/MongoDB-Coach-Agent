@@ -515,20 +515,28 @@ def build_scenario_evaluation_prompt(topic: str, scenario: str, user_answer: str
 
 def build_section_check_prompt(concept: str, section_text: str, num_questions: int) -> str:
     return (
-        f"You are creating a quick, ungraded comprehension check for a learner who just read "
-        f"the following section of official MongoDB documentation, for the concept \"{concept}\".\n\n"
-        f"Write exactly {num_questions} short multiple-choice questions that test whether the "
-        f"learner understood what THIS section says -- nothing from outside it. Every question "
-        f"must be answerable using only the text below; never invent a fact that isn't stated here.\n\n"
-        f"Section text:\n\"\"\"\n{section_text[:6000]}\n\"\"\"\n\n"
+        f"You are creating a quick reading-check for a learner who just read the following "
+        f"section of official MongoDB documentation, for the concept \"{concept}\".\n\n"
+        f"This is NOT a mastery test -- it only needs to confirm the learner actually read "
+        f"this section, not that they've deeply understood it. Write exactly {num_questions} "
+        f"short questions about THIS section, mostly True/False:\n"
+        f"- For a True/False statement: make it true (stated as the section says) or false "
+        f"(change exactly one concrete detail -- a number, a name, a word like "
+        f"\"always\"/\"never\" -- so it contradicts the text). Roughly half true, half false.\n"
+        f"- Only if the section names 3 or more comparable, clearly distinct items (a list of "
+        f"types, options, or steps), you may instead write ONE short multiple-choice question "
+        f"with 3-4 options about that list instead of True/False. Do not force this if the "
+        f"section has nothing like that -- prefer True/False.\n"
+        f"Every question must be checkable using only the text below; never invent a fact "
+        f"that isn't stated here.\n\n"
+        f"Section text:\n\"\"\"\n{section_text[:3000]}\n\"\"\"\n\n"
         f"Respond with a JSON object exactly formatted as:\n"
-        f'{{"questions": [{{"question_text": "...", "options": ['
-        f'{{"option_letter": "A", "code_snippet": "...", "is_correct": true}}, '
-        f'{{"option_letter": "B", "code_snippet": "...", "is_correct": false}}, '
-        f'{{"option_letter": "C", "code_snippet": "...", "is_correct": false}}, '
-        f'{{"option_letter": "D", "code_snippet": "...", "is_correct": false}}]}}]}}\n\n'
-        f"Each question must have exactly 4 options (A-D), exactly one marked \"is_correct\": true. "
-        f"Keep each option to one short line. No markdown, no commentary outside the JSON object."
+        f'{{"questions": [{{"question_text": "<the statement or question>", "options": ['
+        f'{{"option_letter": "A", "code_snippet": "True", "is_correct": true or false}}, '
+        f'{{"option_letter": "B", "code_snippet": "False", "is_correct": true or false}}]}}]}}\n\n'
+        f"(for a multiple-choice question, use 3-4 options with short answer text instead of "
+        f"\"True\"/\"False\" -- same shape otherwise). Exactly one option per question must be "
+        f"\"is_correct\": true. No markdown, no commentary outside the JSON object."
     )
 
 

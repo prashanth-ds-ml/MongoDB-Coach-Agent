@@ -1004,13 +1004,14 @@ def test_run_section_checkin_success_marks_completion(mock_prompt_ask, mock_coac
     from certcoach.cli import run_section_checkin, USER_ID
 
     mock_coach.generate_section_check.return_value = [_checkin_question("A"), _checkin_question("B")]
-    mock_planner.mark_lesson_chunk_complete.return_value = 4
+    mock_planner.mark_lesson_chunk_complete.return_value = {"completed": 4, "correct": 3}
     mock_prompt_ask.side_effect = ["A", "B"]
 
     run_section_checkin("Topic A", "Document structure", {"label": "Documents", "text": "MongoDB stores records as BSON documents."})
 
     mock_coach.generate_section_check.assert_called_once_with("Document structure", "MongoDB stores records as BSON documents.")
-    mock_planner.mark_lesson_chunk_complete.assert_called_once_with(USER_ID, "Topic A", "Document structure")
+    # Both answers correct ("A" for q1, "B" for q2) -> all_correct=True.
+    mock_planner.mark_lesson_chunk_complete.assert_called_once_with(USER_ID, "Topic A", "Document structure", True)
 
 
 @patch("certcoach.cli.console")
@@ -1036,7 +1037,7 @@ def test_run_section_checkin_never_touches_attempts_or_streaks(mock_prompt_ask, 
     from certcoach.cli import run_section_checkin
 
     mock_coach.generate_section_check.return_value = [_checkin_question("A")]
-    mock_planner.mark_lesson_chunk_complete.return_value = 1
+    mock_planner.mark_lesson_chunk_complete.return_value = {"completed": 1, "correct": 1}
     mock_prompt_ask.return_value = "A"
 
     with patch("certcoach.cli.database") as mock_database:
@@ -1054,14 +1055,99 @@ def test_run_section_checkin_quit_mid_checkin_still_marks_completion(mock_prompt
     from certcoach.cli import run_section_checkin, USER_ID
 
     mock_coach.generate_section_check.return_value = [_checkin_question("A"), _checkin_question("A")]
-    mock_planner.mark_lesson_chunk_complete.return_value = 2
+    mock_planner.mark_lesson_chunk_complete.return_value = {"completed": 2, "correct": 1}
     # "Q" at the first question bails out of the remaining check-in
     # questions -- non-punitive, doesn't block the lesson.
     mock_prompt_ask.return_value = "Q"
 
     run_section_checkin("Topic A", "Document structure", {"label": "Documents", "text": "some section text"})
 
-    mock_planner.mark_lesson_chunk_complete.assert_called_once_with(USER_ID, "Topic A", "Document structure")
+    # Bailing out early never counts as "all correct".
+    mock_planner.mark_lesson_chunk_complete.assert_called_once_with(USER_ID, "Topic A", "Document structure", False)
+
+
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_build_lesson_coverage_text_computes_sections_and_counts(mock_planner, mock_database):
+    from certcoach.cli import build_lesson_coverage_text
+    from certcoach.core.planner import normalize_lesson_chunk_counts
+
+    mock_planner.normalize_lesson_chunk_counts.side_effect = normalize_lesson_chunk_counts
+    mock_planner.load_syllabus.return_value = [
+        {"topic": "Topic A", "md_files": ["doc.md"], "subtopics": ["Document structure", "Other Concept"]},
+    ]
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_planner.load_md_context.return_value = "# Heading\n\n" + ("x" * 100)
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_lesson_chunks": {"Topic A": {"Document structure": {"completed": 3, "correct": 2}}}}
+    }
+
+    text = build_lesson_coverage_text()
+
+    assert "Document structure" in text
+    # 3 check-ins across 1 section (the mocked single-heading doc), 2 fully correct.
+    assert "[bold]3[/bold] check-in(s)" in text
+    assert "[bold]1[/bold] section(s)" in text
+    assert "[green]2[/green]" in text
+    # Only the piloted concept appears, not every subtopic in the topic.
+    assert "Other Concept" not in text
+
+
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_build_lesson_coverage_text_defaults_to_zero_when_never_checked_in(mock_planner, mock_database):
+    from certcoach.cli import build_lesson_coverage_text
+    from certcoach.core.planner import normalize_lesson_chunk_counts
+
+    mock_planner.normalize_lesson_chunk_counts.side_effect = normalize_lesson_chunk_counts
+    mock_planner.load_syllabus.return_value = [
+        {"topic": "Topic A", "md_files": ["doc.md"], "subtopics": ["Document structure"]},
+    ]
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_planner.load_md_context.return_value = "# Heading\n\n" + ("x" * 100)
+    mock_database.get_user_profile.return_value = {"progress": {}}
+
+    text = build_lesson_coverage_text()
+
+    assert "Document structure" in text
+    assert "[bold]0[/bold] check-in(s)" in text
+
+
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_build_lesson_coverage_text_handles_old_int_shaped_data(mock_planner, mock_database):
+    """Regression: the exact live bug found this session -- old data stored
+    a bare int, and the coverage line must not crash reading it."""
+    from certcoach.cli import build_lesson_coverage_text
+    from certcoach.core.planner import normalize_lesson_chunk_counts
+
+    mock_planner.normalize_lesson_chunk_counts.side_effect = normalize_lesson_chunk_counts
+    mock_planner.load_syllabus.return_value = [
+        {"topic": "Topic A", "md_files": ["doc.md"], "subtopics": ["Document structure"]},
+    ]
+    mock_planner.resolve_concept_docs.return_value = ["doc.md"]
+    mock_planner.load_md_context.return_value = "# Heading\n\n" + ("x" * 100)
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_lesson_chunks": {"Topic A": {"Document structure": 4}}}
+    }
+
+    text = build_lesson_coverage_text()  # must not raise
+
+    assert "[bold]4[/bold] check-in(s)" in text
+
+
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.planner")
+def test_build_lesson_coverage_text_returns_none_when_pilot_concept_not_in_syllabus(mock_planner, mock_database):
+    from certcoach.cli import build_lesson_coverage_text
+
+    mock_planner.load_syllabus.return_value = [
+        {"topic": "Topic A", "md_files": ["doc.md"], "subtopics": ["Some Other Concept"]},
+    ]
+
+    text = build_lesson_coverage_text()
+
+    assert text is None
 
 
 def test_command_sets_recognize_slash_prefixed_aliases():
@@ -1541,19 +1627,32 @@ def test_mark_subtopic_complete(mock_load_syllabus, mock_database):
 
 
 @patch("certcoach.core.planner.database")
-def test_mark_lesson_chunk_complete_increments_per_topic_and_concept(mock_database):
+def test_mark_lesson_chunk_complete_increments_completed_and_correct(mock_database):
     from certcoach.core.planner import mark_lesson_chunk_complete
 
     mock_database.get_user_profile.return_value = {
-        "progress": {"completed_lesson_chunks": {"Topic 1": {"Document structure": 2}}}
+        "progress": {"completed_lesson_chunks": {"Topic 1": {"Document structure": {"completed": 2, "correct": 1}}}}
     }
 
-    total = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure")
+    counts = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure", all_correct=True)
 
-    assert total == 3
+    assert counts == {"completed": 3, "correct": 2}
     args, kwargs = mock_database.update_user_profile.call_args
     progress = args[1]["progress"]
-    assert progress["completed_lesson_chunks"]["Topic 1"]["Document structure"] == 3
+    assert progress["completed_lesson_chunks"]["Topic 1"]["Document structure"] == {"completed": 3, "correct": 2}
+
+
+@patch("certcoach.core.planner.database")
+def test_mark_lesson_chunk_complete_does_not_increment_correct_when_wrong(mock_database):
+    from certcoach.core.planner import mark_lesson_chunk_complete
+
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_lesson_chunks": {"Topic 1": {"Document structure": {"completed": 2, "correct": 1}}}}
+    }
+
+    counts = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure", all_correct=False)
+
+    assert counts == {"completed": 3, "correct": 1}
 
 
 @patch("certcoach.core.planner.database")
@@ -1562,9 +1661,33 @@ def test_mark_lesson_chunk_complete_starts_at_one_for_new_concept(mock_database)
 
     mock_database.get_user_profile.return_value = {"progress": {}}
 
-    total = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure")
+    counts = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure", all_correct=True)
 
-    assert total == 1
+    assert counts == {"completed": 1, "correct": 1}
+
+
+@patch("certcoach.core.planner.database")
+def test_mark_lesson_chunk_complete_handles_old_int_shaped_data(mock_database):
+    """Regression: live data written before this feature tracked
+    correct/total separately stored a bare int count. Reading it must not
+    crash with "'int' object is not subscriptable"."""
+    from certcoach.core.planner import mark_lesson_chunk_complete
+
+    mock_database.get_user_profile.return_value = {
+        "progress": {"completed_lesson_chunks": {"Topic 1": {"Document structure": 4}}}
+    }
+
+    counts = mark_lesson_chunk_complete("user123", "Topic 1", "Document structure", all_correct=True)
+
+    assert counts == {"completed": 5, "correct": 1}
+
+
+def test_normalize_lesson_chunk_counts_handles_all_shapes():
+    from certcoach.core.planner import normalize_lesson_chunk_counts
+
+    assert normalize_lesson_chunk_counts(4) == {"completed": 4, "correct": 0}
+    assert normalize_lesson_chunk_counts({"completed": 3, "correct": 2}) == {"completed": 3, "correct": 2}
+    assert normalize_lesson_chunk_counts(None) == {"completed": 0, "correct": 0}
 
 
 @patch("certcoach.core.planner.database")

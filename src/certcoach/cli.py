@@ -28,7 +28,7 @@ from rich.text import Text
 from rich import box
 
 from certcoach.core import auth, database, planner
-from certcoach.core.doc_chunking import chunk_doc_text
+from certcoach.core.doc_chunking import chunk_doc_text, LESSON_SECTION_HEADERS, LESSON_SECTION_MAX_CHARS
 from certcoach.core.persona import CoachPersona
 from certcoach.jobs.review_questions import render_citation_panel
 import certcoach.core.memory_manager as memory_manager
@@ -43,13 +43,10 @@ BACK_COMMANDS = {"back", "b", "menu", "/back", "/b", "/menu"}
 PRACTICE_COMMANDS = {"practice", "p", "/practice", "/p"}
 CONTINUE_COMMANDS = {"done", "next", "/done", "/next"}
 MOCK_SECONDS_PER_QUESTION = 90
-# Lesson display splits on H1+H2 only (coarser than the H1-H4 split used for
-# fact-extraction yield) -- one natural topic per screen (e.g. "ObjectId",
-# "Date") without fragmenting a section's own sub-examples into separate
-# clicks. The cap is a safety net for an oversized section, not the primary
-# split signal; header boundaries are.
-LESSON_SECTION_HEADERS = [("#", "H1"), ("##", "H2")]
-LESSON_SECTION_MAX_CHARS = 3000
+# LESSON_SECTION_HEADERS/LESSON_SECTION_MAX_CHARS live in doc_chunking.py so
+# the syllabus-status coverage line can compute the same section count the
+# learner actually sees, without cli.py needing to import from planner.py
+# or vice versa.
 # Pilot scope for the per-section comprehension check-in -- expand (or drop
 # this gate entirely) once validated live. Empty/absent concept names never
 # trigger it.
@@ -2073,16 +2070,19 @@ def run_section_checkin(topic: str, concept: str, section: dict) -> None:
         return
 
     console.print()
+    all_correct = True
     for idx, q in enumerate(questions):
         console.print(f"  [dim]Quick check {idx + 1}/{len(questions)}[/dim]")
         ans, _is_multi, _elapsed_sec = present_and_capture_answer(q)
         if ans in ("Q", "BACK"):
+            all_correct = False
             break
 
         evaluation = evaluate_answer(q, ans)
         if evaluation["is_correct"]:
             console.print("  [bold green]✅ Correct.[/bold green]")
         else:
+            all_correct = False
             correct_letters = evaluation["correct_letters"]
             correct_option = evaluation["correct_option"]
             correct_text = correct_option.get("code_snippet", "") if correct_option else ""
@@ -2092,13 +2092,52 @@ def run_section_checkin(topic: str, concept: str, section: dict) -> None:
             )
         console.print()
 
-    total = planner.mark_lesson_chunk_complete(USER_ID, topic, concept)
-    console.print(f"[dim]  ✅ {total} bite-sized check-in(s) completed for {concept} so far.[/dim]")
+    counts = planner.mark_lesson_chunk_complete(USER_ID, topic, concept, all_correct)
+    console.print(
+        f"[dim]  ✅ {counts['completed']} bite-sized check-in(s) completed for {concept} "
+        f"({counts['correct']} fully correct).[/dim]"
+    )
 
 
 # ---------------------------------------------------------------------------
 # SYLLABUS / GAP REPORT
 # ---------------------------------------------------------------------------
+
+def build_lesson_coverage_text() -> str | None:
+    """One line per piloted concept: how many bite-sized sections exist for
+    it right now (computed live from the same chunking the learner actually
+    sees, so it never goes stale if the chunk-size config changes) vs how
+    many the learner has checked in on, and how many of those check-ins
+    were fully correct."""
+    if not LESSON_CHECKIN_PILOT_CONCEPTS:
+        return None
+
+    syllabus = planner.load_syllabus()
+    profile = database.get_user_profile(USER_ID)
+    completed_lesson_chunks = profile.get("progress", {}).get("completed_lesson_chunks", {})
+
+    lines = []
+    for topic_item in syllabus:
+        topic_name = topic_item["topic"]
+        md_files = topic_item.get("md_files", [])
+        subtopics = topic_item.get("subtopics", []) or [topic_name]
+        for concept in subtopics:
+            if concept not in LESSON_CHECKIN_PILOT_CONCEPTS:
+                continue
+            resolved_files = planner.resolve_concept_docs(md_files, concept)
+            total_sections = 0
+            for filename in resolved_files:
+                doc_text = planner.load_md_context([filename])
+                sections = chunk_doc_text(doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS)
+                total_sections += len(sections) if sections else 1
+            counts = planner.normalize_lesson_chunk_counts(completed_lesson_chunks.get(topic_name, {}).get(concept))
+            lines.append(
+                f"  • {concept}: [bold]{counts['completed']}[/bold] check-in(s) across "
+                f"[bold]{total_sections}[/bold] section(s) ([green]{counts['correct']}[/green] fully correct)"
+            )
+
+    return "\n".join(lines) if lines else None
+
 
 def show_syllabus_status():
     clear()
@@ -2164,6 +2203,13 @@ def show_syllabus_status():
             "\n".join(f"  [red]✗[/red] {t}" for t in status["gap_topics"]),
             title="⚠️  Topics Missing from Question Bank (AI will generate questions)",
             border_style="red"
+        ))
+    coverage_text = build_lesson_coverage_text()
+    if coverage_text:
+        elements.append(Panel(
+            coverage_text,
+            title="📖 Bite-Sized Lesson Coverage (pilot)",
+            border_style="cyan", box=box.ROUNDED,
         ))
     group = Group(*elements)
     print_paginated(group, title="Syllabus Status")
