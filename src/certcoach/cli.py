@@ -2741,7 +2741,7 @@ def run_full_mock():
     pep = coach.get_mock_exam_pep_talk()
     console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
     try:
-        Prompt.ask("\n  Press Enter when ready...")
+        Prompt.ask("\n  [dim]Press Enter when ready...[/dim]")
     except (KeyboardInterrupt, EOFError):
         return
     selection = database.get_weighted_mock_questions(53)
@@ -2753,7 +2753,7 @@ def run_timed_mock():
     pep = coach.get_mock_exam_pep_talk()
     console.print(Panel(Markdown(pep, code_theme="monokai"), title="🧑‍🏫 CertCoach", border_style="cyan", box=box.ROUNDED))
     try:
-        Prompt.ask("\n  Press Enter when ready...")
+        Prompt.ask("\n  [dim]Press Enter when ready...[/dim]")
     except (KeyboardInterrupt, EOFError):
         return
     selection = database.get_weighted_mock_questions(20)
@@ -3650,7 +3650,7 @@ def main_menu():
                 low_data = False
 
             exam_day_mode = current_readiness >= 85.0
-            exam_day_badge = " [bold gold]🏆 EXAM DAY MODE ACTIVE[/bold gold] |" if exam_day_mode else ""
+            exam_day_badge = " [bold gold1]🏆 EXAM DAY MODE ACTIVE[/bold gold1] |" if exam_day_mode else ""
             current_user_label = get_current_user_label()
             # Below ~30 real attempts the pass-probability estimate is still
             # mostly noise -- say so, rather than showing a bare number that
@@ -3765,7 +3765,7 @@ def main_menu():
                         elif item.get("type") == "BossFight":
                             console.print(Panel(item["desc"], title="👾 Boss Fight!", border_style="red"))
                             try:
-                                Prompt.ask("\n  Press Enter when ready to start the boss fight...")
+                                Prompt.ask("\n  [dim]Press Enter when ready to start the boss fight...[/dim]")
                             except (KeyboardInterrupt, EOFError):
                                 break
                             all_keys = []
