@@ -1,6 +1,6 @@
 # Agent Context
 
-Last verified: 2026-07-06
+Last verified: 2026-07-08 (session 14, closed cleanly -- see Immediate Continuation)
 
 ## Mission
 
@@ -29,24 +29,36 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 - Legacy, repair-pending, and quarantined content-contract records still cannot enter learner-facing practice; provenance is an additional, stricter gate on top, not a replacement.
 - Long repair/population runs use `scripts/run_phase4_overnight.ps1`.
 - Optional UI, analytics, gamification, simulator, and general platform work are deferred until after the exam.
+- The daily agenda's `"Learn"` item (concept lesson + scoped Q&A) is gated only on doc coverage + an uncompleted concept, never on question-bank readiness (`planner.get_syllabus_status`'s `next_topic` uses `readiness_concepts`, not `ready_subtopics`). Only the five-question practice step at the end of `run_teach_session` gates on the 3E+2M floor -- a concept with zero confirmed questions is still teachable today.
+- The concept lesson panel in `run_teach_session` shows the resolved official doc's text verbatim (`planner.load_md_context`), one doc at a time -- it is never an AI paraphrase. `lesson_bank.get_validated_lesson()`/`coach.explain_topic()`/the 6-section lesson template are no longer used in this flow (still exist for `certcoach-prebuild-lesson`, untouched).
+- Doc-relevance resolution (which official doc(s) back a concept, for lesson display, question generation, and dry-run preview alike) goes through one shared function, `planner.resolve_concept_docs()` -- a candidate doc must score at least half the concept's top score, not just `> 0`, to exclude generic-token false positives (e.g. "data" in "BSON Data Types" wrongly matching unrelated topic-level docs). Do not reintroduce a separate ad hoc `prioritize_md_files` + `score > 0` filter at a new call site; use the shared function.
+- `certcoach-preview-concept`'s dry-run yield report compares a doc's verified yield against the concept's real exam-weighted target (`question_targets.weighted_target_for_concept`), not just a raw candidate count.
+- `POPULATION_SOURCE_CHARS` (doc text visible to both generation and dry-run) is 8000, not 1600 -- do not lower it without re-checking corpus doc-size distribution (median ~5,728 chars, p90 37,594, max 121,920).
+- `certcoach-preview-concept`'s dry-run scans a doc section-by-section (`inspect_doc.chunk_doc_text`, markdown-header split), not one flat truncated blob -- this lifted BSON Data Types' verified yield from 3 to 66 (see decision log). Real generation (`nightly_seed_questions.py`) does not use chunk-aware scanning yet.
+- `certcoach-generate-from-doc` (`src/certcoach/jobs/generate_from_doc.py`) generates questions from one concept's chunked+verified doc facts via local Ollama, independent of the exam-weighted quantity target. **Deprioritized since the session-11 pivot to Claude-authored content** (not deleted -- kept as a fallback/comparison path). See Decision Log sessions 7/11 for the full mechanics and live-verification history.
+- `ingest_authored_content.ingest_authored_question()` runs a directly-authored (Claude- or human-written) MCQ through the identical trust pipeline `generate_from_doc.py`/`nightly_seed_questions.py` use -- duplicate check, quality gate, citation verify, self-consistency. Never writes `confirmed`. This is the mechanism both the `/mcqs` and (via `flashcard_tools.py`'s simpler validate/merge) `/flashcards` skills use.
 
-## Live Snapshot (2026-07-06, verified against the live DB, not inferred)
+## Live Snapshot (2026-07-08 session 14, verified against the live DB, not inferred)
 
-- `certcoach_db.questions`: 379 total. Provenance: 2 confirmed, 2 sourced, 375 suspect, 0 draft. The user confirmed 2 questions (both Topic 1 BSON Data Types, Easy) via `certcoach-review-questions` between sessions; 2 remain `sourced` awaiting review (Topic 10 Embedding vs Referencing Easy, Topic 11 PyMongo purpose Easy). **Practice is still not usable** -- 2 confirmed items for one concept is far short of the `3 Easy + 2 Medium` readiness gate for even that one concept.
-- Suspect backlog breakdown (`certcoach-analyze-backlog`): 353 have a real regeneration lead, 23 have `topic_id: None` and no lead at all, 0 duplicates. 26 were screenshot-sourced; 1 recovered to `sourced`, 25 confirmed unrecoverable.
-- New read-only report, `certcoach-map-questions-to-docs` (`src/certcoach/jobs/map_questions_to_docs.py`): for every question, resolves syllabus topic/concept (stored value if present, else the same keyword inference `certcoach-map-questions` uses) and the official doc(s) that concept maps to (same scoring as [[study_order_map|Study Order Map]]), then flags citation drift against what's currently stored. Live results: 356/379 questions had stored topic/concept, 23 were inference-only; 238 questions resolve to a concept-exact doc, 118 fall back to topic-level docs (no dedicated doc exists), 23 stay fully unresolved; 333/379 questions carry a citation that doesn't match any resolved official doc (expected -- legacy `citation_source` values are titles/URLs, not filenames). Full per-question CSV was written to a scratch path, not committed; regenerate with `--out <path>` when needed. This did not write to the database (explicit user choice).
-- The doc-to-question generation loop (pull doc -> generate MCQ -> citation check -> self-consistency check -> `sourced`) is proven working end-to-end on real data. Four real bugs were found and fixed doing so -- see Decision Log 2026-07-06: deficit calculator ignoring the provenance gate, citation checker rejecting quotes over markdown backticks, self-consistency model (`deepseek-r1:8b` -> `qwen2.5-coder:7b`) that never finished reasoning, and doc-scoring unable to match `$`-operator concepts to their own docs.
-- [[study_order_map|Study Order Map]]: all 58 syllabus concepts mapped to their official doc(s) in canonical study order -- read this before generating for a new concept.
-- All 249 unit tests pass.
-- **The entire provenance/trust implementation plus three sessions of fixes/tools on top of it are uncommitted in the working tree as of 2026-07-06.** Do not assume git history reflects current code; check `git status`/`git diff HEAD` first.
+- **Pivot in effect since session 11**: Claude authors MCQs and flashcards directly (no local Ollama generation call) -- both still funnel through the identical citation-verify/self-consistency/confirm pipeline every other question does. Local Ollama's only remaining jobs are the self-consistency check and, later, the adaptive coach.
+- `certcoach_db.questions`, Topic 1 BSON Data Types: 1 `confirmed` Easy, 18 `sourced`, 2 `draft`, 34 `suspect` (all of the original 30 legacy suspects now individually reviewed and annotated -- see [[decision_log|Decision Log]] session 13). Comfortably past the 16-slot weighted target (7 Easy + 9 Medium) with real candidate surplus, pending human confirm via `certcoach-review-questions`. **Practice is still not usable** -- nothing beyond the original 1 is confirmed yet.
+- **Flashcards**: atomic, concept-level cards now exist for Topics 1-3 (BSON Data Types/Document structure/Collections vs Tables, CRUD-Create, CRUD-Read -- 67 cards total across `data/`, `mobile/assets/`, `web-flashcards/src/`, all byte-identical). Topics 4-12 still have zero cards.
+- **Real, unfixed gap found twice now**: `planner.resolve_concept_docs()`'s fallback (when every candidate doc scores 0) is `md_files[:2]` -- an arbitrary "first N files in syllabus order" pick, not a relevance judgment. Confirmed concretely for Topic 2 (`insertOne()`, `insertMany()`, `_id and ObjectId`) and Topic 3 (`findOne()`, `Projections`, `countDocuments()`) -- any CamelCase-with-`()` concept name tokenizes to a fused string (`"insertone"`, `"findone"`) that never matches a real filename. Worked around by hand in both flashcard sessions; will very likely hit Topic 4 (`replaceOne()`, `updateOne()`, `updateMany()`, `findAndModify`) too. Worth fixing in `score_md_file_for_concept`'s tokenizer at that point rather than continuing to route around it per topic.
+- **`/mcqs` skill rules updated based on live use** (session 13): Phase A's audit step now has four outcomes (Keep/Improve/Move/Discard, not three) -- explicitly don't discard-and-stop when a concept is short of target, don't silently skip the `suspect` legacy backlog, back up before any delete. See `.claude/skills/mcqs/SKILL.md` step 4 for the exact mechanics; `feedback_mcq_audit_bias.md` (personal memory, not this vault) has the "why."
+- Topic 10 "Embedding vs Referencing" now has 5 `suspect` records (2 original unexplained ones from session 7, still uninvestigated, plus 3 moved there this session from a BSON Data Types mistag) -- still nothing confirmed for that concept, still worth investigating the original 2 before trusting the bank's overall state.
 
 ## Immediate Continuation
 
-1. User runs `certcoach-review-questions` themselves to confirm the 2 remaining `sourced` questions.
-2. Decide on the 25 unrecoverable screenshot questions and the 23 `topic_id: None` suspect records (purge vs. hold for review) -- the new doc-mapping report gives all 23 a best-effort topic/concept placement and doc lead if regeneration is preferred over purge.
-3. Once a few questions are confirmed, run an actual practice session to verify the learner-facing loop, not just the data layer.
-4. Ask before committing -- three sessions of uncommitted, tested work now sit in the working tree.
-5. Resume the still-open Phase 4 lesson/population thread only after the provenance gate has enough confirmed inventory to matter.
+**Session 14 closed cleanly (not a mid-flow pause) after the user asked to update docs and close out.**
+Full detail is in [[session_handoff|Session Handoff]]'s Completed/Next Action lists -- summary:
+
+1. Ask before committing -- sessions 5 through 14 are all still uncommitted and stacked (provenance/trust pipeline groundwork, the full CLI bug-fix pass, the root audit + persona grounding fixes, CLI review parity, `antigravity_cli`/`src/scripts`/`review-web` removals, and all of sessions 12-14's flashcard/MCQ content work). No test run needed for sessions 12-14 specifically (data-only, no source changed).
+2. Run `certcoach-review-questions` to confirm/reject the ~20 BSON Data Types candidates from session 13 -- zero human review has touched that output yet.
+3. Continue `/flashcards` topic-by-topic (Topic 4 next) and `/mcqs` concept-by-concept, applying the now-documented legacy-pool review pattern each time.
+4. Investigate the 2 original unexplained Topic 10/11 confirmed/sourced questions from session 7 -- still open, read-only, safe to do first.
+5. Run `certcoach-map-questions-to-docs --write` live (confirm with the user immediately before, it's a real DB write) to backfill the 23 orphan questions -- still not done.
+6. Once a few questions are confirmed, run an actual practice session to verify the learner-facing loop, not just the data layer.
+7. Do not start the adaptive-coach/spaced-revision work (journey steps 10-11) until the user reports 3 topics/concepts mastered.
 
 ## Commands
 
@@ -57,8 +69,11 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 .\.venv\Scripts\python.exe -m certcoach.jobs.recover_screenshot_citations
 .\.venv\Scripts\python.exe -m certcoach.jobs.purge_screenshot_backlog
 .\.venv\Scripts\python.exe -m certcoach.jobs.review_questions
+.\.venv\Scripts\certcoach-preview-concept.exe --topic <id> --concept "<name>"  # combined study + dry-run
 .\.venv\Scripts\python.exe -m pytest tests\unit -q
 ```
+
+`review-web/` (Docket) was retired in session 11 -- `certcoach-review-questions` (CLI) has full parity. Don't reference or rebuild it without checking the decision log first.
 
 ## Deep References
 

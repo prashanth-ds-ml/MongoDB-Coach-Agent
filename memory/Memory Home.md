@@ -18,6 +18,8 @@ This is the Obsidian and cross-agent navigation hub. Start with the compact cont
 ## Product And Architecture
 
 - [[coach_flow_spec|Coach Flow Spec]]
+- [[content_authoring_guidelines|Content Authoring Guidelines (MCQs + Flashcards)]]
+- `diagrams/learner_journey.html`: the 12-step learner journey (build loop / practice loop / gated adaptive layer) mapped against current build status
 - [[study_order_map|Study Order Map: Syllabus to Official Docs]]
 - [[lesson_template_rules|Lesson Template Rules]]
 - [[study_pattern_guardrails|Study Pattern Guardrails]]
@@ -54,6 +56,7 @@ This is the Obsidian and cross-agent navigation hub. Start with the compact cont
 - [[syllabus_deep_audit_dashboard|Syllabus Deep-Audit Dashboard]]
 - [[syllabus_deep_audit_details|Syllabus Deep-Audit Details]]
 - [[audit_report_bson_data_types|BSON Data Types Audit Report]]
+- [[cli_audit_2026-07-07|CLI Behavior Audit (2026-07-07)]]
 
 ## Companion Apps
 
