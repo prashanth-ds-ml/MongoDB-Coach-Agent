@@ -710,6 +710,110 @@ def mark_lesson_chunk_complete(user_id: str, topic_name: str, concept: str, all_
     return concept_counts
 
 
+def mark_concept_lesson_seen(user_id: str, topic_id: int, concept: str) -> None:
+    """Records that a concept's lesson content has been shown to the learner
+    -- independent of both the lesson-check-in pilot gate and the post-lesson
+    MCQ score gate (mark_subtopic_complete only fires on a >=4/5 score, which
+    can't happen for a concept with no confirmed questions yet). This is the
+    signal flashcard review keys off: a card only enters rotation once its
+    concept has actually been read, regardless of whether scored practice
+    exists for it. Keyed by topic_id (not topic name) because flashcards are
+    tagged by topic_id -- avoids an extra name<->id lookup at read time."""
+    if topic_id is None:
+        return
+    profile = database.get_user_profile(user_id)
+    progress = profile.get("progress", {})
+    lessons_seen = progress.get("lessons_seen", {})
+    topic_key = str(topic_id)
+    seen_concepts = lessons_seen.get(topic_key, [])
+    if concept not in seen_concepts:
+        seen_concepts.append(concept)
+        lessons_seen[topic_key] = seen_concepts
+        progress["lessons_seen"] = lessons_seen
+        database.update_user_profile(user_id, {"progress": progress})
+
+
+# Lightweight SM-2-style intervals (days), not full FSRS -- proportionate to
+# a single learner reviewing a few hundred cards, not a multi-user product
+# needing per-card difficulty/stability curves. A wrong answer always resets
+# to the 1-day bucket; a right answer grows the interval, capped at 60 days
+# so a card never drifts out of reach before the exam.
+_FLASHCARD_EASE_FACTOR = 2.3
+_FLASHCARD_MAX_INTERVAL_DAYS = 60
+
+
+def compute_next_review(streak: int, interval_days: int, is_correct: bool) -> dict:
+    """Pure scheduling step -- no I/O, no timestamps -- so the interval math
+    is testable without mocking the clock. Callers attach next_due_at."""
+    if not is_correct:
+        return {"streak": 0, "interval_days": 1}
+    new_streak = streak + 1
+    if new_streak == 1:
+        new_interval = 1
+    elif new_streak == 2:
+        new_interval = 3
+    else:
+        new_interval = min(round(interval_days * _FLASHCARD_EASE_FACTOR), _FLASHCARD_MAX_INTERVAL_DAYS)
+    return {"streak": new_streak, "interval_days": new_interval}
+
+
+def record_flashcard_review(user_id: str, card_id: str, is_correct: bool) -> dict:
+    """Read-modify-write against progress.flashcard_review_state[card_id],
+    same convention as mark_lesson_chunk_complete. Returns the new state
+    (including next_due_at) so the caller can confirm the new interval
+    without a second profile read."""
+    profile = database.get_user_profile(user_id)
+    progress = profile.get("progress", {})
+    review_state = progress.get("flashcard_review_state", {})
+    prior = review_state.get(card_id, {"streak": 0, "interval_days": 0})
+
+    new_state = compute_next_review(prior.get("streak", 0), prior.get("interval_days", 0), is_correct)
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    new_state["last_reviewed_at"] = now.isoformat()
+    new_state["next_due_at"] = (now + datetime.timedelta(days=new_state["interval_days"])).isoformat()
+
+    review_state[card_id] = new_state
+    progress["flashcard_review_state"] = review_state
+    database.update_user_profile(user_id, {"progress": progress})
+    return new_state
+
+
+def get_due_flashcards(user_id: str) -> list[dict]:
+    """Cards eligible for review right now: the concept must have actually
+    been taught (see mark_concept_lesson_seen) and the card must either have
+    no review history yet (never reviewed = immediately due) or have passed
+    its next_due_at. Never-reviewed cards sort first (introduce new material
+    before drilling older ones), then soonest-due first."""
+    profile = database.get_user_profile(user_id)
+    progress = profile.get("progress", {})
+    lessons_seen = progress.get("lessons_seen", {})
+    review_state = progress.get("flashcard_review_state", {})
+    now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+
+    due = []
+    for card in database.load_flashcards():
+        seen_concepts = lessons_seen.get(str(card.get("topic_id")), [])
+        if card.get("concept") not in seen_concepts:
+            continue
+        state = review_state.get(card["id"])
+        if state is None:
+            due.append({**card, "review_state": None})
+            continue
+        try:
+            next_due_at = datetime.datetime.fromisoformat(state["next_due_at"])
+        except Exception:
+            due.append({**card, "review_state": state})
+            continue
+        if now >= next_due_at:
+            due.append({**card, "review_state": state})
+
+    due.sort(key=lambda c: (
+        c["review_state"] is not None,
+        c["review_state"]["next_due_at"] if c["review_state"] else "",
+    ))
+    return due
+
+
 def audit_documentation_files() -> dict:
     """
     Cross-checks the syllabus.json against raw_markdowns/ files.

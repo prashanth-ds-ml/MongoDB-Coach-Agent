@@ -1691,6 +1691,171 @@ def test_normalize_lesson_chunk_counts_handles_all_shapes():
 
 
 @patch("certcoach.core.planner.database")
+def test_mark_concept_lesson_seen_adds_new_concept(mock_database):
+    from certcoach.core.planner import mark_concept_lesson_seen
+
+    mock_database.get_user_profile.return_value = {"progress": {}}
+
+    mark_concept_lesson_seen("user123", 3, "find()")
+
+    args, kwargs = mock_database.update_user_profile.call_args
+    progress = args[1]["progress"]
+    assert progress["lessons_seen"]["3"] == ["find()"]
+
+
+@patch("certcoach.core.planner.database")
+def test_mark_concept_lesson_seen_is_idempotent(mock_database):
+    from certcoach.core.planner import mark_concept_lesson_seen
+
+    mock_database.get_user_profile.return_value = {"progress": {"lessons_seen": {"3": ["find()"]}}}
+
+    mark_concept_lesson_seen("user123", 3, "find()")
+
+    mock_database.update_user_profile.assert_not_called()
+
+
+@patch("certcoach.core.planner.database")
+def test_mark_concept_lesson_seen_no_ops_without_a_topic_id(mock_database):
+    from certcoach.core.planner import mark_concept_lesson_seen
+
+    mark_concept_lesson_seen("user123", None, "find()")
+
+    mock_database.get_user_profile.assert_not_called()
+
+
+def test_compute_next_review_grows_interval_on_consecutive_correct_answers():
+    from certcoach.core.planner import compute_next_review
+
+    first = compute_next_review(streak=0, interval_days=0, is_correct=True)
+    assert first == {"streak": 1, "interval_days": 1}
+
+    second = compute_next_review(streak=1, interval_days=1, is_correct=True)
+    assert second == {"streak": 2, "interval_days": 3}
+
+    third = compute_next_review(streak=2, interval_days=3, is_correct=True)
+    assert third == {"streak": 3, "interval_days": round(3 * 2.3)}
+
+
+def test_compute_next_review_resets_on_a_wrong_answer():
+    from certcoach.core.planner import compute_next_review
+
+    result = compute_next_review(streak=5, interval_days=40, is_correct=False)
+
+    assert result == {"streak": 0, "interval_days": 1}
+
+
+def test_compute_next_review_caps_interval_at_sixty_days():
+    from certcoach.core.planner import compute_next_review
+
+    result = compute_next_review(streak=10, interval_days=50, is_correct=True)
+
+    assert result["interval_days"] == 60
+
+
+@patch("certcoach.core.planner.database")
+def test_record_flashcard_review_initializes_state_for_a_new_card(mock_database):
+    from certcoach.core.planner import record_flashcard_review
+
+    mock_database.get_user_profile.return_value = {"progress": {}}
+
+    new_state = record_flashcard_review("user123", "fc-1", is_correct=True)
+
+    assert new_state["streak"] == 1
+    assert new_state["interval_days"] == 1
+    assert "next_due_at" in new_state
+    args, kwargs = mock_database.update_user_profile.call_args
+    progress = args[1]["progress"]
+    assert progress["flashcard_review_state"]["fc-1"]["streak"] == 1
+
+
+@patch("certcoach.core.planner.database")
+def test_record_flashcard_review_continues_existing_streak(mock_database):
+    from certcoach.core.planner import record_flashcard_review
+
+    mock_database.get_user_profile.return_value = {
+        "progress": {"flashcard_review_state": {"fc-1": {"streak": 1, "interval_days": 1}}}
+    }
+
+    new_state = record_flashcard_review("user123", "fc-1", is_correct=True)
+
+    assert new_state["streak"] == 2
+    assert new_state["interval_days"] == 3
+
+
+@patch("certcoach.core.planner.database")
+def test_get_due_flashcards_excludes_cards_for_unseen_concepts(mock_database):
+    from certcoach.core.planner import get_due_flashcards
+
+    mock_database.get_user_profile.return_value = {"progress": {"lessons_seen": {}}}
+    mock_database.load_flashcards.return_value = [
+        {"id": "fc-1", "topic_id": 3, "concept": "find()", "question": "Q"}
+    ]
+
+    due = get_due_flashcards("user123")
+
+    assert due == []
+
+
+@patch("certcoach.core.planner.database")
+def test_get_due_flashcards_includes_never_reviewed_cards_for_seen_concepts(mock_database):
+    from certcoach.core.planner import get_due_flashcards
+
+    mock_database.get_user_profile.return_value = {"progress": {"lessons_seen": {"3": ["find()"]}}}
+    mock_database.load_flashcards.return_value = [
+        {"id": "fc-1", "topic_id": 3, "concept": "find()", "question": "Q"}
+    ]
+
+    due = get_due_flashcards("user123")
+
+    assert len(due) == 1
+    assert due[0]["id"] == "fc-1"
+    assert due[0]["review_state"] is None
+
+
+@patch("certcoach.core.planner.database")
+def test_get_due_flashcards_excludes_a_card_not_yet_due(mock_database):
+    import datetime
+    from certcoach.core.planner import get_due_flashcards
+
+    future = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=5)).isoformat()
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "lessons_seen": {"3": ["find()"]},
+            "flashcard_review_state": {"fc-1": {"streak": 1, "interval_days": 5, "next_due_at": future}},
+        }
+    }
+    mock_database.load_flashcards.return_value = [
+        {"id": "fc-1", "topic_id": 3, "concept": "find()", "question": "Q"}
+    ]
+
+    due = get_due_flashcards("user123")
+
+    assert due == []
+
+
+@patch("certcoach.core.planner.database")
+def test_get_due_flashcards_includes_an_overdue_card(mock_database):
+    import datetime
+    from certcoach.core.planner import get_due_flashcards
+
+    past = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=1)).isoformat()
+    mock_database.get_user_profile.return_value = {
+        "progress": {
+            "lessons_seen": {"3": ["find()"]},
+            "flashcard_review_state": {"fc-1": {"streak": 1, "interval_days": 3, "next_due_at": past}},
+        }
+    }
+    mock_database.load_flashcards.return_value = [
+        {"id": "fc-1", "topic_id": 3, "concept": "find()", "question": "Q"}
+    ]
+
+    due = get_due_flashcards("user123")
+
+    assert len(due) == 1
+    assert due[0]["id"] == "fc-1"
+
+
+@patch("certcoach.core.planner.database")
 @patch("certcoach.core.planner.get_syllabus_status")
 def test_generate_daily_agenda_concept_level(mock_status, mock_database):
     from certcoach.core.planner import generate_daily_agenda
@@ -1980,11 +2145,15 @@ def test_run_teach_session_shows_qa_instructions_once_per_session(mock_database,
     assert short_reminder_count == 1
 
 
+# The "Widgets" body is padded well past the 2800-char lesson-section target
+# (group_toward_target=True) so it doesn't get merged with "Advanced Widgets"
+# into a single group -- these tests exist to verify multi-section splitting,
+# so the fixture has to actually exceed the grouping threshold.
 _MULTI_SECTION_LESSON_DOC = (
     "# Widgets\n\n"
-    "Widgets are the core building block of the system and every widget has a "
-    "unique identifier assigned at creation time.\n\n"
-    "## Advanced Widgets\n\n"
+    + ("Widgets are the core building block of the system and every widget has a "
+       "unique identifier assigned at creation time. " * 29)
+    + "\n\n## Advanced Widgets\n\n"
     "Advanced widgets support extra configuration options that are not "
     "available on basic widgets, including custom validators.\n"
 )
@@ -2034,13 +2203,16 @@ def test_run_teach_session_splits_lesson_doc_into_sections(mock_database, mock_p
     assert len(section_prompts) == 1
 
 
+# Same padding rationale as _MULTI_SECTION_LESSON_DOC above -- large enough
+# that "Widgets" and "Advanced Widgets" stay distinct groups, while the
+# leading "> Source: ..." stub must still fold into "Widgets" regardless.
 _STUB_LEADING_LESSON_DOC = (
     "> Source: https://example.com/docs/widgets\n"
     "> Fetch method: direct_markdown\n\n"
     "# Widgets\n\n"
-    "Widgets are the core building block of the system and every widget has a "
-    "unique identifier assigned at creation time.\n\n"
-    "## Advanced Widgets\n\n"
+    + ("Widgets are the core building block of the system and every widget has a "
+       "unique identifier assigned at creation time. " * 29)
+    + "\n\n## Advanced Widgets\n\n"
     "Advanced widgets support extra configuration options that are not "
     "available on basic widgets, including custom validators.\n"
 )

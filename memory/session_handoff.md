@@ -1,15 +1,15 @@
 # Session Handoff
 
-Last updated: 2026-07-08 (session 14, closed cleanly)
+Last updated: 2026-07-12 (session 15, closed cleanly)
 
 Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[decision_log|Decision Log]], [[study_order_map|Study Order Map]]
 
 ## Current State
 
-- Phase: pivot to Claude-authored content (decided session 11) is actively running. Claude authors MCQs and flashcards directly; both still go through the same citation-verify/self-consistency/confirm pipeline every question always went through. See [[agent_context|Agent Context]]'s Live Snapshot for the current numbers -- this section only tracks git/commit state, which changes far less often.
-- **Nothing committed since `805f5e9`** (session 4's commit of session 3's work; branch `codex/publish-bank-loop`, nothing pushed). Sessions 5 through 14 are all stacked and uncommitted -- see this file's own item 7 in Next Action for the full list of what that represents. Verify with `git status`/`git log` before trusting this line; it's been wrong before.
+- Phase: pivot to Claude-authored content (decided session 11) is actively running for MCQs/flashcards. As of session 15, adaptive/spaced review no longer waits on a mastery gate -- flashcard-based tracking (see below) runs from day one. See [[agent_context|Agent Context]]'s Live Snapshot for full current numbers.
+- **Committed and pushed through `47038f6`** on `origin/codex/publish-bank-loop` (`prashanth-ds-ml/MongoDB-Coach-Agent`) -- this includes everything from sessions 5-14 (previously described below as "uncommitted," now stale) plus session 15 part 1 (review-quiz mode, CLI command-handling sweep, lesson chunking + tokenizer fix, per-section check-ins, styling audit). Session 15 part 2's work (2800-char chunking redesign, mistake-pattern rollup, flashcard tracking infra) is the next commit to land -- verify with `git log`/`git status` before trusting any of this, it has been stale before (this exact line was wrong for several sessions).
 - Live DB provenance counts move independently of git between sessions (the user runs `certcoach-review-questions` on their own) -- always re-check live counts at session start via `database.get_provenance_counts`/the `gap_report.py`-style script pattern used in sessions 12-14, rather than trusting the last snapshot here.
-- **Historical detail below this point (sessions 5-11) is append-only and kept for record -- do not treat old DB counts, commit hashes, or "live right now" numbers in those entries as current.** Session 12 onward is the active thread; see [[agent_context|Agent Context]] for what's actually true today.
+- **Historical detail below this point (sessions 5-14) is append-only and kept for record -- do not treat old DB counts, commit hashes, or "live right now" numbers in those entries as current, including their repeated "nothing committed" claims.** Session 15 is the active thread; see [[agent_context|Agent Context]] for what's actually true today.
 
 ## Completed This Session (2026-07-05)
 
@@ -422,56 +422,86 @@ Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Ste
 3. **Validated and merged**: 32 -> 67 cards across all three bundled copies, re-verified
    byte-identical (`sha256sum`). No source code changed -- data-only session.
 
+## Completed This Session (2026-07-09 to 2026-07-12, session 15)
+
+See [[decision_log|Decision Log]]'s two 2026-07-09/2026-07-12 entries for full reasoning; summary:
+
+**Part 1 (commits `f4eb3c3`..`47038f6`, committed and pushed to `prashanth-ds-ml`):**
+1. Built the ephemeral review-quiz mode (`run_review_quiz`) over the still-unconfirmed backlog.
+2. Full CLI command-handling sweep after a live `/exit` failure -- widened `EXIT_COMMANDS`/
+   `BACK_COMMANDS`/`PRACTICE_COMMANDS`/`CONTINUE_COMMANDS`, fixed ~10 related issues.
+3. Chunked the lesson panel by markdown header instead of one flat blob; fixed the long-flagged
+   CamelCase tokenizer bug in `score_md_file_for_concept`; fixed a real content-loss bug in
+   `topic_06_Query_Operators_L5_01.md` (missing `$nor`/`$not`/`$or`).
+4. Added ephemeral, non-punitive per-section comprehension check-ins, pilot-scoped to
+   "Document structure"; fixed a local-model JSON-truncation reliability issue along the way
+   (`_close_unbalanced_json`, 0/5 -> 5/5 live success rate).
+5. Fixed an invalid Rich color (`"gold"` -> `"gold1"`) and prompt-dimming inconsistencies found
+   via a full color/box-style audit.
+6. Committed sessions 5-14's entire stacked backlog as 5 logically-grouped commits, then pushed
+   to `prashanth-ds-ml/MongoDB-Coach-Agent` (had to `gh auth switch` first -- wrong account active).
+
+**Part 2 (uncommitted as of this handoff -- next commit to land):**
+1. **Redesigned lesson chunking**: `chunk_doc_text` now greedily groups small header-sections
+   toward a 2800-char target (`group_toward_target=True`) instead of only ever splitting large
+   ones -- median section count per doc dropped from ~7-9 to 3, verified against the real corpus
+   and live on the exact doc the user flagged (9-10 sections -> 4). Old split-only behavior kept as
+   the default so `inspect_doc.py`'s fact-extraction pipeline is unaffected.
+2. **Mistake pattern rollup**: `database.get_trap_pattern_report()` groups existing error-book
+   trap classifications by frequency, surfaced as a "Pattern Summary" panel in the Error Book
+   screen. Also fixed one styling inconsistency: the Error Book's explanation panel was missing
+   `code_theme="monokai"`.
+3. **Ran a repo-wide "ready to stop touching and study" audit.** Code came back clean (376/376
+   tests, no dead code, all entry points valid, no secrets). Real finding: only 9/355 questions
+   are `provenance.state == confirmed`, covering just 2/12 topics -- every High-weight topic has
+   zero practice-ready MCQs, and 321/330 `suspect` questions share one root cause (no citation on
+   legacy records) that needs full re-authoring, not a fix. No automated content-generation job
+   exists anywhere -- confirmed via GitHub Actions/session scheduler/Windows Task Scheduler checks.
+4. **Superseded the "wait for 3 topics mastered" adaptive-coach gate.** Built flashcard-based
+   spaced review tracking from day one: `mark_concept_lesson_seen` (fires when a lesson is shown,
+   independent of the MCQ-score gate), SM-2-lite scheduling (`compute_next_review`/
+   `record_flashcard_review`/`get_due_flashcards`), and Ollama-graded typed recall
+   (`evaluate_flashcard_recall`) -- wired into a new Library menu option, "Review Due Flashcards."
+   Flashcard content coverage is currently the same 3-of-12-topics gap as the MCQ bank (67 cards) --
+   tracking is built to let content catch up topic-by-topic, per the user's explicit choice.
+5. 395/395 tests pass (19 new). Verified live against a disposable scratch profile and the real
+   local Ollama model (3/3 recall-grading cases correct on first attempt).
+
 ## Next Action
 
-**Content pipeline (active thread, pivot continued):**
-1. Run `certcoach-review-questions` to confirm/reject the ~20 BSON Data Types candidates from
-   session 13 (17 sourced + 3 draft) -- still zero human review has touched that output.
-2. Run `/flashcards` for Topic 4 (CRUD Operations - Update) next, continuing canonical order
-   through the remaining ~8 topics (~30 more concepts). The `resolve_concept_docs` fallback gap
-   (flagged sessions 12 and 14) will very likely hit again -- `replaceOne()`, `updateOne()`,
-   `updateMany()`, `findAndModify` are all CamelCase-with-`()` concept names -- worth actually
-   fixing in `planner.py` at this point rather than continuing to work around it by hand each time.
-3. Run `/mcqs` for Topic 2 or Topic 3 next (Topic 1 BSON Data Types is now well-covered per
-   session 13) -- apply the move/delete/salvage/correct legacy-pool review the skill now documents
-   by default.
-4. Mark the stray Topic 10 "Embedding vs Referencing" `sourced` question suspect (see session 11
-   item 13) rather than let it get confirmed -- it's off-topic and has no explanation. Still open;
-   2 more unexplained records from session 7 sit alongside it (see [[agent_context|Agent Context]]
-   Live Snapshot) and haven't been investigated either.
+**Content pipeline (active thread):**
+1. Run `certcoach-review-questions` to confirm/reject the queued BSON Data Types candidates --
+   still the single highest-leverage action to move practice-readiness off 2/12 topics.
+2. Continue `/flashcards` topic-by-topic (Topic 4 next) and `/mcqs` concept-by-concept -- both are
+   now doing double duty: MCQ bank growth *and* feeding the new flashcard spaced-review queue.
+   The `resolve_concept_docs` fallback gap (flagged sessions 12/14, still unfixed) will very likely
+   hit Topic 4 (`replaceOne()`, `updateOne()`, `updateMany()`, `findAndModify`) a third time.
+3. Mark the stray Topic 10 "Embedding vs Referencing" `sourced` question suspect (flagged since
+   session 11) -- still open, still safe to do first, read-only.
 
-**Still pending, older thread (not urgent, revisit when the content pipeline settles):**
-5. Run `certcoach-map-questions-to-docs --write` live (confirm with the user immediately before --
-   it's a real DB write) to backfill the 23 orphan questions.
-6. Once a few questions are confirmed, run an actual practice session to verify the learner-facing
-   loop, not just the data layer -- inherently interactive (`Prompt.ask` loops), likely needs the
-   user to drive it directly.
-7. **Commit everything** whenever the user wants to cut a checkpoint -- sessions 5 through 14 are
-   all stacked and uncommitted on top of `805f5e9` (the provenance/trust pipeline, the full CLI
-   bug-fix pass, the root audit + persona grounding fixes, CLI review parity,
-   `antigravity_cli`/`src/scripts`/`review-web` removal, and sessions 12-14's flashcard/MCQ
-   content work). No pending test failures to resolve first -- last known-good full-suite run was
-   317/317 (session 11); sessions 12-14 changed no source, only data.
-8. Decide whether `generate_from_doc.py`'s local-Ollama generation path is still worth keeping
-   (as a fallback/comparison to Claude-authored content) once the Claude-authored approach has run
-   on a few more real topics -- not urgent, no need to decide now.
-9. Do not start designing the adaptive coach / spaced-revision engine (journey steps 10-11) until
-   the user reports 3 topics/concepts mastered, and not before real attempt-tracking/logging
-   exists.
-10. **Housekeeping, low priority**: `memory/agent_context.md` is ~1600 words, roughly double its
-    documented ~800-word budget (`AGENTS.md`'s Documentation Rules) -- it was already over budget
-    (1102 words) before this session and has grown across many sessions without a trim pass.
-    Session 14 fixed two real staleness bugs in it (dead `review-web` references, an overlong
-    historical paragraph better left to the decision log) but didn't attempt a full compliance
-    rewrite -- safely cutting the accumulated "Non-Negotiable Rules" without losing a rule another
-    session still depends on needs its own dedicated pass.
+**Housekeeping:**
+4. Commit and push session 15 part 2 (chunking redesign, pattern rollup, flashcard tracking) --
+   ask before pushing again beyond what's explicitly requested.
+5. `memory/agent_context.md` is still over its ~800-word budget -- flagged every session since 14,
+   still not addressed with a dedicated trim pass.
+6. Run `certcoach-map-questions-to-docs --write` live (confirm with the user first, real DB write)
+   to backfill the 23 orphan questions -- unchanged, still pending since session 7.
 
 ## Known Blockers
 
-- Practice/mocks still have effectively **zero** usable inventory (only 1 question total across the whole bank is `confirmed`) -- but Topic 1 BSON Data Types now has ~20 `sourced`/`draft` candidates queued and ready for human review via `certcoach-review-questions`, the first real batch since the fresh-start reset. Confirming even a handful would meaningfully change this blocker's status.
-- The self-consistency check still can't reliably catch every subtle issue -- confirmed again in session 13 (misread a genuine multi-select question as self-contradictory, and separately produced an unparseable verdict on another) -- deferred, not blocking today's loop; affected questions just land safely in `draft` for a human look.
-- Phase 5 full study-flow and mixed-mock smoke tests remain manual and are blocked on having any meaningful `confirmed` inventory.
-- The exam-weighted population target has been unit-tested and sanity-checked against the real syllabus (weights sum to 100%, high/low-weight concepts differentiate as expected) but not yet exercised through a real `certcoach-seed-nightly` run -- Topic 1 is the first live test.
+- **MCQ practice inventory**: only 9 of 355 questions are `confirmed`/practice-ready, covering just
+  2 of 12 topics (MongoDB Overview & Document Model, 1 driver question). Every High-weight topic
+  (CRUD x4, Query Operators, Arrays, Aggregation, Indexes) has zero. Root cause: 321/330 `suspect`
+  questions are legacy content with no citation on record -- needs re-authoring, not a fix. No
+  automated generation job exists; the queue only grows when `/mcqs`/`certcoach-seed-nightly` is
+  run manually and someone reviews via `certcoach-review-questions`.
+- **Flashcard inventory**: same shape of gap, one level behind -- 67 cards across only 3 of 12
+  topics (Document Model, CRUD Create, CRUD Read). The new spaced-review tracking is built and
+  live but has nothing to schedule outside those 3 topics until `/flashcards` catches up.
+- The self-consistency check still can't reliably catch every subtle issue (confirmed again in
+  session 13) -- deferred, not blocking; affected questions land safely in `draft` for human review.
+- Phase 5 full study-flow and mixed-mock smoke tests remain manual and are blocked on meaningful
+  `confirmed` inventory.
 
 ## Commands
 

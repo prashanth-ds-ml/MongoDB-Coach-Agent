@@ -1,6 +1,6 @@
 # Agent Context
 
-Last verified: 2026-07-08 (session 14, closed cleanly -- see Immediate Continuation)
+Last verified: 2026-07-12 (session 15, closed cleanly -- see Immediate Continuation)
 
 ## Mission
 
@@ -25,7 +25,9 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 - The self-consistency check (separate model, `get_self_consistency_model()`) only judges internal coherence (does the explanation support the marked answer, are options distinct) -- it is never a MongoDB fact-checker and must not be described as one.
 - Mock exams (`Full Mock`, `Timed Mock Exam`) draw only from `confirmed` inventory, apportioned by real exam domain weights (`database.EXAM_DOMAIN_WEIGHTS`), with a per-concept round-robin cap and an explicit shortfall report -- never silent padding. The session-scoped Mini-Mock is exempt.
 - Population targets are floored at `3 Easy + 2 Medium` per concept (fixed -- mirrors the five-question practice-session composition in `cli.py`) but scale upward from there by each concept's real exam-blueprint weight (`question_targets.build_weighted_targets`/`topic_exam_weight_map`, cascaded from the same `EXAM_DOMAIN_WEIGHTS` the mock uses), not a flat identical target for every concept. `--target-easy`/`--target-medium` on `certcoach-seed-nightly` still overrides flatly when explicitly passed. Generation that can't reach a concept's target after retries is reported as an explicit shortfall, never padded.
-- Wrong-attempt remediation is a stateless lookup only (the missed question's own citation + a few domain-matched flashcards) -- no new explanation generation, nothing saved, no spaced-repetition scheduling engine exists or is planned.
+- Wrong-attempt remediation is a stateless lookup only (the missed question's own citation + a few domain-matched flashcards) -- no new explanation generation, nothing saved.
+- Flashcard spaced review (session 15, supersedes the earlier "no scheduling engine" rule): `planner.mark_concept_lesson_seen` fires when a concept's lesson is shown, independent of the MCQ-score gate -- this is what puts a concept's flashcards into rotation, not topic mastery. `compute_next_review`/`record_flashcard_review`/`get_due_flashcards` run a lightweight SM-2-style schedule (not full FSRS). `CoachPersona.evaluate_flashcard_recall` grades a *typed* answer via the local Ollama model, defaulting to incorrect on any parse failure rather than silently crediting an ungraded answer. See [[project_adaptive_coach_deferred]] (personal memory) for why the old "wait for 3 topics mastered" gate was dropped.
+- Lesson-panel chunking (`run_teach_session`) calls `chunk_doc_text(..., group_toward_target=True)` -- greedily groups small header-sections toward `LESSON_SECTION_MAX_CHARS` (2800) instead of one chunk per header. `inspect_doc.py`'s fact-extraction dry-run still uses the old split-only default (`group_toward_target=False`) and is unaffected.
 - Legacy, repair-pending, and quarantined content-contract records still cannot enter learner-facing practice; provenance is an additional, stricter gate on top, not a replacement.
 - Long repair/population runs use `scripts/run_phase4_overnight.ps1`.
 - Optional UI, analytics, gamification, simulator, and general platform work are deferred until after the exam.
@@ -38,27 +40,23 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 - `certcoach-generate-from-doc` (`src/certcoach/jobs/generate_from_doc.py`) generates questions from one concept's chunked+verified doc facts via local Ollama, independent of the exam-weighted quantity target. **Deprioritized since the session-11 pivot to Claude-authored content** (not deleted -- kept as a fallback/comparison path). See Decision Log sessions 7/11 for the full mechanics and live-verification history.
 - `ingest_authored_content.ingest_authored_question()` runs a directly-authored (Claude- or human-written) MCQ through the identical trust pipeline `generate_from_doc.py`/`nightly_seed_questions.py` use -- duplicate check, quality gate, citation verify, self-consistency. Never writes `confirmed`. This is the mechanism both the `/mcqs` and (via `flashcard_tools.py`'s simpler validate/merge) `/flashcards` skills use.
 
-## Live Snapshot (2026-07-08 session 14, verified against the live DB, not inferred)
+## Live Snapshot (2026-07-12 session 15, verified against the live DB, not inferred)
 
-- **Pivot in effect since session 11**: Claude authors MCQs and flashcards directly (no local Ollama generation call) -- both still funnel through the identical citation-verify/self-consistency/confirm pipeline every other question does. Local Ollama's only remaining jobs are the self-consistency check and, later, the adaptive coach.
-- `certcoach_db.questions`, Topic 1 BSON Data Types: 1 `confirmed` Easy, 18 `sourced`, 2 `draft`, 34 `suspect` (all of the original 30 legacy suspects now individually reviewed and annotated -- see [[decision_log|Decision Log]] session 13). Comfortably past the 16-slot weighted target (7 Easy + 9 Medium) with real candidate surplus, pending human confirm via `certcoach-review-questions`. **Practice is still not usable** -- nothing beyond the original 1 is confirmed yet.
-- **Flashcards**: atomic, concept-level cards now exist for Topics 1-3 (BSON Data Types/Document structure/Collections vs Tables, CRUD-Create, CRUD-Read -- 67 cards total across `data/`, `mobile/assets/`, `web-flashcards/src/`, all byte-identical). Topics 4-12 still have zero cards.
-- **Real, unfixed gap found twice now**: `planner.resolve_concept_docs()`'s fallback (when every candidate doc scores 0) is `md_files[:2]` -- an arbitrary "first N files in syllabus order" pick, not a relevance judgment. Confirmed concretely for Topic 2 (`insertOne()`, `insertMany()`, `_id and ObjectId`) and Topic 3 (`findOne()`, `Projections`, `countDocuments()`) -- any CamelCase-with-`()` concept name tokenizes to a fused string (`"insertone"`, `"findone"`) that never matches a real filename. Worked around by hand in both flashcard sessions; will very likely hit Topic 4 (`replaceOne()`, `updateOne()`, `updateMany()`, `findAndModify`) too. Worth fixing in `score_md_file_for_concept`'s tokenizer at that point rather than continuing to route around it per topic.
-- **`/mcqs` skill rules updated based on live use** (session 13): Phase A's audit step now has four outcomes (Keep/Improve/Move/Discard, not three) -- explicitly don't discard-and-stop when a concept is short of target, don't silently skip the `suspect` legacy backlog, back up before any delete. See `.claude/skills/mcqs/SKILL.md` step 4 for the exact mechanics; `feedback_mcq_audit_bias.md` (personal memory, not this vault) has the "why."
-- Topic 10 "Embedding vs Referencing" now has 5 `suspect` records (2 original unexplained ones from session 7, still uninvestigated, plus 3 moved there this session from a BSON Data Types mistag) -- still nothing confirmed for that concept, still worth investigating the original 2 before trusting the bank's overall state.
+- **Practice-ready inventory is thin and concentrated**: only 9 of 355 questions are `provenance.state == confirmed` (is_practice_ready), covering just 2 of 12 topics (MongoDB Overview & Document Model: 8, MongoDB Drivers & PyMongo: 1). Every High-weight topic (CRUD x4, Query Operators, Arrays, Aggregation, Indexes) has zero. 321 of 330 `suspect` questions share one root cause -- legacy content with no citation on record -- needing full re-authoring, not a fix. No automated content-generation job exists; the queue only grows when `/mcqs`/`certcoach-seed-nightly` is run manually.
+- **Flashcards**: 67 cards, same 3-of-12-topics shape as the MCQ gap (Document Model, CRUD-Create, CRUD-Read). Topics 4-12 have zero.
+- **Adaptive coach gate superseded** (see the Non-Negotiable Rules entry above): flashcard-based SM-2-lite spaced review now tracks from day one instead of waiting for 3 topics mastered, since mastery itself depends on the same scarce MCQ inventory above.
+- **Real, unfixed gap, found three times now**: `planner.resolve_concept_docs()`'s zero-score fallback is `md_files[:2]` (arbitrary first-N pick). Any CamelCase-with-`()` concept name tokenizes to a fused string that never matches a real filename. Will very likely hit Topic 4 (`replaceOne()`, `updateOne()`, `updateMany()`, `findAndModify`) next -- worth fixing in `score_md_file_for_concept`'s tokenizer at that point.
+- Topic 10 "Embedding vs Referencing" still has 5 `suspect` records (2 unexplained since session 7) -- still uninvestigated.
 
 ## Immediate Continuation
 
-**Session 14 closed cleanly (not a mid-flow pause) after the user asked to update docs and close out.**
-Full detail is in [[session_handoff|Session Handoff]]'s Completed/Next Action lists -- summary:
+**Session 15 closed cleanly after a lesson-chunking redesign, a mistake-pattern rollup, a repo-wide readiness audit, and the flashcard-tracking build described above.** Full detail in [[session_handoff|Session Handoff]]'s Completed/Next Action -- summary:
 
-1. Ask before committing -- sessions 5 through 14 are all still uncommitted and stacked (provenance/trust pipeline groundwork, the full CLI bug-fix pass, the root audit + persona grounding fixes, CLI review parity, `antigravity_cli`/`src/scripts`/`review-web` removals, and all of sessions 12-14's flashcard/MCQ content work). No test run needed for sessions 12-14 specifically (data-only, no source changed).
-2. Run `certcoach-review-questions` to confirm/reject the ~20 BSON Data Types candidates from session 13 -- zero human review has touched that output yet.
-3. Continue `/flashcards` topic-by-topic (Topic 4 next) and `/mcqs` concept-by-concept, applying the now-documented legacy-pool review pattern each time.
-4. Investigate the 2 original unexplained Topic 10/11 confirmed/sourced questions from session 7 -- still open, read-only, safe to do first.
-5. Run `certcoach-map-questions-to-docs --write` live (confirm with the user immediately before, it's a real DB write) to backfill the 23 orphan questions -- still not done.
-6. Once a few questions are confirmed, run an actual practice session to verify the learner-facing loop, not just the data layer.
-7. Do not start the adaptive-coach/spaced-revision work (journey steps 10-11) until the user reports 3 topics/concepts mastered.
+1. Run `certcoach-review-questions` to confirm the queued BSON Data Types candidates -- highest-leverage action to move practice-readiness off 2/12 topics.
+2. Continue `/flashcards` (Topic 4 next) and `/mcqs` -- both now also feed the flashcard review queue.
+3. Investigate Topic 10's 2 unexplained records from session 7 -- still open, read-only.
+4. Commit and push session 15's second half (chunking redesign, pattern rollup, flashcard tracking) -- ask before pushing beyond what's explicitly requested.
+5. Run `certcoach-map-questions-to-docs --write` live (confirm first, real DB write) to backfill 23 orphan questions -- unchanged since session 7.
 
 ## Commands
 

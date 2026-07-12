@@ -588,25 +588,19 @@ def run_teach_session(agenda_item: dict):
             continue
 
         explained_subtopics.append(subtopic)
+        planner.mark_concept_lesson_seen(USER_ID, topic_id, subtopic)
         doc_texts = []
         jump_to_practice = False
         for doc_idx, filename in enumerate(resolved_files):
             doc_text = planner.load_md_context([filename])
             doc_texts.append(doc_text)
 
-            sections = chunk_doc_text(doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS)
+            sections = chunk_doc_text(
+                doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS,
+                group_toward_target=True,
+            )
             if not sections:
                 sections = [{"label": subtopic, "text": doc_text}]
-            elif len(sections) > 1 and sections[0]["label"] == "(untitled section)":
-                # A leading metadata-only stub (e.g. "> Source: ...") isn't
-                # real lesson content on its own -- fold it into the first
-                # real section instead of showing it as a near-empty
-                # standalone screen. Content is still fully preserved, just
-                # never silently dropped (see the raw/cleaned corpus audit
-                # that found a real content-loss bug this same session).
-                stub_text = sections[0]["text"]
-                sections = sections[1:]
-                sections[0] = {**sections[0], "text": stub_text + "\n\n" + sections[0]["text"]}
             for section in sections:
                 if section["label"] == "(untitled section)":
                     section["label"] = subtopic
@@ -2128,7 +2122,10 @@ def build_lesson_coverage_text() -> str | None:
             total_sections = 0
             for filename in resolved_files:
                 doc_text = planner.load_md_context([filename])
-                sections = chunk_doc_text(doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS)
+                sections = chunk_doc_text(
+                    doc_text, max_chunk_chars=LESSON_SECTION_MAX_CHARS, headers=LESSON_SECTION_HEADERS,
+                    group_toward_target=True,
+                )
                 total_sections += len(sections) if sections else 1
             counts = planner.normalize_lesson_chunk_counts(completed_lesson_chunks.get(topic_name, {}).get(concept))
             lines.append(
@@ -2867,7 +2864,34 @@ def show_error_book_menu():
             except (KeyboardInterrupt, EOFError):
                 pass
             break
-            
+
+        patterns = database.get_trap_pattern_report(USER_ID)
+        if patterns:
+            top = patterns[0]
+            plural = "s" if top["mistake_count"] != 1 else ""
+            console.print(Panel(
+                f"[bold red]{top['trap_type']}[/bold red] is your top mistake pattern -- "
+                f"[bold]{top['mistake_count']}[/bold] open mistake{plural}, "
+                f"[bold]{top['total_fails']}[/bold] total fail(s).",
+                title="📊 Pattern Summary", border_style="yellow", box=box.ROUNDED, padding=(1, 2)
+            ))
+            if len(patterns) > 1:
+                pattern_table = Table(box=box.SIMPLE, show_header=False, padding=(0, 1))
+                pattern_table.add_column("trap", style="bold")
+                pattern_table.add_column("bar")
+                pattern_table.add_column("count")
+                max_fails = max(p["total_fails"] for p in patterns)
+                for p in patterns:
+                    bar_len = max(1, round(20 * p["total_fails"] / max_fails))
+                    bar = "█" * bar_len
+                    pattern_table.add_row(
+                        p["trap_type"],
+                        f"[yellow]{bar}[/yellow]",
+                        f"{p['mistake_count']} mistake(s), {p['total_fails']} fail(s)"
+                    )
+                console.print(pattern_table)
+            console.print()
+
         # Draw a beautiful summary table
         table = Table(box=box.MINIMAL, header_style="bold blue", show_lines=False)
         table.add_column("#", width=3, justify="right")
@@ -2956,7 +2980,7 @@ def show_error_book_menu():
                         console.print(f"  [bold]Total Failure Frequency:[/bold] {err_item.get('fail_count')} times")
                         
                         console.print(f"\n  [bold cyan]Seven-Part Explanation:[/bold cyan]")
-                        console.print(Markdown(q_doc.get("explanation", "")))
+                        console.print(Markdown(q_doc.get("explanation", ""), code_theme="monokai"))
                         
                         try:
                             Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
@@ -3028,6 +3052,73 @@ def show_flashcard_browser():
     time.sleep(1.5)
 
 
+def run_flashcard_review_session():
+    """Spaced-recall review over flashcards whose concept has already been
+    taught (planner.mark_concept_lesson_seen, fired unconditionally when a
+    concept's lesson is shown -- not gated behind MCQ score or the check-in
+    pilot) and are currently due (planner.get_due_flashcards). Recall is
+    graded by the local Ollama model against a typed answer, not a
+    flip-and-self-rate card -- the grade feeds planner.record_flashcard_review
+    directly, which reschedules the card's next due date."""
+    clear()
+    console.print(Rule("[bold cyan]🧠 Flashcard Review (Spaced Recall)[/bold cyan]"))
+    due_cards = planner.get_due_flashcards(USER_ID)
+    if not due_cards:
+        console.print(Panel(
+            "[bold green]Nothing due right now.[/bold green]\n"
+            "Cards enter review once their concept's lesson has been covered, then "
+            "resurface on a schedule based on how well you recall them.",
+            border_style="green", box=box.ROUNDED, padding=(1, 2)
+        ))
+        try:
+            Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+        except (KeyboardInterrupt, EOFError):
+            pass
+        return
+
+    console.print(f"  [dim]{len(due_cards)} card(s) due for review.[/dim]\n")
+    reviewed = 0
+    correct_count = 0
+    for idx, card in enumerate(due_cards, 1):
+        console.print(Rule(f"[dim]Card {idx}/{len(due_cards)} — {card.get('category', '')}[/dim]"))
+        console.print(Panel(card.get("question", ""), title="Recall", border_style="cyan", box=box.ROUNDED, padding=(1, 2)))
+        try:
+            user_answer = Prompt.ask(
+                "\n  [bold blue]❯[/bold blue] Your answer [dim](or 'q'/'back' to stop)[/dim]"
+            ).strip()
+        except (KeyboardInterrupt, EOFError):
+            break
+        if user_answer.lower() in EXIT_COMMANDS or user_answer.lower() in BACK_COMMANDS:
+            break
+
+        with console.status("[dim]🤖 Coach is grading your recall...[/dim]", spinner="dots"):
+            result = coach.evaluate_flashcard_recall(card.get("question", ""), card.get("answer", ""), user_answer)
+
+        is_correct = result["is_correct"]
+        if is_correct:
+            console.print(f"\n  [bold green]✅ Correct.[/bold green] {result['feedback']}")
+        else:
+            console.print(f"\n  [bold red]❌ Not quite.[/bold red] {result['feedback']}")
+        console.print(Panel(
+            Markdown(card.get("answer", ""), code_theme="monokai"),
+            title="Reference Answer", border_style="dim", box=box.ROUNDED, padding=(1, 2)
+        ))
+
+        new_state = planner.record_flashcard_review(USER_ID, card["id"], is_correct)
+        reviewed += 1
+        if is_correct:
+            correct_count += 1
+        console.print(f"  [dim]Next review in {new_state['interval_days']} day(s).[/dim]\n")
+
+    if reviewed:
+        console.print(Rule())
+        console.print(f"  [bold]Session complete:[/bold] {correct_count}/{reviewed} recalled correctly.")
+    try:
+        Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+
 def run_library_submenu():
     while True:
         console.print("\n  [bold blue]📖 Reference Library & Progress[/bold blue]")
@@ -3039,7 +3130,8 @@ def run_library_submenu():
         console.print("    [bold cyan]e.[/bold cyan] 💻 View Lexical Casing Contrast Sheet (mongosh vs PyMongo)")
         console.print("    [bold cyan]f.[/bold cyan] 🛑 View Active Error Book (Mistake Log & Diagnostic Reviews)")
         console.print("    [bold cyan]g.[/bold cyan] 🗂️  Browse Flashcard Deck")
-        console.print("    [bold cyan]h.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]h.[/bold cyan] 🧠 Review Due Flashcards (spaced recall)")
+        console.print("    [bold cyan]i.[/bold cyan] ⬅️  Back to Main Menu")
         console.print()
 
         try:
@@ -3061,9 +3153,11 @@ def run_library_submenu():
             show_error_book_menu()
         elif ans == "g":
             show_flashcard_browser()
+        elif ans == "h":
+            run_flashcard_review_session()
         elif ans in EXIT_COMMANDS:
             raise SystemExit
-        elif ans in BACK_COMMANDS or ans == "h":
+        elif ans in BACK_COMMANDS or ans == "i":
             break
 
 

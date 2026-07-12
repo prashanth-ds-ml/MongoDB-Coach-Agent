@@ -568,6 +568,53 @@ def _close_unbalanced_json(text: str) -> str:
     return text + "".join(closers[c] for c in reversed(stack))
 
 
+def build_flashcard_recall_prompt(question: str, correct_answer: str, user_answer: str) -> str:
+    return (
+        f"You are grading a flashcard recall attempt for a MongoDB certification learner. "
+        f"This grades recall accuracy, not writing quality -- be lenient on phrasing, wording, "
+        f"and typos; be strict on whether the core fact is actually correct.\n\n"
+        f"Flashcard question: \"{question}\"\n"
+        f"Correct answer: \"{correct_answer}\"\n"
+        f"Learner's answer: \"{user_answer}\"\n\n"
+        f"Does the learner's answer capture the key fact in the correct answer? Minor phrasing "
+        f"differences are fine; a missing or wrong fact is not.\n\n"
+        f"Respond with a JSON object exactly formatted as:\n"
+        f'{{"is_correct": true or false, "feedback": "<one short sentence, said directly to the learner>"}}\n'
+        f"No markdown, no commentary outside the JSON object."
+    )
+
+
+def _parse_flashcard_recall_response(response: str) -> dict | None:
+    """Extract and validate the recall-grading JSON. Returns None on any
+    syntactic or semantic failure so the caller can fall back to a safe
+    default rather than silently trusting a malformed judgment.
+
+    Unlike _parse_section_check_response, this doesn't regex-match a
+    complete {...} span first: this schema is flat (no nested array), so a
+    "one closing brace short" truncation -- the dominant real failure mode --
+    has zero closing braces at all, and a \\{.*\\} regex can never match that.
+    Slicing from the first '{' to end-of-string and letting the repair step
+    (below) supply whatever's missing handles both the complete and
+    truncated cases the same way."""
+    start = response.find("{")
+    if start == -1:
+        return None
+    candidate = response[start:]
+    try:
+        parsed = json.loads(candidate)
+    except Exception:
+        try:
+            parsed = json.loads(_close_unbalanced_json(candidate))
+        except Exception:
+            return None
+    if not isinstance(parsed, dict) or not isinstance(parsed.get("is_correct"), bool):
+        return None
+    feedback = parsed.get("feedback")
+    if not isinstance(feedback, str) or not feedback.strip():
+        return None
+    return {"is_correct": parsed["is_correct"], "feedback": feedback.strip()}
+
+
 def _parse_section_check_response(response: str) -> list[dict]:
     """Extract and validate the section-check JSON from a raw model
     response. Returns [] on any syntactic failure (unbalanced braces,
@@ -756,3 +803,27 @@ class CoachPersona:
             if questions:
                 return questions
         return []
+
+    # ------------------------------------------------------------------
+    # FLASHCARD RECALL GRADING (ephemeral -- never stored, feeds the
+    # review-scheduling interval but the grading judgment itself is not kept)
+    # ------------------------------------------------------------------
+
+    def evaluate_flashcard_recall(self, question: str, correct_answer: str, user_answer: str, max_attempts: int = 2) -> dict:
+        """Grades a typed flashcard recall attempt against the card's known
+        answer -- semantic match, not exact string match, since a learner
+        who has the fact right shouldn't be marked wrong for phrasing.
+        Defaults to is_correct=False on total generation/parse failure
+        rather than silently crediting an ungraded answer: this feeds the
+        spaced-repetition interval directly (see planner.compute_next_review),
+        so a wrong default just means an earlier re-review, never a card
+        drifting out of rotation on a bad judgment."""
+        if not user_answer.strip():
+            return {"is_correct": False, "feedback": "No answer given -- here's the correct one to review."}
+        prompt = build_flashcard_recall_prompt(question, correct_answer, user_answer)
+        for _ in range(max_attempts):
+            response = self._call(prompt, temperature=0.2)
+            result = _parse_flashcard_recall_response(response)
+            if result:
+                return result
+        return {"is_correct": False, "feedback": "Couldn't auto-grade that -- compare your answer with the one shown."}

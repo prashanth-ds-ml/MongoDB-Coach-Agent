@@ -75,6 +75,55 @@ def test_get_domain_accuracy_report_reports_none_accuracy_for_untested_domains()
     assert all(r["attempts"] == 0 for r in report)
 
 
+def _error(trap_type: str, fail_count: int = 1) -> dict:
+    return {"user_id": "u1", "trap_type": trap_type, "fail_count": fail_count, "reviewed": False}
+
+
+def test_get_trap_pattern_report_sorts_by_total_fails_descending():
+    from certcoach.core import database
+
+    error_book_col = MagicMock()
+    error_book_col.find.return_value = [
+        _error("MQL Operator Logic", fail_count=3),
+        _error("MQL Operator Logic", fail_count=2),
+        _error("Cursor Method Sequencing", fail_count=1),
+    ]
+
+    with patch.object(database, "error_book_col", error_book_col):
+        report = database.get_trap_pattern_report("u1")
+
+    assert report[0]["trap_type"] == "MQL Operator Logic"
+    assert report[0]["mistake_count"] == 2
+    assert report[0]["total_fails"] == 5
+    assert report[1]["trap_type"] == "Cursor Method Sequencing"
+    assert report[1]["total_fails"] == 1
+    error_book_col.find.assert_called_once_with({"user_id": "u1", "reviewed": False})
+
+
+def test_get_trap_pattern_report_handles_missing_trap_type():
+    from certcoach.core import database
+
+    error_book_col = MagicMock()
+    error_book_col.find.return_value = [{"user_id": "u1", "fail_count": 1, "reviewed": False}]
+
+    with patch.object(database, "error_book_col", error_book_col):
+        report = database.get_trap_pattern_report("u1")
+
+    assert report[0]["trap_type"] == "Unclassified"
+
+
+def test_get_trap_pattern_report_returns_empty_for_clean_slate():
+    from certcoach.core import database
+
+    error_book_col = MagicMock()
+    error_book_col.find.return_value = []
+
+    with patch.object(database, "error_book_col", error_book_col):
+        report = database.get_trap_pattern_report("u1")
+
+    assert report == []
+
+
 def test_get_remediation_uses_citation_and_domain_matched_flashcards():
     from certcoach.core import database
 

@@ -650,6 +650,23 @@ def get_error_book(user_id: str, limit: int = 50) -> list:
     )
 
 
+def get_trap_pattern_report(user_id: str) -> list[dict]:
+    """Groups active (unresolved) error-book entries by trap_type, heaviest
+    first -- so a recurring mistake pattern (e.g. "MQL Operator Logic" showing
+    up across 5 different questions) reads louder than a flat list of
+    individually missed questions ever could."""
+    entries = list(error_book_col.find({"user_id": user_id, "reviewed": False}))
+
+    by_trap: dict[str, dict] = {}
+    for e in entries:
+        trap = e.get("trap_type") or "Unclassified"
+        entry = by_trap.setdefault(trap, {"trap_type": trap, "mistake_count": 0, "total_fails": 0})
+        entry["mistake_count"] += 1
+        entry["total_fails"] += e.get("fail_count", 1)
+
+    return sorted(by_trap.values(), key=lambda e: (-e["total_fails"], -e["mistake_count"]))
+
+
 def save_attempt(user_id: str, question_id: str, topic: str, user_selected_letter: str, is_correct: bool, confidence: str):
     """Save an individual question attempt to MongoDB and manage error book entries.
 

@@ -257,6 +257,87 @@ def test_generate_section_check_rejects_a_question_with_no_correct_option_marked
     assert questions == []
 
 
+def test_build_flashcard_recall_prompt_grounds_in_question_and_answers():
+    from certcoach.core.persona import build_flashcard_recall_prompt
+
+    prompt = build_flashcard_recall_prompt(
+        "What does find() return?", "A cursor, not documents.", "it gives back a cursor"
+    )
+
+    assert "What does find() return?" in prompt
+    assert "A cursor, not documents." in prompt
+    assert "it gives back a cursor" in prompt
+    assert '"is_correct"' in prompt
+
+
+def test_evaluate_flashcard_recall_parses_valid_json_response():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    fake_response = '{"is_correct": true, "feedback": "Yes -- exactly right."}'
+    with patch.object(coach, "_call", return_value=fake_response) as mock_call:
+        result = coach.evaluate_flashcard_recall("Q?", "A cursor.", "a cursor")
+
+    assert result == {"is_correct": True, "feedback": "Yes -- exactly right."}
+    mock_call.assert_called_once()
+
+
+def test_evaluate_flashcard_recall_retries_after_a_malformed_attempt():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    malformed = "not json at all"
+    valid = '{"is_correct": false, "feedback": "Missing the key detail."}'
+    with patch.object(coach, "_call", side_effect=[malformed, valid]) as mock_call:
+        result = coach.evaluate_flashcard_recall("Q?", "A cursor.", "documents")
+
+    assert result == {"is_correct": False, "feedback": "Missing the key detail."}
+    assert mock_call.call_count == 2
+
+
+def test_evaluate_flashcard_recall_defaults_to_incorrect_after_max_attempts():
+    """A bad model judgment must never silently credit an ungraded answer --
+    defaulting to is_correct=False just means an earlier re-review, not a
+    card drifting out of rotation on a false positive."""
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    with patch.object(coach, "_call", return_value="not json at all") as mock_call:
+        result = coach.evaluate_flashcard_recall("Q?", "A cursor.", "documents", max_attempts=2)
+
+    assert result["is_correct"] is False
+    assert mock_call.call_count == 2
+
+
+def test_evaluate_flashcard_recall_skips_the_model_call_for_blank_answer():
+    from certcoach.core.persona import CoachPersona
+
+    coach = CoachPersona()
+    with patch.object(coach, "_call") as mock_call:
+        result = coach.evaluate_flashcard_recall("Q?", "A cursor.", "   ")
+
+    assert result["is_correct"] is False
+    mock_call.assert_not_called()
+
+
+def test_parse_flashcard_recall_response_rejects_missing_or_wrong_typed_fields():
+    from certcoach.core.persona import _parse_flashcard_recall_response
+
+    assert _parse_flashcard_recall_response("not json") is None
+    assert _parse_flashcard_recall_response('{"feedback": "ok"}') is None  # missing is_correct
+    assert _parse_flashcard_recall_response('{"is_correct": "yes", "feedback": "ok"}') is None  # not a bool
+    assert _parse_flashcard_recall_response('{"is_correct": true, "feedback": ""}') is None  # blank feedback
+
+
+def test_parse_flashcard_recall_response_repairs_a_truncated_response():
+    from certcoach.core.persona import _parse_flashcard_recall_response
+
+    truncated = '{"is_correct": true, "feedback": "Correct"'
+    result = _parse_flashcard_recall_response(truncated)
+
+    assert result == {"is_correct": True, "feedback": "Correct"}
+
+
 def test_clean_lesson_explanation_normalizes_common_subsections():
     from certcoach.core.persona import clean_lesson_explanation
 
