@@ -1,15 +1,17 @@
 # Session Handoff
 
-Last updated: 2026-07-12 (session 15, closed cleanly)
+Last updated: 2026-07-14 (session 16, closed cleanly)
 
 Related: [[Memory Home]], [[agent_context|Agent Context]], [[next_steps|Next Steps]], [[decision_log|Decision Log]], [[study_order_map|Study Order Map]]
 
 ## Current State
 
 - Phase: pivot to Claude-authored content (decided session 11) is actively running for MCQs/flashcards. As of session 15, adaptive/spaced review no longer waits on a mastery gate -- flashcard-based tracking (see below) runs from day one. See [[agent_context|Agent Context]]'s Live Snapshot for full current numbers.
-- **Committed and pushed through `47038f6`** on `origin/codex/publish-bank-loop` (`prashanth-ds-ml/MongoDB-Coach-Agent`) -- this includes everything from sessions 5-14 (previously described below as "uncommitted," now stale) plus session 15 part 1 (review-quiz mode, CLI command-handling sweep, lesson chunking + tokenizer fix, per-section check-ins, styling audit). Session 15 part 2's work (2800-char chunking redesign, mistake-pattern rollup, flashcard tracking infra) is the next commit to land -- verify with `git log`/`git status` before trusting any of this, it has been stale before (this exact line was wrong for several sessions).
+- **Committed and pushed through `2c2f2b0`** on `origin/codex/publish-bank-loop` (`prashanth-ds-ml/MongoDB-Coach-Agent`, confirmed 0 ahead/0 behind) -- this includes sessions 5-15 in full (session 15 part 2's chunking redesign/pattern-rollup/flashcard-tracking work, previously logged below as "the next commit to land," was already committed and pushed by the time session 16 started -- that line was stale and is now corrected).
+- **Session 16 committed locally but not pushed**: `9a3b551` (quick-notes companion tool + review-queue back-option fix, 6 files). Ask before pushing.
+- **Uncommitted in the working tree, not this session's work, origin unknown**: 13 `cleaned_markdowns/*.md` files (topics 1/6/7/8/9/10/11) show real content diffs (e.g. previously-missing example blocks being added back) -- left alone this session per explicit user choice ("commit quick-notes only"). Investigate and decide (commit/discard/re-run source) before they're mistaken for session 16's work.
 - Live DB provenance counts move independently of git between sessions (the user runs `certcoach-review-questions` on their own) -- always re-check live counts at session start via `database.get_provenance_counts`/the `gap_report.py`-style script pattern used in sessions 12-14, rather than trusting the last snapshot here.
-- **Historical detail below this point (sessions 5-14) is append-only and kept for record -- do not treat old DB counts, commit hashes, or "live right now" numbers in those entries as current, including their repeated "nothing committed" claims.** Session 15 is the active thread; see [[agent_context|Agent Context]] for what's actually true today.
+- **Historical detail below this point (sessions 5-14) is append-only and kept for record -- do not treat old DB counts, commit hashes, or "live right now" numbers in those entries as current, including their repeated "nothing committed" claims.** Session 16 is the active thread; see [[agent_context|Agent Context]] for what's actually true today.
 
 ## Completed This Session (2026-07-05)
 
@@ -467,6 +469,39 @@ See [[decision_log|Decision Log]]'s two 2026-07-09/2026-07-12 entries for full r
 5. 395/395 tests pass (19 new). Verified live against a disposable scratch profile and the real
    local Ollama model (3/3 recall-grading cases correct on first attempt).
 
+## Completed This Session (2026-07-14, session 16)
+
+1. **Built the standalone quick-notes companion tool**, per the user's exploratory ask about a
+   second-terminal notes tab for building a personal cheat sheet. Counter-proposed a manually-opened
+   command instead of an auto-spawned terminal (Windows terminal-spawning is fragile); user agreed
+   ("yes, build it that way"). Shipped: `certcoach-notes` (`src/certcoach/jobs/quick_notes.py`,
+   entry point registered in `pyproject.toml`) for freeform, timestamped note capture in a second
+   terminal; `database.add_quick_note`/`get_quick_notes` + a new `quick_notes_col` collection
+   (wired in all 3 required places -- module declaration, initial connection,
+   `update_database_connection`); a read-only `show_quick_notes()` viewer wired into
+   `run_library_submenu()` as option `j` ("My Notes"), Back shifted to `k`. Distinct from the
+   existing per-question `add_question_review_note` (content-improvement signal) and the
+   pre-authored `show_exam_traps()` cheat sheet.
+2. **Fixed a real UX gap in the Review Pending Questions menu**: the user reported "no option to go
+   back" -- not a functional bug (`ask()` already accepted the typed word "back"), but the hint was
+   easy to miss, buried as inline text at the end of a long prompt rather than a visible option like
+   the rest of the app's lettered/numbered menus. Added an explicit `0. Back` line matching the
+   existing 1-N numbered-list convention; `0` now works alongside "back".
+3. Added tests for both (`test_add_quick_note_*`, `test_get_quick_notes_*` in
+   `test_content_contract_provenance.py`; `test_show_quick_notes_*`,
+   `test_show_review_queue_menu_zero_exits_without_reviewing` in `test_cli.py`). 411/411 tests pass.
+   Ran `pip install -e .` to register the `certcoach-notes` console-script entry point (had to wait
+   for a locked `certcoach.exe` from the user's own running session to close first).
+4. **Corrected a stale claim found while closing the session**: `git log`/branch-tracking showed
+   session 15 part 2's work (commit `2c2f2b0`) was already committed *and* pushed to
+   `origin/codex/publish-bank-loop`, despite this file previously saying it was still "the next
+   commit to land." Fixed in the Current State section above.
+5. **Committed session 16's own work** (`9a3b551`, 6 files) after the user chose "commit quick-notes
+   only" when asked how to handle the working tree's mixed state -- explicitly left 13 unrelated,
+   pre-existing modified `cleaned_markdowns/*.md` files (topics 1/6/7/8/9/10/11, real content diffs,
+   origin unknown from this session's context) untouched rather than guess at bundling or discarding
+   them. Not pushed -- ask before pushing.
+
 ## Next Action
 
 **Content pipeline (active thread):**
@@ -480,11 +515,13 @@ See [[decision_log|Decision Log]]'s two 2026-07-09/2026-07-12 entries for full r
    session 11) -- still open, still safe to do first, read-only.
 
 **Housekeeping:**
-4. Commit and push session 15 part 2 (chunking redesign, pattern rollup, flashcard tracking) --
-   ask before pushing again beyond what's explicitly requested.
-5. `memory/agent_context.md` is still over its ~800-word budget -- flagged every session since 14,
+4. Investigate the 13 unexplained modified `cleaned_markdowns/*.md` files (topics 1/6/7/8/9/10/11)
+   sitting in the working tree since before session 16 -- decide whether to commit, discard, or
+   re-run whatever produced them. See Current State above.
+5. Push session 16's commit (`9a3b551`) once the user asks.
+6. `memory/agent_context.md` is still over its ~800-word budget -- flagged every session since 14,
    still not addressed with a dedicated trim pass.
-6. Run `certcoach-map-questions-to-docs --write` live (confirm with the user first, real DB write)
+7. Run `certcoach-map-questions-to-docs --write` live (confirm with the user first, real DB write)
    to backfill the 23 orphan questions -- unchanged, still pending since session 7.
 
 ## Known Blockers

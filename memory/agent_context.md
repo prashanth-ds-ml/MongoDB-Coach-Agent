@@ -1,6 +1,6 @@
 # Agent Context
 
-Last verified: 2026-07-12 (session 15, closed cleanly -- see Immediate Continuation)
+Last verified: 2026-07-14 (session 16, closed cleanly -- see Immediate Continuation)
 
 ## Mission
 
@@ -50,13 +50,14 @@ daily agenda -> concept lesson -> scoped Q&A -> five-question practice
 
 ## Immediate Continuation
 
-**Session 15 closed cleanly after a lesson-chunking redesign, a mistake-pattern rollup, a repo-wide readiness audit, and the flashcard-tracking build described above.** Full detail in [[session_handoff|Session Handoff]]'s Completed/Next Action -- summary:
+**Session 15's full work (chunking redesign, pattern rollup, flashcard-tracking build) is committed and pushed** (`2c2f2b0`, confirmed 0 ahead/0 behind `origin/codex/publish-bank-loop`) -- this file previously said it was "the next commit to land"; that was stale and is now corrected. **Session 16 added a standalone `certcoach-notes` companion tool + "My Notes" viewer, and fixed a review-queue back-button UX gap** (commit `9a3b551`, not yet pushed). Full detail in [[session_handoff|Session Handoff]]'s Completed/Next Action -- summary:
 
 1. Run `certcoach-review-questions` to confirm the queued BSON Data Types candidates -- highest-leverage action to move practice-readiness off 2/12 topics.
 2. Continue `/flashcards` (Topic 4 next) and `/mcqs` -- both now also feed the flashcard review queue.
 3. Investigate Topic 10's 2 unexplained records from session 7 -- still open, read-only.
-4. Commit and push session 15's second half (chunking redesign, pattern rollup, flashcard tracking) -- ask before pushing beyond what's explicitly requested.
-5. Run `certcoach-map-questions-to-docs --write` live (confirm first, real DB write) to backfill 23 orphan questions -- unchanged since session 7.
+4. Investigate 13 unexplained modified `cleaned_markdowns/*.md` files sitting uncommitted in the working tree since before session 16 (not this session's work) -- decide commit/discard/re-run.
+5. Push session 16's commit (`9a3b551`) once asked.
+6. Run `certcoach-map-questions-to-docs --write` live (confirm first, real DB write) to backfill 23 orphan questions -- unchanged since session 7.
 
 ## Commands
 
