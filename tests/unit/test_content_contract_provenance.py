@@ -271,6 +271,91 @@ def test_mark_question_suspect_sets_state_and_reason():
     assert args[1]["$set"]["provenance.suspect_reason"] == "distractor B is also correct"
 
 
+def test_add_question_review_note_pushes_note_with_decision():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.update_one.return_value = MagicMock(matched_count=1)
+
+    with patch.object(database, "questions_col", questions_col):
+        result = database.add_question_review_note("q1", "explanation could show an example", "confirmed")
+
+    assert result is True
+    args, kwargs = questions_col.update_one.call_args
+    assert args[0] == {"_id": "q1"}
+    pushed = args[1]["$push"]["review_notes"]
+    assert pushed["note"] == "explanation could show an example"
+    assert pushed["decision"] == "confirmed"
+    assert pushed["actioned"] is False
+    assert "reviewed_at" in pushed
+
+
+def test_add_question_review_note_skips_blank_notes():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+
+    with patch.object(database, "questions_col", questions_col):
+        result = database.add_question_review_note("q1", "   ", "skipped")
+
+    assert result is False
+    questions_col.update_one.assert_not_called()
+
+
+def test_get_open_review_notes_excludes_actioned_entries():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.find.return_value = [
+        {
+            "_id": "q1",
+            "question_text": "What does find() return?",
+            "metadata": {"topic_id": 3, "concept": "find()"},
+            "review_notes": [
+                {"note": "add a code example", "decision": "confirmed", "reviewed_at": "t1", "actioned": False},
+                {"note": "already fixed this one", "decision": "confirmed", "reviewed_at": "t0", "actioned": True},
+            ],
+        }
+    ]
+
+    with patch.object(database, "questions_col", questions_col):
+        open_notes = database.get_open_review_notes()
+
+    assert len(open_notes) == 1
+    assert open_notes[0]["question_id"] == "q1"
+    assert open_notes[0]["note"] == "add a code example"
+    assert open_notes[0]["concept"] == "find()"
+
+
+def test_get_open_review_notes_scopes_by_topic_and_concept():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.find.return_value = []
+
+    with patch.object(database, "questions_col", questions_col):
+        database.get_open_review_notes(topic_id=3, concept="find()")
+
+    query = questions_col.find.call_args[0][0]
+    assert query["metadata.topic_id"] == 3
+    assert query["metadata.concept"] == "find()"
+
+
+def test_resolve_review_note_marks_matching_note_actioned():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.update_one.return_value = MagicMock(matched_count=1)
+
+    with patch.object(database, "questions_col", questions_col):
+        result = database.resolve_review_note("q1", "t1")
+
+    assert result is True
+    args, kwargs = questions_col.update_one.call_args
+    assert args[0] == {"_id": "q1", "review_notes.reviewed_at": "t1"}
+    assert args[1]["$set"]["review_notes.$.actioned"] is True
+
+
 def test_get_questions_for_review_only_includes_draft_and_sourced():
     from certcoach.core import database
 
@@ -316,6 +401,84 @@ def test_count_questions_for_review_can_scope_to_a_single_concept():
     query = questions_col.count_documents.call_args[0][0]
     assert query["metadata.concept"] == "BSON Data Types"
     assert result == 2
+
+
+def test_get_review_queue_summary_groups_by_topic_and_concept():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.aggregate.return_value = [
+        {"_id": {"topic_id": 1, "concept": "BSON Data Types"}, "count": 14},
+        {"_id": {"topic_id": 2, "concept": "insertOne()"}, "count": 11},
+    ]
+
+    with patch.object(database, "questions_col", questions_col):
+        summary = database.get_review_queue_summary()
+
+    assert summary == [
+        {"topic_id": 1, "concept": "BSON Data Types", "count": 14},
+        {"topic_id": 2, "concept": "insertOne()", "count": 11},
+    ]
+    pipeline = questions_col.aggregate.call_args[0][0]
+    assert pipeline[0]["$match"]["provenance.state"] == {"$in": ["draft", "sourced"]}
+
+
+def test_get_review_queue_summary_empty_when_nothing_pending():
+    from certcoach.core import database
+
+    questions_col = MagicMock()
+    questions_col.aggregate.return_value = []
+
+    with patch.object(database, "questions_col", questions_col):
+        summary = database.get_review_queue_summary()
+
+    assert summary == []
+
+
+def test_add_quick_note_inserts_timestamped_note():
+    from certcoach.core import database
+
+    quick_notes_col = MagicMock()
+
+    with patch.object(database, "quick_notes_col", quick_notes_col):
+        result = database.add_quick_note("user1", "check() ignores partial indexes")
+
+    assert result is True
+    args, kwargs = quick_notes_col.insert_one.call_args
+    doc = args[0]
+    assert doc["user_id"] == "user1"
+    assert doc["note"] == "check() ignores partial indexes"
+    assert "created_at" in doc
+
+
+def test_add_quick_note_skips_blank_notes():
+    from certcoach.core import database
+
+    quick_notes_col = MagicMock()
+
+    with patch.object(database, "quick_notes_col", quick_notes_col):
+        result = database.add_quick_note("user1", "   ")
+
+    assert result is False
+    quick_notes_col.insert_one.assert_not_called()
+
+
+def test_get_quick_notes_returns_most_recent_first():
+    from certcoach.core import database
+
+    quick_notes_col = MagicMock()
+    cursor = MagicMock()
+    quick_notes_col.find.return_value = cursor
+    cursor.sort.return_value = cursor
+    cursor.limit.return_value = [{"note": "b"}, {"note": "a"}]
+
+    with patch.object(database, "quick_notes_col", quick_notes_col):
+        notes = database.get_quick_notes("user1")
+
+    quick_notes_col.find.assert_called_once_with({"user_id": "user1"})
+    cursor.sort.assert_called_once_with("created_at", -1)
+    cursor.limit.assert_called_once_with(500)
+    assert notes == [{"note": "b"}, {"note": "a"}]
 
 
 def test_get_provenance_counts_tallies_each_state_scoped_to_concept():

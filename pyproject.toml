@@ -33,6 +33,7 @@ certcoach-preview-concept = "certcoach.jobs.inspect_doc:main"
 certcoach-generate-from-doc = "certcoach.jobs.generate_from_doc:main"
 certcoach-flashcard-tools = "certcoach.jobs.flashcard_tools:main"
 certcoach-ingest-authored = "certcoach.jobs.ingest_authored_content:main"
+certcoach-notes = "certcoach.jobs.quick_notes:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

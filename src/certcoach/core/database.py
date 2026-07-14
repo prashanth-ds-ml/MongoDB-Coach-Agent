@@ -52,6 +52,7 @@ study_sessions_col = None
 users_col = None
 error_book_col = None
 lessons_col = None
+quick_notes_col = None
 connection_error = None
 
 try:
@@ -64,6 +65,7 @@ try:
     users_col = db["users"]
     error_book_col = db["user_error_book"]
     lessons_col = db["lesson_artifacts"]
+    quick_notes_col = db["user_quick_notes"]
 except Exception as e:
     connection_error = e
 
@@ -406,6 +408,26 @@ def count_questions_for_review(topic_id: int | None = None, concept: str | None 
     return questions_col.count_documents(query)
 
 
+def get_review_queue_summary() -> list[dict]:
+    """One entry per (topic_id, concept) that currently has pending
+    draft/sourced questions, with a count -- lets a menu list every topic/
+    concept with something to review and jump straight to run_review_quiz
+    for any of them, instead of waiting for the daily agenda to naturally
+    cycle back to that concept."""
+    pipeline = [
+        {"$match": {"provenance.state": {"$in": ["draft", "sourced"]}}},
+        {"$group": {
+            "_id": {"topic_id": "$metadata.topic_id", "concept": "$metadata.concept"},
+            "count": {"$sum": 1},
+        }},
+        {"$sort": {"_id.topic_id": 1, "_id.concept": 1}},
+    ]
+    return [
+        {"topic_id": doc["_id"]["topic_id"], "concept": doc["_id"]["concept"], "count": doc["count"]}
+        for doc in questions_col.aggregate(pipeline)
+    ]
+
+
 def get_provenance_counts(topic_id: int | None = None, concept: str | None = None) -> dict[str, int]:
     """Count questions per provenance.state, optionally scoped to a topic/concept --
     the raw numbers behind the Docket rail's stat pills and per-concept progress."""
@@ -462,6 +484,73 @@ def mark_question_suspect(question_id: str, reason: str = "") -> bool:
             "provenance.suspect_reason": reason,
             "provenance.suspect_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
         }},
+    )
+    return result.matched_count > 0
+
+
+def add_question_review_note(question_id: str, note: str, decision: str) -> bool:
+    """Appends a timestamped reviewer note to a question, independent of the
+    confirm/suspect/skip decision -- a reviewer might want to flag "explanation
+    could be tighter" on a question they're still confirming, not just leave
+    feedback when rejecting one. Separate from provenance.suspect_reason
+    (which is specifically the rejection reason); this is a running log any
+    decision can attach to. Starts unactioned (see get_open_review_notes /
+    resolve_review_note) so a note is guaranteed to surface for someone to
+    act on, not just sit unread in the document."""
+    note = (note or "").strip()
+    if not note:
+        return False
+    result = questions_col.update_one(
+        {"_id": question_id},
+        {"$push": {"review_notes": {
+            "note": note,
+            "decision": decision,
+            "reviewed_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+            "actioned": False,
+        }}},
+    )
+    return result.matched_count > 0
+
+
+def get_open_review_notes(topic_id: int | None = None, concept: str | None = None) -> list[dict]:
+    """Returns one entry per unactioned review note across the bank (or
+    scoped to a topic/concept), each with enough context -- question_id,
+    topic, concept, question_text, the note itself, reviewed_at -- to work
+    through as a content-improvement to-do list without re-deriving it from
+    the raw review_notes arrays each time."""
+    query: dict = {"review_notes": {"$elemMatch": {"actioned": False}}}
+    if topic_id is not None:
+        query["metadata.topic_id"] = topic_id
+    if concept is not None:
+        query["metadata.concept"] = concept
+
+    open_notes = []
+    for q in questions_col.find(query):
+        metadata = q.get("metadata", {}) or {}
+        for note in q.get("review_notes", []):
+            if note.get("actioned"):
+                continue
+            open_notes.append({
+                "question_id": q["_id"],
+                "topic_id": metadata.get("topic_id"),
+                "concept": metadata.get("concept"),
+                "question_text": q.get("question_text", ""),
+                "note": note.get("note", ""),
+                "decision": note.get("decision", ""),
+                "reviewed_at": note.get("reviewed_at", ""),
+            })
+    return open_notes
+
+
+def resolve_review_note(question_id: str, reviewed_at: str) -> bool:
+    """Marks one specific review note as actioned, identified by its
+    reviewed_at timestamp (unique per note in practice). Called after the
+    content it flagged (an extra example, a fuller explanation, better
+    formatting) has actually been added -- so a fixed note stops showing up
+    in get_open_review_notes rather than lingering indefinitely."""
+    result = questions_col.update_one(
+        {"_id": question_id, "review_notes.reviewed_at": reviewed_at},
+        {"$set": {"review_notes.$.actioned": True}},
     )
     return result.matched_count > 0
 
@@ -963,6 +1052,37 @@ def get_study_sessions(user_id: str) -> list:
     return list(study_sessions_col.find({"user_id": user_id}))
 
 
+# --- QUICK NOTES (personal cheat-sheet capture, separate from the pre-authored
+# exam traps sheet and from per-question review notes) ---
+
+def add_quick_note(user_id: str, note: str) -> bool:
+    """Appends one freeform, timestamped personal note -- meant to be jotted
+    down in the moment (mid-question, mid-review) via the standalone
+    certcoach-notes companion command, so a passing insight isn't lost by
+    the time the learner gets back to a menu to record it. Never tied to a
+    specific question; this is raw material for the learner's own cheat
+    sheet, not a content-improvement signal (see add_question_review_note
+    for that)."""
+    note = (note or "").strip()
+    if not note:
+        return False
+    quick_notes_col.insert_one({
+        "user_id": user_id,
+        "note": note,
+        "created_at": datetime.now(timezone.utc).replace(tzinfo=None).isoformat(),
+    })
+    return True
+
+
+def get_quick_notes(user_id: str, limit: int = 500) -> list:
+    """Retrieve a user's quick notes, most recent first."""
+    return list(
+        quick_notes_col.find({"user_id": user_id})
+        .sort("created_at", -1)
+        .limit(limit)
+    )
+
+
 # --- QUESTION EXPOSURE & QUALITY TRACKING ---
 
 def update_question_exposure(question_id: str, is_correct: bool, elapsed_seconds: float):
@@ -1160,7 +1280,7 @@ def award_streak_freeze(user_id: str) -> bool:
 
 def update_database_connection(new_uri: str) -> bool:
     """Rewrites the .env files, closes the active client, and re-establishes the connection."""
-    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, users_col, error_book_col, MONGO_URI, connection_error
+    global client, db, questions_col, profiles_col, attempts_col, study_sessions_col, users_col, error_book_col, quick_notes_col, MONGO_URI, connection_error
     
     os.environ["MONGO_URI"] = new_uri
     MONGO_URI = new_uri
@@ -1208,6 +1328,7 @@ def update_database_connection(new_uri: str) -> bool:
         study_sessions_col = db["user_study_sessions"]
         users_col = db["users"]
         error_book_col = db["user_error_book"]
+        quick_notes_col = db["user_quick_notes"]
         connection_error = None
         return True
     except Exception as e:

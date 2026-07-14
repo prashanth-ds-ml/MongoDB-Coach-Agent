@@ -899,7 +899,11 @@ def test_run_review_quiz_empty_queue(mock_database, mock_console):
 @patch("certcoach.cli.render_citation_panel")
 @patch("certcoach.cli.database")
 @patch("certcoach.cli.Prompt.ask")
-def test_run_review_quiz_confirm_flow_never_touches_attempts(mock_prompt_ask, mock_database, mock_render_citation, mock_console):
+def test_run_review_quiz_confirm_flow_saves_attempt_and_note(mock_prompt_ask, mock_database, mock_render_citation, mock_console):
+    """This is the primary study loop now (not a side "does this question
+    work" tool): a self-test attempt against already citation-verified
+    content should count toward real progress the same as practice does,
+    and a reviewer note can be left even when confirming the question."""
     from certcoach.cli import run_review_quiz, USER_ID
 
     question = {
@@ -909,7 +913,7 @@ def test_run_review_quiz_confirm_flow_never_touches_attempts(mock_prompt_ask, mo
             {"option_letter": "A", "code_snippet": "Double", "is_correct": False, "feedback": "No."},
             {"option_letter": "B", "code_snippet": "Decimal128", "is_correct": True, "feedback": "Correct."},
         ],
-        "metadata": {"response_type": "single"},
+        "metadata": {"response_type": "single", "topic": "BSON Data Types"},
         "context": {},
         "explanation": "Decimal128 stores exact decimal values.",
     }
@@ -917,15 +921,18 @@ def test_run_review_quiz_confirm_flow_never_touches_attempts(mock_prompt_ask, mo
     mock_database.verify_citation.return_value = (True, "citation verified")
     mock_render_citation.return_value = MagicMock()
 
-    # Q1: blind answer ("B"); Q2: confirm/suspect decision ("c").
-    mock_prompt_ask.side_effect = ["B", "c"]
+    # Q1: blind answer ("B"); confidence ("H"); decision ("c"); note text.
+    mock_prompt_ask.side_effect = ["B", "H", "c", "explanation could show an example"]
 
     stats = run_review_quiz(1, "BSON Data Types")
 
     assert stats == {"correct": 1, "total": 1, "confirmed": 1, "suspect": 0, "skipped": 0}
     mock_database.confirm_question.assert_called_once_with("q1", USER_ID)
-    mock_database.save_attempt.assert_not_called()
-    mock_database.update_question_exposure.assert_not_called()
+    mock_database.save_attempt.assert_called_once_with(USER_ID, "q1", "BSON Data Types", "B", True, "High")
+    mock_database.update_question_exposure.assert_called_once()
+    mock_database.add_question_review_note.assert_called_once_with(
+        "q1", "explanation could show an example", "confirmed"
+    )
 
 
 @patch("certcoach.cli.console")
@@ -947,16 +954,17 @@ def test_run_review_quiz_blocks_confirm_when_citation_fails(mock_prompt_ask, moc
     mock_database.verify_citation.return_value = (False, "quote does not appear verbatim")
     mock_render_citation.return_value = MagicMock()
 
-    # Q1: blind answer ("A"); Q2: suspect decision ("s"); Q3: reason text.
-    mock_prompt_ask.side_effect = ["A", "s", "bad citation"]
+    # blind answer ("A"); confidence ("M"); suspect decision ("s"); reason text.
+    mock_prompt_ask.side_effect = ["A", "M", "s", "bad citation"]
 
     stats = run_review_quiz(1, "Concept")
 
     assert stats["suspect"] == 1
     mock_database.confirm_question.assert_not_called()
     mock_database.mark_question_suspect.assert_called_once_with("q1", "bad citation")
+    mock_database.add_question_review_note.assert_called_once_with("q1", "bad citation", "suspect")
 
-    decision_call = mock_prompt_ask.call_args_list[1]
+    decision_call = mock_prompt_ask.call_args_list[2]
     assert "c" not in decision_call.kwargs["choices"]
     assert "s" in decision_call.kwargs["choices"]
 
@@ -982,6 +990,107 @@ def test_run_review_quiz_quit_at_answer_prompt(mock_prompt_ask, mock_database, m
     assert stats == {"correct": 0, "total": 0, "confirmed": 0, "suspect": 0, "skipped": 0}
     mock_database.confirm_question.assert_not_called()
     mock_database.mark_question_suspect.assert_not_called()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_review_queue_menu_empty_queue(mock_prompt_ask, mock_database, mock_planner, mock_console):
+    from certcoach.cli import show_review_queue_menu
+
+    mock_database.get_review_queue_summary.return_value = []
+
+    show_review_queue_menu()
+
+    mock_prompt_ask.assert_called_once()  # only the "press Enter to return" prompt
+
+
+@patch("certcoach.cli.run_review_quiz")
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_review_queue_menu_jumps_to_selected_concept(mock_prompt_ask, mock_database, mock_planner, mock_console, mock_review_quiz):
+    from certcoach.cli import show_review_queue_menu
+
+    mock_planner.load_syllabus.return_value = [{"id": 2, "topic": "CRUD Operations - Create"}]
+    mock_database.get_review_queue_summary.return_value = [
+        {"topic_id": 2, "concept": "insertOne()", "count": 11},
+    ]
+    # First loop iteration: pick "1"; second iteration (after run_review_quiz
+    # returns) picks "back" so the menu exits instead of looping forever.
+    mock_prompt_ask.side_effect = ["1", "back"]
+
+    show_review_queue_menu()
+
+    mock_review_quiz.assert_called_once_with(2, "insertOne()")
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_review_queue_menu_back_exits_without_reviewing(mock_prompt_ask, mock_database, mock_planner, mock_console):
+    from certcoach.cli import show_review_queue_menu
+
+    mock_planner.load_syllabus.return_value = [{"id": 2, "topic": "CRUD Operations - Create"}]
+    mock_database.get_review_queue_summary.return_value = [
+        {"topic_id": 2, "concept": "insertOne()", "count": 11},
+    ]
+    mock_prompt_ask.return_value = "back"
+
+    show_review_queue_menu()
+
+    mock_database.get_review_queue_summary.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.planner")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_review_queue_menu_zero_exits_without_reviewing(mock_prompt_ask, mock_database, mock_planner, mock_console):
+    from certcoach.cli import show_review_queue_menu
+
+    mock_planner.load_syllabus.return_value = [{"id": 2, "topic": "CRUD Operations - Create"}]
+    mock_database.get_review_queue_summary.return_value = [
+        {"topic_id": 2, "concept": "insertOne()", "count": 11},
+    ]
+    mock_prompt_ask.return_value = "0"
+
+    show_review_queue_menu()
+
+    mock_database.get_review_queue_summary.assert_called_once()
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_quick_notes_displays_saved_notes(mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import show_quick_notes, USER_ID
+
+    mock_database.get_quick_notes.return_value = [
+        {"created_at": "2026-07-10T09:15:00", "note": "partial index doesn't need $exists"},
+    ]
+
+    show_quick_notes()
+
+    mock_database.get_quick_notes.assert_called_once_with(USER_ID)
+    mock_prompt_ask.assert_called_once()  # only the "press Enter to return" prompt
+
+
+@patch("certcoach.cli.console")
+@patch("certcoach.cli.database")
+@patch("certcoach.cli.Prompt.ask")
+def test_show_quick_notes_handles_empty_list(mock_prompt_ask, mock_database, mock_console):
+    from certcoach.cli import show_quick_notes
+
+    mock_database.get_quick_notes.return_value = []
+
+    show_quick_notes()
+
+    mock_database.get_quick_notes.assert_called_once()
+    mock_prompt_ask.assert_called_once()
 
 
 def _checkin_question(letter_correct="A"):

@@ -1955,13 +1955,22 @@ def run_practice_questions(topic: str, bank_keys: list, num: int = 5, is_mock: b
 
 def run_review_quiz(topic_id: int, concept: str) -> dict:
     """Live self-test over this concept's still-unconfirmed (draft/sourced)
-    question backlog. Reuses the same blind-answer interaction practice uses
-    (present_and_capture_answer/evaluate_answer), then layers on the citation
-    panel and the Confirm/Suspect decision certcoach-review-questions already
-    has -- the live-answer experience informs the decision instead of just
-    reading the question. Never calls save_attempt, update_question_exposure,
-    or any streak function: this pool is unconfirmed, so no official
-    mastery/readiness/streak stat may move from a session here."""
+    question backlog -- the primary study loop: author a concept's questions,
+    then self-test on exactly that batch immediately. Reuses the same
+    blind-answer interaction practice uses (present_and_capture_answer/
+    evaluate_answer), then layers on the citation panel and the
+    Confirm/Suspect decision certcoach-review-questions already has -- the
+    live-answer experience informs the decision instead of just reading the
+    question.
+
+    Counts as real practice: calls save_attempt/update_question_exposure the
+    same as run_practice_questions, since the content is already citation-
+    verified before the learner ever sees it -- the confirm/suspect decision
+    afterward is about whether the question is well-formed for *future*
+    learners, not whether this attempt was a genuine test of knowledge.
+    A reviewer note can be left regardless of the confirm/suspect/skip
+    decision (add_question_review_note), separate from the suspect-specific
+    rejection reason."""
     stats = {"correct": 0, "total": 0, "confirmed": 0, "suspect": 0, "skipped": 0}
     queue = database.get_questions_for_review(topic_id=topic_id, concept=concept)
     if not queue:
@@ -1978,16 +1987,32 @@ def run_review_quiz(topic_id: int, concept: str) -> dict:
         console.print()
         console.print(f"  [dim]Q {idx + 1}/{len(queue)}[/dim]")
 
-        ans, _is_multi, _elapsed_sec = present_and_capture_answer(q)
+        ans, _is_multi, elapsed_sec = present_and_capture_answer(q)
         if ans in ("Q", "BACK"):
             console.print("[yellow]  Exiting review quiz...[/yellow]")
             break
+
+        try:
+            conf_in = Prompt.ask(
+                "  Confidence? [bold](H)[/bold] / [bold](M)[/bold] / [bold](L)[/bold]",
+                choices=["H", "M", "L", "q"], case_sensitive=False,
+            ).upper()
+        except (KeyboardInterrupt, EOFError):
+            raise SystemExit
+        if conf_in.lower() in EXIT_COMMANDS:
+            raise SystemExit
+        confidence = {"H": "High", "M": "Medium", "L": "Low"}.get(conf_in, "Medium")
 
         stats["total"] += 1
         evaluation = evaluate_answer(q, ans)
         is_correct = evaluation["is_correct"]
         correct_letters = evaluation["correct_letters"]
         correct_option = evaluation["correct_option"]
+
+        question_id = str(q.get("_id", "unknown"))
+        q_topic = q.get("metadata", {}).get("topic", concept)
+        database.save_attempt(USER_ID, question_id, q_topic, ans, is_correct, confidence)
+        database.update_question_exposure(question_id, is_correct, elapsed_sec)
 
         if is_correct:
             stats["correct"] += 1
@@ -2029,15 +2054,26 @@ def run_review_quiz(topic_id: int, concept: str) -> dict:
             database.confirm_question(q["_id"], USER_ID)
             stats["confirmed"] += 1
             console.print("[green]Confirmed.[/green]")
+            try:
+                note = Prompt.ask("  Notes for this question (optional, Enter to skip)", default="")
+            except (KeyboardInterrupt, EOFError):
+                note = ""
+            database.add_question_review_note(q["_id"], note, "confirmed")
         elif decision == "s":
             try:
                 reason = Prompt.ask("  Reason (one line)")
             except (KeyboardInterrupt, EOFError):
                 reason = ""
             database.mark_question_suspect(q["_id"], reason)
+            database.add_question_review_note(q["_id"], reason, "suspect")
             stats["suspect"] += 1
             console.print("[yellow]Marked suspect.[/yellow]")
         else:
+            try:
+                note = Prompt.ask("  Notes for this question (optional, Enter to skip)", default="")
+            except (KeyboardInterrupt, EOFError):
+                note = ""
+            database.add_question_review_note(q["_id"], note, "skipped")
             stats["skipped"] += 1
 
     console.print()
@@ -3119,6 +3155,87 @@ def run_flashcard_review_session():
         pass
 
 
+def show_quick_notes():
+    """Viewer for personal notes captured via the standalone `certcoach-notes`
+    companion command (a second terminal meant to run alongside this one).
+    Read-only -- notes are written from that separate process, not here.
+    Distinct from the pre-authored, mastery-gated Exam Cheat Sheet
+    (show_exam_traps): this is the learner's own growing list, unfiltered."""
+    clear()
+    console.print(Rule("[bold cyan]📝 My Notes[/bold cyan]"))
+    notes = database.get_quick_notes(USER_ID)
+    if not notes:
+        console.print(Panel(
+            "[dim]No notes yet. Run [bold]certcoach-notes[/bold] in a second terminal to capture "
+            "quick thoughts while you study -- they'll show up here.[/dim]",
+            border_style="cyan", box=box.ROUNDED, padding=(1, 2),
+        ))
+    else:
+        for entry in notes:
+            timestamp = entry.get("created_at", "")[:19].replace("T", " ")
+            console.print(f"  [dim]{timestamp}[/dim]  {entry.get('note', '')}")
+    try:
+        Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+    except (KeyboardInterrupt, EOFError):
+        pass
+
+
+def show_review_queue_menu():
+    """Direct access to the review quiz for any pending topic/concept,
+    instead of waiting for the daily agenda to naturally cycle back to it.
+    Lists every (topic, concept) pair with pending draft/sourced questions
+    and lets the learner jump straight into run_review_quiz for any of
+    them."""
+    syllabus = planner.load_syllabus()
+    topic_names = {item["id"]: item["topic"] for item in syllabus}
+
+    while True:
+        clear()
+        console.print(Rule("[bold magenta]📋 Review Pending Questions[/bold magenta]"))
+        summary = database.get_review_queue_summary()
+        if not summary:
+            console.print(Panel(
+                "[bold green]Nothing pending review right now.[/bold green]",
+                border_style="green", box=box.ROUNDED, padding=(1, 2),
+            ))
+            try:
+                Prompt.ask("\n  [bold blue]❯[/bold blue] [dim]Press Enter to return[/dim]")
+            except (KeyboardInterrupt, EOFError):
+                pass
+            return
+
+        table = Table(box=box.MINIMAL, header_style="bold blue")
+        table.add_column("#", width=3, justify="right")
+        table.add_column("Topic", min_width=24)
+        table.add_column("Concept", min_width=20)
+        table.add_column("Pending", justify="center", width=8)
+        for idx, entry in enumerate(summary, 1):
+            topic_name = topic_names.get(entry["topic_id"], "Unknown")
+            table.add_row(str(idx), topic_name, entry["concept"] or "-", str(entry["count"]))
+        console.print(table)
+        console.print(f"\n  [dim]{sum(e['count'] for e in summary)} question(s) pending across {len(summary)} concept(s).[/dim]")
+        console.print("  [dim]0.[/dim] ⬅️  Back to Library")
+        console.print()
+
+        choice = ask(f"  [bold]Enter number to review (1-{len(summary)})[/bold], or 0 to go back")
+        if choice in ("__back__", "0"):
+            return
+
+        try:
+            idx = int(choice) - 1
+        except ValueError:
+            console.print("[red]  Invalid selection.[/red]")
+            time.sleep(1.5)
+            continue
+        if not (0 <= idx < len(summary)):
+            console.print("[red]  Invalid selection.[/red]")
+            time.sleep(1.5)
+            continue
+
+        entry = summary[idx]
+        run_review_quiz(entry["topic_id"], entry["concept"])
+
+
 def run_library_submenu():
     while True:
         console.print("\n  [bold blue]📖 Reference Library & Progress[/bold blue]")
@@ -3131,7 +3248,9 @@ def run_library_submenu():
         console.print("    [bold cyan]f.[/bold cyan] 🛑 View Active Error Book (Mistake Log & Diagnostic Reviews)")
         console.print("    [bold cyan]g.[/bold cyan] 🗂️  Browse Flashcard Deck")
         console.print("    [bold cyan]h.[/bold cyan] 🧠 Review Due Flashcards (spaced recall)")
-        console.print("    [bold cyan]i.[/bold cyan] ⬅️  Back to Main Menu")
+        console.print("    [bold cyan]i.[/bold cyan] 📋 Review Pending Questions (jump to any topic/concept)")
+        console.print("    [bold cyan]j.[/bold cyan] 📝 My Notes (quick notes captured while studying)")
+        console.print("    [bold cyan]k.[/bold cyan] ⬅️  Back to Main Menu")
         console.print()
 
         try:
@@ -3155,9 +3274,13 @@ def run_library_submenu():
             show_flashcard_browser()
         elif ans == "h":
             run_flashcard_review_session()
+        elif ans == "i":
+            show_review_queue_menu()
+        elif ans == "j":
+            show_quick_notes()
         elif ans in EXIT_COMMANDS:
             raise SystemExit
-        elif ans in BACK_COMMANDS or ans == "i":
+        elif ans in BACK_COMMANDS or ans == "k":
             break
 
 
